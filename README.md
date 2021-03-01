@@ -1,8 +1,10 @@
 # Phantom.Code
 Phantom extension providing C++ evaluation at run-time, an experimental C++ Lite runtime language and the ability to create custom languages from AST built upon reflection.
 
+Get **[Phantom.JIT](https://github.com/vlmillet/Phantom.JIT)** to convert the slow AST evaluation into a highly performant asm JIT code and debug it with on-the-fly PDB files.
+
 # Installation
-First download, clone or fork [Phantom](https://github.com/vlmillet/Phantom).
+First download, clone or fork **[Phantom](https://github.com/vlmillet/Phantom)**.
 
 Then just copy (or mklink) every content of this repo to your **Phantom** folder.
 
@@ -13,9 +15,6 @@ This module comes with an experimental but already powerful and handy language c
 It is a subset of C++ with an import-like system for run-time C++ compilation.
 
 Here is an extract from the **HelloWorld.Code** sample provided with the sources (the code below is built and ran at run-time).
-To have the best performances and debug support in Visual Studio, 
-I invite you to also get [Phantom.JIT](https://github.com/vlmillet/Phantom.JIT) which will convert the slow runtime evaluable AST
-to a performant asm x64 and PDB debug file (see https://github.com/vlmillet/llvmjitpdb for how it is done with LLVM)
 
 ```d
 import phantom.lang.Class;
