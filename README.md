@@ -1,5 +1,5 @@
 # Phantom.Code
-Phantom extension providing C++ evaluation at run-time, an experimental C++ Lite runtime language and the ability to create custom languages from AST built upon reflection.
+**[Phantom](https://github.com/vlmillet/Phantom)** extension providing C++ evaluation at run-time, an experimental C++ Lite runtime language and the ability to create custom languages from AST built upon reflection.
 
 Get **[Phantom.JIT](https://github.com/vlmillet/Phantom.JIT)** to convert the slow AST evaluation into a highly performant asm JIT code and debug it with on-the-fly PDB files.
 
