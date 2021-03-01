@@ -82,4 +82,4 @@ int main(int argc, char** argv)
 - At the moment, function templates are not supported, only class templates (there are generic alternatives which might be enough for pure scripting purpose, which the language was targeted for).
 - There is also no vararg function available yet.
 - Some modern C++ features are supported but not all (for each, auto, r values).
-- There is no real road-map yet at it evolves depending on the current needs of the game studio it is used in.
+- There is no real road-map yet as it evolves depending on the current needs of the game studio it is used in.
