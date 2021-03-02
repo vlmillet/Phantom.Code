@@ -8,6 +8,8 @@ First download, clone or fork **[Phantom](https://github.com/vlmillet/Phantom)**
 
 Then just copy (or mklink) every content of this repo to your **Phantom** folder.
 
+Then run (again) the Premake-vs20XX.bat in the **Phantom** folder
+
 # C++ 'Lite'
 
 This module comes with an experimental but already powerful and handy language called **C++ lite**.
