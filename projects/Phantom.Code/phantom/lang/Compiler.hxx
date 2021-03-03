@@ -61,10 +61,10 @@ PHANTOM_PACKAGE("phantom.lang")
             .staticMethod<::phantom::lang::Compiler *()>("Get", &_::Get)
             .constructor<void()>()
             .method<Debugger*() const>("getDebugger", &_::getDebugger)
-            .method<BuildSessionId(ArrayView<String>, Options const&)>("newSession", &_::newSession)
+            .method<BuildSessionId(ArrayView<String>, Options const&)>("newSession", &_::newSession)["{}"]["{}"]
             .method<void(BuildSessionId, StringView)>("buildProject", &_::buildProject)
             .method<void(BuildSessionId, StringView)>("buildProjectAt", &_::buildProjectAt)
-            .method<CompiledSource* (BuildSessionId, StringView, ArrayView<String>, Options const&)>("buildSource", &_::buildSource)["ArrayView<String>()"]["Options()"]
+            .method<CompiledSource*(BuildSessionId, StringView, ArrayView<String>, Options const&)>("buildSource", &_::buildSource)["ArrayView<String>()"]["Options()"]
             .method<BuildSession const&(BuildSessionId) const>("getBuildSession", &_::getBuildSession)
             .method<Modules(BuildSessionId) const>("getBuildSessionModules", &_::getBuildSessionModules)
             .method<void(StringView)>("cleanupProject", &_::cleanupProject)

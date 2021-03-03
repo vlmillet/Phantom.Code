@@ -93,6 +93,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<Build const&() const>("getCurrentBuild", &_::getCurrentBuild)
             .method<Build const&() const>("getLastBuild", &_::getLastBuild)
             .method<Build const&() const>("getPreviousBuild", &_::getPreviousBuild)
+            .method<void()>("dumpMessages", &_::dumpMessages)
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE
