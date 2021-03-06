@@ -8677,7 +8677,8 @@ int CppLiteParser::parse(uint pass)
         std::bind(&CppLitePassData::errorDelegate, m_pPassData, std::placeholders::_1, std::placeholders::_2,
                   std::placeholders::_3));
         getSource()->getSourceStream()->destroyInputStream(pInput);
-        if (m_pPassData->m_pParser->getMessage()->getMostValuableMessageType() == MessageType::Error)
+        if (m_pPassData->m_pAstSource == nullptr ||
+            m_pPassData->m_pParser->getMessage()->getMostValuableMessageType() == MessageType::Error)
             return 1;
     }
     break;
