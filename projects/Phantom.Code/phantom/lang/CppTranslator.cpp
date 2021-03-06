@@ -2275,6 +2275,29 @@ void CppTranslator::visit(LocalVariableInitializationStatement* a_pInput, Visito
         ConstructorCallExpression* pCtorCall = a_pInput->getInitializationExpression()->as<ConstructorCallExpression>();
         if (pCtorCall)
         {
+            if (pCtorCall->getArguments().size() == 1)
+            {
+                if (auto rtocl = pCtorCall->getArguments().front()->as<RValueToConstLValueExpression>())
+                {
+                    if (pCtorCall->getArguments().front()->getValueType()->isSame(
+                        a_pInput->getLocalVariable()->getValueType()->addConstLValueReference()))
+                    {
+                        if (auto convFuncExp = rtocl->getRValueExpression()->as<CallExpression>())
+                        {
+                            if (convFuncExp->getSubroutine()->getName().startsWith("operator "))
+                            {
+                                append("(");
+                                convFuncExp->getArguments()
+                                .front()
+                                ->dereference(convFuncExp->getArguments().front()->getSource())
+                                ->visit(this, a_Data);
+                                append(");");
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
             if (pCtorCall->getArguments().size())
             {
                 append("(");
