@@ -406,6 +406,8 @@ protected:
     SmallMap<size_t, SmallSet<String>> m_ForceIncludeTemplateArguments;
     bool                               m_bEndif;
     int                                m_noAlias = 0;
+    int                                m_ForceQualifiedName = 0;
+    StringView                         m_NoKeywordChars = "$";
 
 private:
     void addForwardIfRequired(Type* a_pType);

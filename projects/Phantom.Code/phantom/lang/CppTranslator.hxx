@@ -278,6 +278,8 @@ PHANTOM_PACKAGE("phantom.lang")
             .field("m_ForceIncludeTemplateArguments", &_::m_ForceIncludeTemplateArguments)
             .field("m_bEndif", &_::m_bEndif)
             .field("m_noAlias", &_::m_noAlias)
+            .field("m_ForceQualifiedName", &_::m_ForceQualifiedName)
+            .field("m_NoKeywordChars", &_::m_NoKeywordChars)
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE
