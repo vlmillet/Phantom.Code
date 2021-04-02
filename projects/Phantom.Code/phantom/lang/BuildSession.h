@@ -26,9 +26,10 @@ struct PHANTOM_EXPORT_PHANTOM_CODE BuildSession
 public:
     bool isSuccessful() const;
 
-    bool addProject(StringView _name);
-    bool addProjectPath(StringView _path);
-    void addSearchPath(StringView _path);
+    bool   addProject(StringView _name);
+    String findProjectPath(StringView _projectName) const;
+    bool   addProjectPath(StringView _path);
+    void   addSearchPath(StringView _path);
 
     void loadSources(StringView a_SourceUniqueName);
     void loadPackages(StringView a_PackageUniqueName);

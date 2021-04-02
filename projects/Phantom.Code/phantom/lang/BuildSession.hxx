@@ -24,6 +24,7 @@
 
 #include <phantom/template-only-push>
 
+#include <phantom/utils/SmallString.hxx>
 #include <phantom/utils/SmallVector.hxx>
 #include <phantom/utils/StringView.hxx>
 
@@ -47,12 +48,14 @@ PHANTOM_PACKAGE("phantom.lang")
         }
         PHANTOM_STRUCT(BuildSession)
         {
+            using String = typedef_< phantom::String>;
             using StringView = typedef_< phantom::StringView>;
             this_()(PHANTOM_R_FLAG_NO_COPY)
         
         .public_()
             .method<bool() const>("isSuccessful", &_::isSuccessful)
             .method<bool(StringView)>("addProject", &_::addProject)
+            .method<String(StringView) const>("findProjectPath", &_::findProjectPath)
             .method<bool(StringView)>("addProjectPath", &_::addProjectPath)
             .method<void(StringView)>("addSearchPath", &_::addSearchPath)
             .method<void(StringView)>("loadSources", &_::loadSources)

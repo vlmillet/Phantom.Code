@@ -119,7 +119,10 @@ public:
 
     void outdate(SourceFile* a_pSource) const;
 
-    CompiledSources listProjectCompiledSources(StringView _path);
+    CompiledSources listProjectCompiledSourcesAt(StringView _path);
+    CompiledSources listProjectCompiledSources(BuildSessionId _sessionId, StringView _project);
+
+    String findProjectPath(BuildSessionId _sessionId, StringView _project) const;
 
     CompiledSource* getCompiledSource(SourceStream* a_pSourceStream) const;
 

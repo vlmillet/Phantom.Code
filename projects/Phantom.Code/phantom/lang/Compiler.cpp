@@ -199,9 +199,9 @@ BuildSessionId Compiler::newSession(ArrayView<String> _projectsSearchPaths, Opti
     return sessionid;
 }
 
-void Compiler::buildProject(BuildSessionId a_Id, StringView a_Path)
+void Compiler::buildProject(BuildSessionId a_Id, StringView a_Name)
 {
-    m_BuildSessions[a_Id]->addProject(a_Path);
+    m_BuildSessions[a_Id]->addProject(a_Name);
 }
 
 void Compiler::buildProjectAt(BuildSessionId a_Id, StringView a_Path)
@@ -453,7 +453,7 @@ void Compiler::outdate(SourceFile* a_pSourceStream) const
     getCompiledSource(a_pSourceStream)->outdate();
 }
 
-CompiledSources Compiler::listProjectCompiledSources(StringView _path)
+CompiledSources Compiler::listProjectCompiledSourcesAt(StringView _path)
 {
     CompiledSources          sources;
     SmallVector<SourceFile*> files;
@@ -466,6 +466,16 @@ CompiledSources Compiler::listProjectCompiledSources(StringView _path)
         }
     }
     return sources;
+}
+
+CompiledSources Compiler::listProjectCompiledSources(BuildSessionId _sessionId, StringView _project)
+{
+    return listProjectCompiledSourcesAt(findProjectPath(_sessionId, _project));
+}
+
+phantom::String Compiler::findProjectPath(BuildSessionId _sessionId, StringView _project) const
+{
+    return m_BuildSessions[_sessionId]->findProjectPath(_project);
 }
 
 CompiledSource* Compiler::getCompiledSource(SourceStream* a_pSourceStream) const
@@ -592,7 +602,7 @@ void Compiler::_finalizeBuild(StringView a_Path, Module* a_pModule, Options cons
         }
     }
 
-    CompiledSources projectSources = listProjectCompiledSources(a_Path);
+    CompiledSources projectSources = listProjectCompiledSourcesAt(a_Path);
 
     /// COMPILATION (if no compiler class available, load 'Phantom.JIT' module to have the one we
     /// provide)
@@ -844,6 +854,8 @@ void Compiler::codeGen(Module* a_pModule, Options a_Options /*= {}*/, Message* a
     /// COMPILATION (if no compiler class available, load 'Phantom.JIT' module to have the one we
     /// provide)
     CodeGenerator* pCodeGen = getCodeGenerator(a_pModule);
+    PHANTOM_ASSERT(pCodeGen,
+                   "module has not been registered ('Application::addModule' method) and thus has no code generator");
     if (m_pCodeGeneratorClass)
     {
         // if (pCodeGen->m_bOutdated)
