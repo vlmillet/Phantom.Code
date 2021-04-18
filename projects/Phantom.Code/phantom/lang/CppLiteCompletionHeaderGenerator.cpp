@@ -1093,8 +1093,7 @@ void CppLiteCompletionHeaderGenerator::PrintCppSymbols(Source* _input, StringVie
 
 void CppLiteCompletionHeaderGenerator::PrintCppSymbols(Module* _input, StringView _dir, bool _enableModules)
 {
-    // 	std::ofstream stream(_dir + '/' + _input->getName() + ".module", FileMode.Create, FileAccess.Write);
-    // 	StreamWriter writer(stream);
+    Path::CreateDirectories(_dir);
     for (auto p : _input->getPackages())
     {
         Path::CreateDirectories(_dir + '/' + _input->getName());
@@ -1105,12 +1104,13 @@ void CppLiteCompletionHeaderGenerator::PrintCppSymbols(Module* _input, StringVie
 
             if (s->getVisibility() == Visibility::Private)
                 continue;
-            // 			writer.Write("#include \"" + _input->getName() + "/" + s->getName() + ".hpp\"");
-            // 			writer.WriteLine();
             PrintCppSymbols(s, _dir + '/' + _input->getName(), _enableModules);
         }
     }
-    //	stream.Close();
+    std::ofstream cppliteH((_dir + StringView("/cpplite.h")).c_str());
+    cppliteH << "#define assert(...)" << std::endl;
+    cppliteH << "#define typeof(...) static_cast<phantom::lang::Type*>(nullptr)" << std::endl;
+    cppliteH << "#define classof(...) static_cast<phantom::lang::Class*>(nullptr)" << std::endl;
 }
 
 void CppLiteCompletionHeaderGenerator::GenerateCppLiteNoExt(StringView _outDir, StringView _relDir,
