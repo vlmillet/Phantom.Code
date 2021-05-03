@@ -20,11 +20,13 @@
 #include <phantom/class>
 #include <phantom/struct>
 #include <phantom/method>
+#include <phantom/static_method>
 #include <phantom/constructor>
 #include <phantom/field>
 
 #include <phantom/template-only-push>
 
+#include <phantom/utils/ArrayView.hxx>
 #include <phantom/utils/SmallMap.hxx>
 #include <phantom/utils/SmallString.hxx>
 #include <phantom/utils/StringView.hxx>
@@ -72,6 +74,7 @@ PHANTOM_PACKAGE("phantom.lang")
                 .method<Printer&()>("operator--", &_::Printer::operator--)
             .end()
             .struct_<SourcePrinter>()
+                .staticMethod<String(Source*)>("GetHppIncludePath", &_::SourcePrinter::GetHppIncludePath)
                 .field("source", &_::SourcePrinter::source)
                 .field("enableModules", &_::SourcePrinter::enableModules)
                 .field("includes", &_::SourcePrinter::includes)
@@ -91,6 +94,7 @@ PHANTOM_PACKAGE("phantom.lang")
                 .method<void(Field*)>("PrintCppSymbols", &_::SourcePrinter::PrintCppSymbols)
                 .method<void(Variable*)>("PrintCppSymbols", &_::SourcePrinter::PrintCppSymbols)
                 .method<void(Constant*)>("PrintCppSymbols", &_::SourcePrinter::PrintCppSymbols)
+                .method<void(TemplateSpecialization*)>("PrintCppSymbols", &_::SourcePrinter::PrintCppSymbols)
                 .method<void(Symbol*)>("PrintName", &_::SourcePrinter::PrintName)
                 .method<void(Symbol*, Printer&)>("PrintName", &_::SourcePrinter::PrintName)
                 .method<void(ClassType*, Access)>("PrintMembers", &_::SourcePrinter::PrintMembers)
@@ -121,6 +125,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void(Source*, StringView, bool)>("PrintCppSymbols", &_::PrintCppSymbols)
             .method<void(Module*, StringView, bool)>("PrintCppSymbols", &_::PrintCppSymbols)
             .method<void(StringView, StringView, StringView)>("GenerateCppLiteNoExt", &_::GenerateCppLiteNoExt)
+            .method<void(ArrayView<StringView>, bool)>("PrintModules", &_::PrintModules)["false"]
             .method<int(int, char**)>("main", &_::main)
             ;
         }

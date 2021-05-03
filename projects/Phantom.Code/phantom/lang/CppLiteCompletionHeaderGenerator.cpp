@@ -2,6 +2,8 @@
 
 #include "phantom/lang/Alias.h"
 #include "phantom/lang/Application.h"
+#include "phantom/lang/FunctionPointer.h"
+#include "phantom/lang/FunctionType.h"
 #include "phantom/lang/Module.h"
 #include "phantom/lang/Package.h"
 #include "phantom/lang/Placeholder.h"
@@ -302,22 +304,28 @@ bool CppLiteCompletionHeaderGenerator::SourcePrinter::PrintGeneric(Subroutine* _
     return false;
 }
 
-void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintHppInclude(Source* _source)
+String CppLiteCompletionHeaderGenerator::SourcePrinter::GetHppIncludePath(Source* _source)
 {
-    if (source == _source || _source->getName() == "default" || _source->getName().empty())
-        return;
     String hpp_rel_path = _source->getUniqueName();
 
     std::for_each(hpp_rel_path.begin(), hpp_rel_path.end(), [](char& c) {
         if (c == '.')
             c = '/';
     });
-    includes[hpp_rel_path + ".hpp"];
+    return hpp_rel_path + ".hpp";
+}
+
+void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintHppInclude(Source* _source)
+{
+    if (source == _source || _source->getName() == "default" || _source->getName().empty())
+        return;
+
+    includes[GetHppIncludePath(_source)];
 }
 
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintHppInclude(Symbol* _input)
 {
-    Source* includeSource;
+    Source* includeSource{};
     if (PHANTOM_CLASSOF(TemplateDependantTemplateInstance) == _input->getMetaClass())
     {
         TemplateDependantTemplateInstance* tdi = static_cast<TemplateDependantTemplateInstance*>(_input);
@@ -335,9 +343,24 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintHppInclude(Symbol* _i
             {
                 includeSource = spec->getInstantiationSpecialization()->getSource();
             }
+            else if (spec->testFlags(PHANTOM_R_FLAG_IMPLICIT))
+            {
+                PrintHppInclude(spec->getTemplate());
+            }
             else
             {
-                includeSource = spec->getTemplate()->getSource();
+                includeSource = spec->getSource();
+            }
+        }
+        else if (Template* pTemplate = _input->asTemplate())
+        {
+            PrintHppInclude(pTemplate->getSource());
+            for (auto spec : pTemplate->getTemplateSpecializations())
+            {
+                if (spec->isPartial())
+                {
+                    PrintHppInclude(spec->getSource());
+                }
             }
         }
         else
@@ -408,6 +431,10 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintUsing(Symbol* _input)
 {
     if (_input->getName().empty() || _input->getNamingScope() == Namespace::Global())
         return;
+    if (_input->getOwner() && _input->getOwner()->asTemplateSpecialization())
+        return;
+    if (_input->asTemplateSpecialization())
+        return;
     usingfile("using ")(_input->getQualifiedDecoratedName())(";").Ln();
 }
 
@@ -467,6 +494,121 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintTemplateDecoration(Te
 
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintName(Symbol* _symbol, Printer& _printer)
 {
+    if (m_templatePlaceholderSpec)
+    {
+        if (auto type = _symbol->asType())
+        {
+            size_t index = 0;
+            for (auto elem : m_templatePlaceholderSpec->getArguments())
+            {
+                if (auto arg = elem->asType())
+                {
+                    Types replicationTypes;
+                    auto  currTypeLvl = type;
+                    while (currTypeLvl)
+                    {
+                        if (arg == currTypeLvl)
+                        {
+                            Type*  tplArgType = static_cast<Type*>(m_templatePlaceholderSpec->getTemplate()
+                                                                  ->getEmptyTemplateSpecialization()
+                                                                  ->getTemplateParameters()[index]
+                                                                  ->getPlaceholder()
+                                                                  ->asSymbol());
+                            size_t c = replicationTypes.size();
+                            while (c--)
+                            {
+                                currTypeLvl = replicationTypes[c];
+                                if (currTypeLvl->asConstType())
+                                {
+                                    if (currTypeLvl->asVolatileType())
+                                    {
+                                        tplArgType = tplArgType->addConstVolatile();
+                                    }
+                                    else
+                                    {
+                                        tplArgType = tplArgType->addConst();
+                                    }
+                                }
+                                else if (currTypeLvl->asVolatileType())
+                                {
+                                    if (currTypeLvl->asConstType())
+                                    {
+                                        tplArgType = tplArgType->addConstVolatile();
+                                    }
+                                    else
+                                    {
+                                        tplArgType = tplArgType->addVolatile();
+                                    }
+                                }
+                                else
+                                {
+                                    switch (currTypeLvl->getTypeKind())
+                                    {
+                                    case TypeKind::Array:
+                                        replicationTypes.push_back(
+                                        tplArgType->addArray(static_cast<Array*>(currTypeLvl)->getItemCount()));
+                                        break;
+                                    case TypeKind::Pointer:
+                                        tplArgType = tplArgType->addPointer();
+                                        break;
+                                    case TypeKind::LValueReference:
+                                        tplArgType = tplArgType->addLValueReference();
+                                        break;
+                                    case TypeKind::RValueReference:
+                                        tplArgType = tplArgType->addRValueReference();
+                                        break;
+                                    default:
+                                        break;
+                                    }
+                                }
+                            }
+                            _printer(tplArgType->getDecoratedName());
+                            return;
+                        }
+                        replicationTypes.push_back(currTypeLvl);
+                        currTypeLvl = currTypeLvl->getUnderlyingType();
+                    }
+                }
+                ++index;
+            }
+
+            auto typeNaked = type->removeEverything();
+
+            if (auto typeOwnr = typeNaked->getOwner())
+                if (auto pTpl = typeOwnr->asTemplateSpecialization())
+                {
+                    StringBuffer original;
+                    type->getRelativeDecoratedName(currentScope, original);
+
+                    StringView suffix = original;
+                    size_t     p = suffix.find_last_of('>');
+                    suffix = suffix.substr(p + 1);
+
+                    StringBuffer relName;
+                    (typeNaked)->getRelativeName(currentScope, relName);
+                    _printer(relName);
+                    _printer("<");
+                    size_t c = 0;
+                    for (auto arg : pTpl->getArguments())
+                    {
+                        if (c)
+                            _printer(", ");
+                        if (auto argType = arg->asType())
+                        {
+                            PrintName(argType, _printer);
+                        }
+                        else
+                        {
+                            _printer(arg->getRelativeDecoratedName(currentScope));
+                        }
+                        ++c;
+                    }
+                    _printer("> ");
+                    _printer(suffix);
+                    return;
+                }
+        }
+    }
     _printer(_symbol->getRelativeDecoratedName(currentScope));
 }
 
@@ -499,6 +641,24 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintVarName(Type* _type, 
         PrintVarName(_type->getUnderlyingType(), _name, _printer);
         _printer(_type->getName());
     }
+    else if (_type->getMetaClass()->isA(PHANTOM_CLASSOF(FunctionPointer)))
+    {
+        auto fp = static_cast<FunctionPointer*>(_type);
+        PrintName(fp->getFunctionType()->getReturnType());
+        _printer("(*");
+        _printer(_name);
+        _printer(")(");
+        for (size_t i = 0; i < fp->getFunctionType()->getParameterTypes().size(); ++i)
+        {
+            Type* tp = fp->getFunctionType()->getParameterTypes()[i];
+            if (&_printer == &hpp)
+                PrintForward(tp);
+            if (i)
+                _printer(", ");
+            PrintName(tp);
+        }
+        _printer(")");
+    }
     else
     {
         PrintName(_type, _printer);
@@ -511,11 +671,7 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintMembers(ClassType* _i
     PrintCppSymbols(static_cast<Scope*>(_input), _access);
     for (auto elem : _input->getConstructors())
     {
-        if (elem->getName() == "vector")
-        {
-            int i = 0;
-        }
-        if (elem->testFlags(0x2000)) // implicit
+        if (elem->testFlags(PHANTOM_R_FLAG_IMPLICIT)) // implicit
             continue;
         if (elem->getAccess() == _access)
         {
@@ -524,7 +680,7 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintMembers(ClassType* _i
     }
     for (auto elem : _input->getMethods())
     {
-        if (elem->testFlags(0x2000)) // implicit
+        if (elem->testFlags(PHANTOM_R_FLAG_IMPLICIT)) // implicit
             continue;
         if (elem->getAccess() == _access)
         {
@@ -533,7 +689,7 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintMembers(ClassType* _i
     }
     for (auto elem : _input->getFields())
     {
-        if (elem->testFlags(0x2000)) // implicit
+        if (elem->testFlags(PHANTOM_R_FLAG_IMPLICIT)) // implicit
             continue;
         if (elem->getAccess() == _access)
         {
@@ -542,7 +698,7 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintMembers(ClassType* _i
     }
     for (auto elem : _input->getFriends())
     {
-        if (elem->testFlags(0x2000)) // implicit
+        if (elem->testFlags(PHANTOM_R_FLAG_IMPLICIT)) // implicit
             continue;
         if (Access::Private == _access)
         {
@@ -658,8 +814,12 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Scope* _in
             }
         }
     }
+
+    // enums
     for (auto elem : _input->getTypes())
     {
+        if (elem->asEnum() == nullptr)
+            continue;
         if (elem->getAccess() == _access)
         {
             if (_access == Access::Undefined)
@@ -678,6 +838,160 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Scope* _in
     }
     for (auto elem : _input->getTemplates())
     {
+        if (elem->getAccess() == _access)
+        {
+            if (_access == Access::Undefined)
+            {
+                SetCurrentNamespace(elem->getNamespace());
+                if (enableModules)
+                    hpp("export ");
+                PrintCppSymbols(elem);
+                PrintUsing(elem);
+            }
+            else
+            {
+                PrintCppSymbols(elem);
+            }
+        }
+    }
+
+    TemplateSpecializations fullSpecs;
+    TemplateSpecializations partialSpecs;
+
+    for (auto elem : _input->getTemplateSpecializations())
+    {
+        if (elem->testFlags(PHANTOM_R_FLAG_IMPLICIT) || elem->isEmpty())
+            continue;
+        if (elem->isFull())
+        {
+            fullSpecs.push_back(elem);
+        }
+        else
+        {
+            partialSpecs.push_back(elem);
+        }
+    }
+
+    for (auto partialSpec : partialSpecs)
+    {
+        auto PrintLbda = [&]() {
+            // deduce template partial specialization
+            for (TemplateSpecialization* spec : partialSpec->getTemplate()->getTemplateSpecializations())
+            {
+                if (spec->getVisibility() == Visibility::Private ||
+                    (!spec->isNative() && spec->testFlags(PHANTOM_R_FLAG_IMPLICIT))) // implicit non native
+                    continue;
+                if (auto extended = spec->getExtendedSpecialization())
+                    spec = extended;
+
+                if (spec->getTemplated())
+                {
+                    if (spec->isFull())
+                    {
+                        bool everyArgMatch = true;
+                        for (size_t i = 0; i < partialSpec->getArguments().size(); ++i)
+                        {
+                            if (auto pArgType = partialSpec->getArguments()[i]->asType())
+                            {
+                                if (auto ph = pArgType->removeEverything()->asPlaceholder())
+                                {
+                                    auto replicated =
+                                    spec->getArguments()[i]->asType()->replicate(static_cast<Type*>(ph->asSymbol()));
+                                    if (!replicated->isSame(pArgType))
+                                    {
+                                        everyArgMatch = false;
+                                        break;
+                                    }
+                                }
+                                else if (!spec->getArguments()[i]->asType()->isSame(pArgType))
+                                {
+                                    everyArgMatch = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!everyArgMatch)
+                            continue;
+                        m_templatePlaceholderSpec = partialSpec;
+                        if (Class* class_ = spec->getTemplated()->asClass())
+                        {
+                            PrintCppSymbols(class_);
+                        }
+                        else if (Alias* alias = spec->getTemplated()->asAlias())
+                        {
+                            PrintCppSymbols(spec->getTemplateSignature());
+                            hpp.Ln();
+                            PrintCppSymbols(alias);
+                        }
+                        m_templatePlaceholderSpec = nullptr;
+                    }
+                }
+            }
+        };
+
+        if (partialSpec->getAccess() == _access)
+        {
+            if (_access == Access::Undefined)
+            {
+                SetCurrentNamespace(partialSpec->getTemplate()->getNamespace());
+                if (enableModules)
+                    hpp("export ");
+                PrintLbda();
+            }
+            else
+            {
+                PrintLbda();
+            }
+        }
+    }
+
+    std::sort(fullSpecs.begin(), fullSpecs.end(), [](TemplateSpecialization* t0, TemplateSpecialization* t1) {
+        if (auto alias0_ = t0->getTemplated()->asAlias())
+        {
+            if (auto alias1_ = t1->getTemplated()->asAlias())
+            {
+                return alias0_ < alias1_;
+            }
+            else
+            {
+                return true;
+            }
+        }
+        if (auto alias1_ = t1->getTemplated()->asAlias())
+        {
+            return false;
+        }
+
+        Class* c0 = static_cast<Class*>(t0->getTemplated());
+        Class* c1 = static_cast<Class*>(t1->getTemplated());
+
+        return c0->getInheritanceLevel(0) < c1->getInheritanceLevel(0);
+    });
+
+    for (auto fullSpec : fullSpecs)
+    {
+        if (fullSpec->getAccess() == _access)
+        {
+            if (_access == Access::Undefined)
+            {
+                SetCurrentNamespace(fullSpec->getTemplate()->getNamespace());
+                if (enableModules)
+                    hpp("export ");
+                PrintCppSymbols(fullSpec);
+                PrintUsing(fullSpec);
+            }
+            else
+            {
+                PrintCppSymbols(fullSpec);
+            }
+        }
+    }
+
+    // types except enums
+    for (auto elem : _input->getTypes())
+    {
+        if (elem->asEnum() != nullptr)
+            continue;
         if (elem->getAccess() == _access)
         {
             if (_access == Access::Undefined)
@@ -732,40 +1046,85 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Scope* _in
     }
 }
 
+void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(TemplateSpecialization* _templateSpec)
+{
+    if (_templateSpec->getVisibility() == Visibility::Private ||
+        (_templateSpec->testFlags(PHANTOM_R_FLAG_IMPLICIT))) // implicit non native
+        return;
+    if (auto extended = _templateSpec->getExtendedSpecialization())
+        _templateSpec = extended;
+    if (_templateSpec->getTemplated())
+    {
+        if (Class* class_ = _templateSpec->getTemplated()->asClass())
+        {
+            PrintCppSymbols(class_);
+        }
+        else if (Alias* alias = _templateSpec->getTemplated()->asAlias())
+        {
+            PrintCppSymbols(_templateSpec->getTemplateSignature());
+            hpp.Ln();
+            PrintCppSymbols(alias);
+        }
+    }
+}
+
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Template* _template)
 {
-    if (_template->getName() == "vector_set")
+    if (auto emptySpec = _template->getEmptyTemplateSpecialization())
     {
-        int i = 0;
+        if (emptySpec->getTemplated())
+        {
+            if (Class* class_ = emptySpec->getTemplated()->asClass())
+            {
+                PrintCppSymbols(class_);
+            }
+            else if (Alias* alias = emptySpec->getTemplated()->asAlias())
+            {
+                PrintCppSymbols(emptySpec->getTemplateSignature());
+                hpp.Ln();
+                PrintCppSymbols(alias);
+            }
+            return;
+        }
     }
+
     for (TemplateSpecialization* spec : _template->getTemplateSpecializations())
     {
         if (spec->getVisibility() == Visibility::Private ||
-            (!spec->isNative() && spec->testFlags(0x2000))) // implicit non native
+            (!spec->isNative() && spec->testFlags(PHANTOM_R_FLAG_IMPLICIT))) // implicit non native
             continue;
         if (auto extended = spec->getExtendedSpecialization())
             spec = extended;
 
         if (spec->getTemplated())
         {
-            if (Class* class_ = spec->getTemplated()->asClass())
+            if (spec->isFull())
             {
-                PrintCppSymbols(class_);
+                if (spec->testFlags(PHANTOM_R_FLAG_IMPLICIT)) // use native instance to deduce empty specialization
+                {
+                    m_templatePlaceholderSpec = spec;
+                    if (Class* class_ = spec->getTemplated()->asClass())
+                    {
+                        PrintCppSymbols(class_);
+                    }
+                    else if (Alias* alias = spec->getTemplated()->asAlias())
+                    {
+                        PrintCppSymbols(spec->getTemplateSignature());
+                        hpp.Ln();
+                        PrintCppSymbols(alias);
+                    }
+                    m_templatePlaceholderSpec = nullptr;
+                    return;
+                }
             }
-            else if (Alias* alias = spec->getTemplated()->asAlias())
-            {
-                PrintCppSymbols(spec->getTemplateSignature());
-                hpp.Ln();
-                PrintCppSymbols(alias);
-            }
-        }
-        else if (spec->isEmpty())
-        {
-            PrintCppSymbols(spec->getTemplateSignature());
-            hpp.Ln();
-            hpp("struct ")(spec->getName())(";").Ln();
         }
     }
+    PrintCppSymbols(_template->getTemplateSignature());
+    hpp.Ln();
+    hpp("struct ");
+    hpp(_template->getName());
+    hpp(";");
+    hpp.Ln();
 }
 
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(TemplateSignature* _input, Printer& _printer)
@@ -802,8 +1161,7 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Subroutine
     if (_input->getName().front() == '~')
         return PrintNoRet(_input);
 
-    if (PrintGeneric(_input, hpp))
-        return;
+    PrintGeneric(_input, hpp);
 
     bool overr = _input->testModifiers(Modifier::Enum::Override);
     if (_input->isVirtual() && !overr)
@@ -891,20 +1249,19 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Class* _in
     auto& bases = _input->getBaseClasses();
     for (auto& bc : bases)
     {
-        if (bc.baseClass->getName() == "numeric_limits")
-        {
-            int i = 0;
-        }
         PrintHppInclude(bc.baseClass);
     }
 
     TemplateSpecialization* tspec = _input->getTemplateSpecialization();
     if (tspec)
     {
-        PrintTemplateSignature(_input->getTemplateSpecialization()->getTemplateSignature(), hpp);
+        if (m_templatePlaceholderSpec == tspec)
+            PrintTemplateSignature(m_templatePlaceholderSpec->getTemplate()->getTemplateSignature(), hpp);
+        else
+            PrintTemplateSignature(tspec->getTemplateSignature(), hpp);
     }
     hpp("class ")(_input->getName());
-    if (tspec && !tspec->isEmpty())
+    if (tspec && !tspec->isEmpty() && m_templatePlaceholderSpec != tspec)
     {
         PrintTemplateDecoration(_input->getTemplateSpecialization());
     }
@@ -1026,7 +1383,6 @@ void CppLiteCompletionHeaderGenerator::PrintCppSymbols(Source* _input, StringVie
     // skip 'default' sources which are internals and not exposed
     if (_input->getName() == "default")
         return;
-
     // ex : "Wolf.Core.Object.hpp"
     String sourceName = StringView(_input->getUniqueName());
 
@@ -1107,10 +1463,6 @@ void CppLiteCompletionHeaderGenerator::PrintCppSymbols(Module* _input, StringVie
             PrintCppSymbols(s, _dir + '/' + _input->getName(), _enableModules);
         }
     }
-    std::ofstream cppliteH((_dir + StringView("/cpplite.h")).c_str());
-    cppliteH << "#define assert(...)" << std::endl;
-    cppliteH << "#define typeof(...) static_cast<phantom::lang::Type*>(nullptr)" << std::endl;
-    cppliteH << "#define classof(...) static_cast<phantom::lang::Class*>(nullptr)" << std::endl;
 }
 
 void CppLiteCompletionHeaderGenerator::GenerateCppLiteNoExt(StringView _outDir, StringView _relDir,
@@ -1174,6 +1526,33 @@ void CppLiteCompletionHeaderGenerator::GenerateCppLiteNoExt(StringView _outDir, 
     }
 }
 
+void CppLiteCompletionHeaderGenerator::PrintModules(ArrayView<StringView> _workspaces, bool _enableModules)
+{
+    // CPPLITE SOURCES
+    for (auto workspace : _workspaces)
+    {
+        String dir = String(workspace) + "/.modules";
+        Path::CreateDirectories(dir);
+
+        std::ofstream allH((dir + StringView("/all.hpp")).c_str());
+        for (Module* module : Application::Get()->getModules())
+        {
+            PrintCppSymbols(module, dir, _enableModules);
+            for (Package* pkg : module->getPackages())
+            {
+                for (Source* src : pkg->getSources())
+                {
+                    if (src->getName() != "default" && src->getName().size())
+                        allH << "#include <" << SourcePrinter::GetHppIncludePath(src) << '>' << std::endl;
+                }
+            }
+        }
+        allH << "#define assert(...)" << std::endl;
+        allH << "#define typeof(...) static_cast<phantom::lang::Type*>(nullptr)" << std::endl;
+        allH << "#define classof(...) static_cast<phantom::lang::Class*>(nullptr)" << std::endl;
+    }
+}
+
 int CppLiteCompletionHeaderGenerator::main(int argc, char** argv)
 {
     // ensure every known plugin is loaded
@@ -1183,8 +1562,8 @@ int CppLiteCompletionHeaderGenerator::main(int argc, char** argv)
     }
     bool enableModules = false;
 
-    SmallVector<String> workspaces;
-    SmallVector<String> includepaths;
+    SmallVector<StringView> workspaces;
+    SmallVector<String>     includepaths;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -1209,35 +1588,25 @@ int CppLiteCompletionHeaderGenerator::main(int argc, char** argv)
         includepaths.push_back(ws);
     }
 
-    // NATIVE MODULES
+    PrintModules(workspaces);
 
-    // CPPLITE SOURCES
-    for (auto workspace : workspaces)
-    {
-        for (Module* module : Application::Get()->getModules())
-        {
-            if (module->isNative())
-            {
-                Path::CreateDirectories(workspace + "/.modules");
-                PrintCppSymbols(module, workspace + "/.modules", enableModules);
-            }
-        }
-        for (auto ip : includepaths)
-        {
-            DirectoryEntries scriptsProjectsDirs;
-            Path::ListDirectoryEntries(ip, scriptsProjectsDirs);
-            for (auto project : scriptsProjectsDirs)
-            {
-                if (project.isDirectory())
-                    if (project.path().front().front() != '.')
-                    {
-                        Path::CreateDirectories(workspace + "/.modules/" + project.path().filename());
-                        GenerateCppLiteNoExt(workspace + "/.modules/" + project.path().filename(), "",
-                                             ip + '/' + project.path().filename());
-                    }
-            }
-        }
-    }
+    //
+    //         for (auto ip : includepaths)
+    //         {
+    //             DirectoryEntries scriptsProjectsDirs;
+    //             Path::ListDirectoryEntries(ip, scriptsProjectsDirs);
+    //             for (auto project : scriptsProjectsDirs)
+    //             {
+    //                 if (project.isDirectory())
+    //                     if (project.path().front().front() != '.')
+    //                     {
+    //                         Path::CreateDirectories(workspace + "/.modules/" + project.path().filename());
+    //                         GenerateCppLiteNoExt(workspace + "/.modules/" + project.path().filename(), "",
+    //                                              ip + '/' + project.path().filename());
+    //                     }
+    //             }
+    //         }
+
     return 0;
 }
 

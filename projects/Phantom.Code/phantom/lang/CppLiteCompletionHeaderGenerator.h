@@ -71,6 +71,8 @@ public:
 
     struct PHANTOM_EXPORT_PHANTOM_CODE SourcePrinter
     {
+        static String GetHppIncludePath(Source* _source);
+
         Source*                source;
         Printer&               hpp;
         Printer&               usingfile;
@@ -105,6 +107,8 @@ public:
         void PrintCppSymbols(Variable* _variable);
 
         void PrintCppSymbols(Constant* _cst);
+
+        void PrintCppSymbols(TemplateSpecialization* _templateSpec);
 
         void PrintName(Symbol* _symbol);
 
@@ -152,6 +156,9 @@ public:
         LanguageElement*             currentScope = Namespace::Global();
         SmallMap<String, Namespace*> forwards;
         String                       forwardContent;
+
+    private:
+        TemplateSpecialization* m_templatePlaceholderSpec{};
     };
 
     void PrintCppSymbols(Source* _input, StringView _dir, bool _enableModules);
@@ -170,6 +177,8 @@ public:
     // }
 
     void GenerateCppLiteNoExt(StringView _outDir, StringView _relDir, StringView _inputDir);
+
+    void PrintModules(ArrayView<StringView> _workspaces, bool _enableModules = false);
 
     int main(int argc, char** argv);
 };
