@@ -5272,7 +5272,8 @@ struct CppLitePassModules : public CppLitePass<CppLitePassModules>
             }
             else
             {
-                if (m_Data.m_pBuildSession->addProject(moduleName))
+                m_Data.m_pBuildSession->addProject(moduleName);
+                if (!pMod || !pMod->isNative())
                 {
                     if (!m_Data.m_pBuildSession->isSuccessful())
                     {
