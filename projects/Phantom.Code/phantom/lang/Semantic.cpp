@@ -874,6 +874,10 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
                 currModule != pT0->getModule() && !currModule->hasDependencyCascade(pT0->getModule()))
                 continue;
 
+            if (pT0->isNative() && pT0->getTemplated() == nullptr) // avoid considering native partial template
+                                                                   // specializations as valid specializations to use
+                continue;
+
             bool           result = true;
             size_t         argumentsCount = substitution.size();
             PlaceholderMap deductionMap;
@@ -887,18 +891,6 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
                     break;
                 }
             }
-            //                     if (deductionMap.size())
-            //                     {
-            //                         deductions.resize(deductionMap.size());
-            //                         for (auto& pair : deductionMap)
-            //                         {
-            //                             size_t index =
-            //                             a_pInput->getTemplateSignature()->getTemplateParameterIndex(pair.first);
-            //                             PHANTOM_ASSERT(index != ~size_t(0));
-            //                             PHANTOM_ASSERT(deductions[index] == nullptr);
-            //                             deductions[index] = pair.second;
-            //                         }
-            //                     }
             if (result && a_pInput->isNative())
             {
                 while (argumentsCount < pT0->getArgumentCount())
