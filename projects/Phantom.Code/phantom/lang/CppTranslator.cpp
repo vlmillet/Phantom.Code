@@ -120,6 +120,61 @@ namespace lang
 {
 namespace
 {
+struct OperatorInfo
+{
+    Operator op;
+    int      precedence = 0;
+    bool     leftToRight = false;
+};
+SmallVector<OperatorInfo> precedence = {
+{Operator::Plus, 0, false},
+{Operator::Minus, 3, false},
+{Operator::Add, 6, true},
+{Operator::Subtract, 6, true},
+{Operator::Multiply, 5, true},
+{Operator::Divide, 5, true},
+{Operator::Address, 3, false},
+{Operator::Dereference, 3, false},
+{Operator::Arrow, 2, true},
+{Operator::ArrowStar, 4, true},
+{Operator::PreDecrement, 3, false},
+{Operator::PreIncrement, 3, false},
+{Operator::PostDecrement, 2, true},
+{Operator::PostIncrement, 2, true},
+{Operator::Equal, 10, true},
+{Operator::NotEqual, 10, true},
+{Operator::Greater, 9, true},
+{Operator::Less, 9, true},
+{Operator::GreaterEqual, 9, true},
+{Operator::LessEqual, 9, true},
+{Operator::LogicalAnd, 14, true},
+{Operator::LogicalOr, 15, true},
+{Operator::XOr, 12, true},
+{Operator::Not, 3, false},
+{Operator::BitAnd, 11, true},
+{Operator::BitOr, 13, true},
+{Operator::Complement, 3, false},
+{Operator::Modulo, 5, true},
+{Operator::Comma, 17, true},
+{Operator::ShiftLeft, 7, true},
+{Operator::ShiftRight, 7, true},
+{Operator::Assignment, 16, false},
+{Operator::AssignmentAdd, 16, false},
+{Operator::AssignmentSubtract, 16, false},
+{Operator::AssignmentMultiply, 16, false},
+{Operator::AssignmentDivide, 16, false},
+{Operator::AssignmentBitAnd, 16, false},
+{Operator::AssignmentBitOr, 16, false},
+{Operator::AssignmentModulo, 16, false},
+{Operator::AssignmentShiftLeft, 16, false},
+{Operator::AssignmentShiftRight, 16, false},
+{Operator::AssignmentXOr, 16, false},
+{Operator::Bracket, 2, true},
+{Operator::Parenthesis, 2, true},
+{Operator::Conversion, 2},
+{Operator::COUNT, 1, true},
+};
+
 int priorityComputer(LanguageElement* a_pScope, ClassType* _class, std::map<LanguageElement*, int>& classPrios)
 {
     int& prio = classPrios[_class];
@@ -355,6 +410,27 @@ StringView CppTranslator::getOption(StringView a_Key) const
     return found == m_Options.end() ? StringView() : found->second;
 }
 
+bool CppTranslator::addAlias(StringView a_Original, StringView a_Alias)
+{
+    if (auto o = Application::Get()->findCppSymbol(a_Original))
+        if (auto a = Application::Get()->findCppSymbol(a_Alias))
+            return m_Aliases[o] = a;
+    return false;
+}
+
+void CppTranslator::addAlias(Symbol* a_pOriginal, Symbol* a_pAlias)
+{
+    m_Aliases[a_pOriginal] = a_pAlias;
+}
+
+Symbol* CppTranslator::getAlias(Symbol* a_pOriginal) const
+{
+    auto found = m_Aliases.find(a_pOriginal);
+    if (found != m_Aliases.end())
+        return found->second;
+    return nullptr;
+}
+
 void CppTranslator::translateLiteral(const String& a_Value, String& translation, int options)
 {
     translation += "\"";
@@ -461,6 +537,8 @@ void CppTranslator::visit(Alias* a_pInput, VisitorData a_Data)
         }
         return;
     }
+    if (a_Data.id == TranslationType::Name)
+        visit(static_cast<Symbol*>(a_pInput), a_Data);
 }
 void CppTranslator::visit(AllocateExpression* a_pInput, VisitorData a_Data)
 {
@@ -1223,14 +1301,18 @@ void CppTranslator::visit(BuiltInOperator* a_pInput, VisitorData a_Data)
 void CppTranslator::visit(BuiltInOperatorExpression* a_pInput, VisitorData a_Data)
 {
     String name = a_pInput->getOperator()->getName();
+    auto   op = a_pInput->getOperator()->getId();
+    bool   paren = requiresParenthesis(op);
     switch (a_pInput->getOperator()->getOperatorType())
     {
     case OperatorKind::Binary:
         if (a_pInput->getOperator()->getId() == Operator::Bracket)
         {
-            appendExpressionWithPrecedenceSafety(a_pInput->getInputArgument(0), a_pInput, a_Data);
+            beginParen(paren);
+            appendExpression(a_pInput->getInputArgument(0), a_pInput, a_Data);
+            endParen(paren);
             append('[');
-            a_pInput->getInputArgument(1)->visit(this, a_Data);
+            appendExpression(a_pInput->getInputArgument(1), a_pInput, a_Data);
             append(']');
         }
         else
@@ -1255,27 +1337,47 @@ void CppTranslator::visit(BuiltInOperatorExpression* a_pInput, VisitorData a_Dat
                     addIncludeIfRequired(pTe1->getUnderlyingType());
                 }
             }
-            appendExpressionWithPrecedenceSafety(a_pInput->getInputArgument(0), a_pInput, a_Data);
+            beginParen(paren);
+            m_OperatorStack.emplace_back(op, true);
+            appendExpression(a_pInput->getInputArgument(0), a_pInput, a_Data);
+            m_OperatorStack.pop_back();
             append(' ');
             append(name);
             append(' ');
-            appendExpressionWithPrecedenceSafety(a_pInput->getInputArgument(1), a_pInput, a_Data);
+            m_OperatorStack.emplace_back(op, false);
+            appendExpression(a_pInput->getInputArgument(1), a_pInput, a_Data);
+            m_OperatorStack.pop_back();
+            endParen(paren);
         }
         break;
     case OperatorKind::UnaryPrefixed:
+        beginParen(paren);
         append(name);
-        appendExpressionWithPrecedenceSafety(a_pInput->getInputArgument(0), a_pInput, a_Data);
+        m_OperatorStack.emplace_back(op, false);
+        appendExpression(a_pInput->getInputArgument(0), a_pInput, a_Data);
+        m_OperatorStack.pop_back();
+        endParen(paren);
         break;
     case OperatorKind::UnaryPostfixed:
-        appendExpressionWithPrecedenceSafety(a_pInput->getInputArgument(0), a_pInput, a_Data);
+        beginParen(paren);
+        m_OperatorStack.emplace_back(op, true);
+        appendExpression(a_pInput->getInputArgument(0), a_pInput, a_Data);
+        m_OperatorStack.pop_back();
         append(name);
+        endParen(paren);
         break;
     case OperatorKind::Ternary:
-        appendExpressionWithPrecedenceSafety(a_pInput->getInputArgument(0), a_pInput, a_Data);
+        beginParen(paren);
+        appendExpression(a_pInput->getInputArgument(0), a_pInput, a_Data);
         append("?");
-        appendExpressionWithPrecedenceSafety(a_pInput->getInputArgument(1), a_pInput, a_Data);
+        beginParen(true);
+        appendExpression(a_pInput->getInputArgument(1), a_pInput, a_Data);
+        endParen(true);
         append(":");
-        appendExpressionWithPrecedenceSafety(a_pInput->getInputArgument(2), a_pInput, a_Data);
+        beginParen(true);
+        appendExpression(a_pInput->getInputArgument(2), a_pInput, a_Data);
+        endParen(true);
+        endParen(paren);
         break;
     default:
         PHANTOM_ASSERT(false);
@@ -1329,11 +1431,11 @@ void CppTranslator::visit(CallExpression* a_pInput, VisitorData a_Data)
                 BuiltInOperatorExpression* pOpExp = arguments[0]->as<BuiltInOperatorExpression>();
                 if (pOpExp && pOpExp->getOperator()->getId() == Operator::Address) /// remove self canceling '&*' case
                 {
-                    appendExpressionWithPrecedenceSafety(pOpExp->getInputArgument(0), a_pInput, a_Data);
+                    appendExpression(pOpExp->getInputArgument(0), a_pInput, a_Data);
                 }
                 else
                 {
-                    appendExpressionWithPrecedenceSafety(this_, a_pInput, a_Data);
+                    appendExpression(this_, a_pInput, a_Data);
                 }
                 append(op[0]); // ( or [
                 if (arguments.size() > 1)
@@ -1359,14 +1461,23 @@ void CppTranslator::visit(CallExpression* a_pInput, VisitorData a_Data)
                 {
                     bool ccast = (pSubroutine->getReturnType()->asClassType() == nullptr &&
                                   pSubroutine->getReturnType()->asEnum() == nullptr);
+                    bool paren = ccast && requiresParenthesis(Operator::Not); // same precedent as cstyle cast
+                    beginParen(paren);
                     if (ccast)
                         append('(');
                     translate(pSubroutine->getReturnType());
                     if (ccast)
                         append(')');
-                    append('(');
+                    if (!ccast)
+                        append('(');
+                    if (ccast)
+                        m_OperatorStack.emplace_back(Operator::Not, false);
                     this_->visit(this, a_Data);
-                    append(')');
+                    if (ccast)
+                        m_OperatorStack.pop_back();
+                    if (!ccast)
+                        append(')');
+                    endParen(paren);
                 }
             }
             else
@@ -1376,31 +1487,56 @@ void CppTranslator::visit(CallExpression* a_pInput, VisitorData a_Data)
                     BuiltInOperator* pOp = CppLite::Get()->getBuiltInBinaryOperator(op);
                     if (pOp) // binary operator
                     {
-                        append('(');
-                        appendExpressionWithPrecedenceSafety(this_, a_pInput, a_Data);
+                        bool paren = requiresParenthesis(pOp->getId()); // same precedent as cstyle cast
+                        beginParen(paren);
+                        m_OperatorStack.emplace_back(pOp->getId(), true);
+                        appendExpression(this_, a_pInput, a_Data);
+                        m_OperatorStack.pop_back();
                         append(' ');
                         append(op);
                         append(' ');
-                        appendExpressionWithPrecedenceSafety(arguments[1], a_pInput, a_Data);
-                        append(')');
+                        m_OperatorStack.emplace_back(pOp->getId(), false);
+                        appendExpression(arguments[1], a_pInput, a_Data);
+                        m_OperatorStack.pop_back();
+                        endParen(paren);
                     }
                     else // post unary
                     {
-                        appendExpressionWithPrecedenceSafety(this_, a_pInput, a_Data);
+                        pOp = CppLite::Get()->getBuiltInPostUnaryOperator(op);
+                        PHANTOM_ASSERT(pOp);
+                        bool paren = requiresParenthesis(pOp->getId()); // same precedent as cstyle cast
+                        beginParen(paren);
+                        m_OperatorStack.emplace_back(pOp->getId(), true);
+                        appendExpression(this_, a_pInput, a_Data);
+                        m_OperatorStack.pop_back();
                         append(op);
+                        endParen(paren);
                     }
                 }
                 else // pre unary
                 {
                     if (op != "->")
+                    {
+                        auto opId = CppLite::Get()->getBuiltInPreUnaryOperatorId(op);
+                        bool paren = requiresParenthesis(opId); // same precedent as cstyle cast
+                        beginParen(paren);
                         append(op);
-                    appendExpressionWithPrecedenceSafety(this_, a_pInput, a_Data);
+                        m_OperatorStack.emplace_back(opId, false);
+                        appendExpression(this_, a_pInput, a_Data);
+                        m_OperatorStack.pop_back();
+                        endParen(paren);
+                    }
+                    else
+                    {
+                        appendExpression(this_, a_pInput, a_Data);
+                    }
                 }
                 // Create operator expression
             }
             return;
         }
     }
+
     int argIdx = 0;
     if (pSubroutine->asMethod() && pSubroutine->asConstructor() == nullptr)
     {
@@ -1467,12 +1603,16 @@ void CppTranslator::visit(CallExpression* a_pInput, VisitorData a_Data)
         {
             if (dotExp)
             {
-                appendExpressionWithPrecedenceSafety(dotExp, a_pInput, a_Data);
+                m_OperatorStack.emplace_back(Operator::Arrow, true);
+                appendExpression(dotExp, a_pInput, a_Data);
+                m_OperatorStack.pop_back();
                 append(".");
             }
             else
             {
-                appendExpressionWithPrecedenceSafety(arguments[0], a_pInput, a_Data);
+                m_OperatorStack.emplace_back(Operator::Arrow, true);
+                appendExpression(arguments[0], a_pInput, a_Data);
+                m_OperatorStack.pop_back();
                 append("->");
             }
         }
@@ -1940,7 +2080,7 @@ void CppTranslator::visit(ClassType* a_pInput, VisitorData a_Data)
             }
             for (auto pElem : a_pInput->getTypes())
             {
-                if ((pElem)->testFlags(PHANTOM_R_FLAG_IMPLICIT))
+                if ((pElem)->testFlags(PHANTOM_R_FLAG_IMPLICIT) || pElem->asEnum())
                     continue;
                 beginDecl();
                 (pElem)->visit(this, a_Data);
@@ -1963,13 +2103,16 @@ void CppTranslator::visit(ClassType* a_pInput, VisitorData a_Data)
 }
 void CppTranslator::visit(ConditionalExpression* a_pInput, VisitorData a_Data)
 {
-    append("(");
+    bool paren =
+    requiresParenthesis(Operator::Assignment); // we don't have ternary yet but assignment has same precedence
+    beginParen(paren);
     a_pInput->getConditionExpression()->visit(this, a_Data);
-    append(") ? (");
+    append("? (");
     a_pInput->getThenExpression()->visit(this, a_Data);
     append(") : (");
     a_pInput->getElseExpression()->visit(this, a_Data);
     append(")");
+    endParen(paren);
 }
 void CppTranslator::visit(Constant* a_pInput, VisitorData a_Data)
 {
@@ -2134,7 +2277,9 @@ void CppTranslator::visit(FieldExpression* a_pInput, VisitorData a_Data)
     }
     if (!skipLHS)
     {
-        appendExpressionWithPrecedenceSafety(a_pInput->getObjectExpression(), a_pInput, a_Data);
+        m_OperatorStack.emplace_back(Operator::Arrow, true);
+        appendExpression(a_pInput->getObjectExpression(), a_pInput, a_Data);
+        m_OperatorStack.pop_back();
         append(".");
     }
     append(a_pInput->getField()->getName());
@@ -2485,10 +2630,32 @@ void CppTranslator::visit(LocalVariableInitializationStatement* a_pInput, Visito
 {
     auto transType = a_Data.id;
     a_Data.id = TranslationType::Definition;
-    translateTyped(a_pInput->getLocalVariable()->getValueType(), a_pInput->getLocalVariable()->getName());
-    if (a_pInput->getInitializationExpression())
+    auto localVarType = a_pInput->getLocalVariable()->getValueType();
+
+    if (auto initExp = a_pInput->getInitializationExpression())
     {
+        auto noImplicitInitExp = initExp->removeImplicitIdentity();
+        bool preferAuto = noImplicitInitExp == initExp && initExp->getValueType()->getTypeKind() != TypeKind::NullPtr;
         ConstructorCallExpression* pCtorCall = a_pInput->getInitializationExpression()->as<ConstructorCallExpression>();
+        if (!pCtorCall)
+        {
+            if (CallExpression* pCall = a_pInput->getInitializationExpression()->as<CallExpression>())
+            {
+                preferAuto = !pCall->isImplicit();
+            }
+        }
+        else
+        {
+            preferAuto = false;
+        }
+        auto autoType = Application::Get()->getAuto();
+        if (localVarType->asPointer())
+            autoType = autoType->addPointer();
+        else if (localVarType->asLValueReference())
+            autoType = autoType->addLValueReference();
+        else if (localVarType->asRValueReference())
+            autoType = autoType->addRValueReference();
+        translateTyped(preferAuto ? autoType : localVarType, a_pInput->getLocalVariable()->getName());
         if (pCtorCall)
         {
             if (pCtorCall->getArguments().size() == 1)
@@ -2531,6 +2698,10 @@ void CppTranslator::visit(LocalVariableInitializationStatement* a_pInput, Visito
             append(" = ");
             a_pInput->getInitializationExpression()->visit(this, a_Data);
         }
+    }
+    else
+    {
+        translateTyped(localVarType, a_pInput->getLocalVariable()->getName());
     }
     if (transType != TranslationType::Name)
         append(";");
@@ -2701,6 +2872,171 @@ void CppTranslator::visit(Symbol* a_pInput, VisitorData a_Data)
 {
     if (a_Data.id == TranslationType::Name)
     {
+        if (auto type = a_pInput->asType())
+        {
+            auto typeNaked = type->removeEverything();
+            auto typeNakedAlias = getAlias(typeNaked);
+
+            if (typeNakedAlias)
+            {
+                if (auto asType = typeNakedAlias->asType())
+                    return visit(type->replicate(asType), a_Data);
+
+                if (auto asAlias = typeNakedAlias->asAlias())
+                {
+                    if (auto arg = asAlias->getAliasedSymbol()->asType())
+                    {
+                        Types replicationTypes;
+                        auto  currTypeLvl = type;
+                        while (currTypeLvl)
+                        {
+                            if (arg == currTypeLvl)
+                            {
+                                StringBuffer aliasedName;
+                                asAlias->getRelativeName(getContextScope(), aliasedName);
+
+                                size_t c = replicationTypes.size();
+                                while (c--)
+                                {
+                                    currTypeLvl = replicationTypes[c];
+                                    if (currTypeLvl->asConstType())
+                                    {
+                                        if (currTypeLvl->asVolatileType())
+                                        {
+                                            aliasedName += " const volatile";
+                                        }
+                                        else
+                                        {
+                                            aliasedName += " const";
+                                        }
+                                    }
+                                    else if (currTypeLvl->asVolatileType())
+                                    {
+                                        if (currTypeLvl->asConstType())
+                                        {
+                                            aliasedName += " const volatile";
+                                        }
+                                        else
+                                        {
+                                            aliasedName += " volatile";
+                                        }
+                                    }
+                                    else
+                                    {
+                                        switch (currTypeLvl->getTypeKind())
+                                        {
+                                        case TypeKind::Array:
+                                            aliasedName += '[';
+                                            aliasedName +=
+                                            lexical_cast<String>(static_cast<Array*>(currTypeLvl)->getItemCount());
+                                            aliasedName += ']';
+                                            break;
+                                        case TypeKind::Pointer:
+                                            aliasedName += '*';
+                                            break;
+                                        case TypeKind::LValueReference:
+                                            aliasedName += '&';
+                                            break;
+                                        case TypeKind::RValueReference:
+                                            aliasedName += "&&";
+                                            break;
+                                        default:
+                                            break;
+                                        }
+                                    }
+                                }
+                                append(aliasedName);
+                                return;
+                            }
+                            replicationTypes.push_back(currTypeLvl);
+                            currTypeLvl = currTypeLvl->getUnderlyingType();
+                        }
+                    }
+                }
+            }
+
+            if (auto typeOwnr = typeNaked->getOwner())
+                if (auto pTpl = typeOwnr->asTemplateSpecialization())
+                {
+                    TemplateSpecialization* replacingSpec = nullptr;
+                    auto                    currentScope = getContextScope();
+                    Template*               template_ = pTpl->getTemplate();
+                    auto                    alias = getAlias(template_);
+                    if (alias)
+                    {
+                        if (auto aliasTpl = alias->asTemplate())
+                        {
+                            template_ = aliasTpl;
+
+                            for (auto aliasSpec : aliasTpl->getTemplateSpecializations())
+                            {
+                                if (aliasSpec->isFull())
+                                {
+                                    if (auto tpled = aliasSpec->getTemplated())
+                                        if (auto tpledAsAlias = tpled->asAlias())
+                                        {
+                                            if (tpledAsAlias->getAliasedSymbol()->isSame(type))
+                                            {
+                                                replacingSpec = aliasSpec;
+                                                break;
+                                            }
+                                        }
+                                }
+                            }
+                        }
+                    }
+
+                    Symbol* nakedSym = alias;
+                    if (!nakedSym)
+                        nakedSym = typeNaked;
+
+                    StringBuffer original;
+                    if (m_ForceQualifiedName != 0)
+                        original = type->getQualifiedDecoratedName();
+                    else
+                        type->getRelativeDecoratedName(currentScope, original);
+
+                    StringView suffix = original;
+                    size_t     p = suffix.find_last_of('>');
+                    suffix = suffix.substr(p + 1);
+
+                    StringBuffer relName;
+                    if (m_ForceQualifiedName != 0)
+                        nakedSym->getQualifiedName(relName);
+                    else
+                        nakedSym->getRelativeName(currentScope, relName);
+                    append(relName);
+                    append("<");
+
+                    if (replacingSpec)
+                        pTpl = replacingSpec;
+
+                    size_t c = 0;
+                    for (auto arg : pTpl->getArguments())
+                    {
+                        if ((replacingSpec || !alias) && pTpl->getDefaultArgument(c))
+                            break;
+                        if (c)
+                            append(", ");
+                        if (auto argType = arg->asType())
+                        {
+                            translate(argType, TranslationType::Name);
+                        }
+                        else
+                        {
+                            if (m_ForceQualifiedName != 0)
+                                append(arg->getQualifiedDecoratedName());
+                            else
+                                append(arg->getRelativeDecoratedName(currentScope));
+                        }
+                        ++c;
+                    }
+                    append("> ");
+                    append(suffix);
+                    return;
+                }
+        }
+
         PHANTOM_ASSERT(getContextScope());
         if (m_ForceQualifiedName != 0)
             append(a_pInput->getQualifiedDecoratedName());
@@ -2835,8 +3171,12 @@ void CppTranslator::visit(PlaceholderType* a_pInput, VisitorData a_Data)
     if (a_Data.id == TranslationType::Declaration)
     {
         append("class ");
+        append(a_pInput->getName());
     }
-    append(a_pInput->getName());
+    else if (a_Data.id == TranslationType::Name)
+        append(a_pInput->getName());
+    else
+        visit(static_cast<Type*>(a_pInput), a_Data);
 }
 void CppTranslator::visit(PlacementNewExpression* a_pInput, VisitorData a_Data)
 {
@@ -3223,23 +3563,28 @@ void CppTranslator::visit(Subroutine* a_pInput, VisitorData a_Data)
 }
 void CppTranslator::visit(BinaryOperationExpression* a_pInput, VisitorData a_Data)
 {
-    append('(');
+    auto op = CppLite::Get()->getBuiltInBinaryOperatorId(a_pInput->getOperatorName());
+    bool paren = requiresParenthesis(op);
+    beginParen(paren);
+    m_OperatorStack.emplace_back(op, true);
     a_pInput->getLeftOperandExpression()->visit(this, a_Data);
-    append(')');
+    m_OperatorStack.pop_back();
     append(a_pInput->getOperatorName());
-    append('(');
+    m_OperatorStack.emplace_back(op, false);
     a_pInput->getRightOperandExpression()->visit(this, a_Data);
-    append(')');
+    m_OperatorStack.pop_back();
+    endParen(paren);
 }
 void CppTranslator::visit(UnaryPostOperationExpression* a_pInput, VisitorData a_Data)
 {
-    bool needProtect = (a_pInput->getOperatorName() != "->");
-    if (needProtect)
-        append('(');
+    auto op = CppLite::Get()->getBuiltInPostUnaryOperatorId(a_pInput->getOperatorName());
+    bool paren = requiresParenthesis(op);
+    beginParen(paren);
+    m_OperatorStack.emplace_back(op, true);
     a_pInput->getOperandExpression()->visit(this, a_Data);
-    if (needProtect)
-        append(')');
+    m_OperatorStack.pop_back();
     append(a_pInput->getOperatorName());
+    endParen(paren);
 }
 void CppTranslator::visit(UnaryPreOperationExpression* a_pInput, VisitorData a_Data)
 {
@@ -3250,10 +3595,14 @@ void CppTranslator::visit(UnaryPreOperationExpression* a_pInput, VisitorData a_D
             return a_pInput->getOperandExpression()->visit(this, a_Data);
         }
     }
+    auto op = CppLite::Get()->getBuiltInPreUnaryOperatorId(a_pInput->getOperatorName());
+    bool paren = requiresParenthesis(op);
+    beginParen(paren);
     append(a_pInput->getOperatorName());
-    append('(');
+    m_OperatorStack.emplace_back(op, false);
     a_pInput->getOperandExpression()->visit(this, a_Data);
-    append(')');
+    m_OperatorStack.pop_back();
+    endParen(paren);
 }
 void CppTranslator::visit(Template* a_pInput, VisitorData a_Data)
 {
@@ -3271,6 +3620,8 @@ void CppTranslator::visit(TemplateDependantDeclType* a_pInput, VisitorData a_Dat
 }
 void CppTranslator::visit(TemplateDependantElement* a_pInput, VisitorData a_Data)
 {
+    bool paren = a_pInput->getLeft() && requiresParenthesis(Operator::Arrow);
+    beginParen(paren);
     if (LanguageElement* l = a_pInput->getLeft())
     {
         if (auto e = Object::Cast<Expression>(l))
@@ -3282,23 +3633,23 @@ void CppTranslator::visit(TemplateDependantElement* a_pInput, VisitorData a_Data
                 (unpost = Object::Cast<UnaryPostOperationExpression>(unpre->getOperandExpression())) &&
                 unpost->getOperatorName() == "->")
             {
+                m_OperatorStack.emplace_back(Operator::Arrow, true);
                 l->visit(this, a_Data);
+                m_OperatorStack.pop_back();
             }
             else
             {
-                bool needProtect =
-                unpre || biop && biop->getOperator()->getOperatorType() == OperatorKind::UnaryPrefixed;
-                if (needProtect)
-                    append("(");
+                m_OperatorStack.emplace_back(Operator::Arrow, true);
                 l->visit(this, a_Data);
-                if (needProtect)
-                    append(")");
+                m_OperatorStack.pop_back();
                 append(".");
             }
         }
         else
         {
+            m_OperatorStack.emplace_back(Operator::COUNT, true);
             l->visit(this, a_Data);
+            m_OperatorStack.pop_back();
             append("::");
         }
     }
@@ -3327,6 +3678,7 @@ void CppTranslator::visit(TemplateDependantElement* a_pInput, VisitorData a_Data
         }
         append(")");
     }
+    endParen(paren);
 }
 void CppTranslator::visit(TemplateDependantExpression* a_pInput, VisitorData a_Data)
 {
@@ -3592,6 +3944,12 @@ void CppTranslator::visit(VolatileType* a_pInput, VisitorData a_Data)
 
 void CppTranslator::translate(LanguageElement* a_pInput, int a_TranslationType)
 {
+    if (auto sym = a_pInput->asSymbol())
+    {
+        auto alias = getAlias(sym);
+        if (alias)
+            return translate(alias, a_TranslationType);
+    }
     VisitorData data;
     data.id = a_TranslationType;
     a_pInput->visit(this, data);
@@ -3806,33 +4164,48 @@ void CppTranslator::translateExpression(Expression* a_pExpression, String& a_str
     m_pTranslation = nullptr;
 }
 
-void CppTranslator::appendExpressionWithPrecedenceSafety(Expression* a_pExpression, Expression* a_pEmbedder,
-                                                         VisitorData a_Data)
+void CppTranslator::appendExpression(Expression* a_pExpression, Expression*, VisitorData a_Data)
 {
-    Expression* noIdentity = a_pExpression->removeImplicitIdentity();
+    //     Expression* noIdentity = a_pExpression->removeImplicitIdentity();
+    //
+    //     CallExpression* callExp = nullptr;
+    //     if (noIdentity->as<LValueExpression>() || noIdentity->as<ConstantExpression>() ||
+    //         (callExp = noIdentity->as<CallExpression>()) || noIdentity->as<ConstructorCallExpression>())
+    //     {
+    //         if (callExp && callExp->getSubroutine()->getName().find("operator") == 0)
+    //         {
+    //             if (callExp->getArguments().size() >= 2)
+    //             {
+    //                 append('(');
+    //                 a_pExpression->visit(this, a_Data);
+    //                 append(")");
+    //                 return;
+    //             }
+    //         }
+    //         a_pExpression->visit(this, a_Data);
+    //     }
+    //     else
+    //     {
+    //         append('(');
+    a_pExpression->visit(this, a_Data);
+    //         append(")");
+    //     }
+}
 
-    CallExpression* callExp = nullptr;
-    if (noIdentity->as<LValueExpression>() || noIdentity->as<ConstantExpression>() ||
-        (callExp = noIdentity->as<CallExpression>()) || noIdentity->as<ConstructorCallExpression>())
+bool CppTranslator::requiresParenthesis(Operation _embedding, Operator _sub) const
+{
+    auto& l = precedence[int(_embedding.op)];
+    auto& r = precedence[int(_sub)];
+    if (l.precedence < r.precedence)
     {
-        if (callExp && callExp->getSubroutine()->getName().find("operator") == 0)
-        {
-            if (callExp->getArguments().size() >= 2)
-            {
-                append('(');
-                a_pExpression->visit(this, a_Data);
-                append(")");
-                return;
-            }
-        }
-        a_pExpression->visit(this, a_Data);
+        return true;
     }
+    else if (l.precedence > r.precedence)
+        return false;
+    else if (_embedding.lhs)
+        return !l.leftToRight;
     else
-    {
-        append('(');
-        a_pExpression->visit(this, a_Data);
-        append(")");
-    }
+        return l.leftToRight;
 }
 
 void CppTranslator::addForwardIfRequired(Type* a_pType)
