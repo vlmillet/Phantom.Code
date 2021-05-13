@@ -1022,8 +1022,17 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
                                           e_ClassBuildState_None, in_pContextScope, 0));
                 if (pSymbol == nullptr)
                     return nullptr;
+
                 pInstantiation = in_pContextScope->getSource()->addTemplateInstantiation(
                 pUsedTemplateSpecialization, substitution.getArguments(), *pBestDeductions);
+
+                size_t i = defaultArgs->size();
+                size_t j = pInstantiation->getArguments().size();
+                while (i-- && j--)
+                {
+                    pInstantiation->setDefaultArgument(j, (*defaultArgs)[i]);
+                }
+
                 pTemplated =
                 pInstantiation->New<Alias>(pSymbol, pUsedTemplateSpecialization->getTemplated()->getName());
             }
