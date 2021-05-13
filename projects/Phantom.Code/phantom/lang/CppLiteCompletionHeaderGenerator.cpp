@@ -196,6 +196,8 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppParameters(Subrout
             PrintForward(param->getValueType());
         String name = StringView(param->getName());
         if (name.empty())
+            name = param->getNativeName();
+        if (name.empty())
             name = String("_") + std::to_string(i - _firstIdx).c_str();
         PrintVarName(param->getValueType(), name, _printer);
         if (param->getNativeDefaultArgumentString().size())
@@ -325,6 +327,9 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintHppInclude(Source* _s
 
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintHppInclude(Symbol* _input)
 {
+    if (auto alias = getAlias(_input))
+        return PrintHppInclude(alias);
+
     Source* includeSource{};
     if (PHANTOM_CLASSOF(TemplateDependantTemplateInstance) == _input->getMetaClass())
     {
@@ -494,9 +499,13 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintTemplateDecoration(Te
 
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintName(Symbol* _symbol, Printer& _printer)
 {
-    if (m_templatePlaceholderSpec)
+    // Aliasing
+
+    if (auto type = _symbol->asType())
     {
-        if (auto type = _symbol->asType())
+        auto typeNaked = type->removeEverything();
+
+        if (m_templatePlaceholderSpec)
         {
             size_t index = 0;
             for (auto elem : m_templatePlaceholderSpec->getArguments())
@@ -545,8 +554,8 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintName(Symbol* _symbol,
                                     switch (currTypeLvl->getTypeKind())
                                     {
                                     case TypeKind::Array:
-                                        replicationTypes.push_back(
-                                        tplArgType->addArray(static_cast<Array*>(currTypeLvl)->getItemCount()));
+                                        tplArgType =
+                                        tplArgType->addArray(static_cast<Array*>(currTypeLvl)->getItemCount());
                                         break;
                                     case TypeKind::Pointer:
                                         tplArgType = tplArgType->addPointer();
@@ -571,43 +580,160 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintName(Symbol* _symbol,
                 }
                 ++index;
             }
-
-            auto typeNaked = type->removeEverything();
-
-            if (auto typeOwnr = typeNaked->getOwner())
-                if (auto pTpl = typeOwnr->asTemplateSpecialization())
-                {
-                    StringBuffer original;
-                    type->getRelativeDecoratedName(currentScope, original);
-
-                    StringView suffix = original;
-                    size_t     p = suffix.find_last_of('>');
-                    suffix = suffix.substr(p + 1);
-
-                    StringBuffer relName;
-                    (typeNaked)->getRelativeName(currentScope, relName);
-                    _printer(relName);
-                    _printer("<");
-                    size_t c = 0;
-                    for (auto arg : pTpl->getArguments())
-                    {
-                        if (c)
-                            _printer(", ");
-                        if (auto argType = arg->asType())
-                        {
-                            PrintName(argType, _printer);
-                        }
-                        else
-                        {
-                            _printer(arg->getRelativeDecoratedName(currentScope));
-                        }
-                        ++c;
-                    }
-                    _printer("> ");
-                    _printer(suffix);
-                    return;
-                }
         }
+        else
+        {
+            if (m_noAlias == 0)
+            {
+                auto typeNakedAlias = getAlias(typeNaked);
+
+                if (typeNakedAlias)
+                {
+                    if (auto asType = typeNakedAlias->asType())
+                        return PrintName(type->replicate(asType), _printer);
+
+                    if (auto asAlias = typeNakedAlias->asAlias())
+                    {
+                        if (auto arg = asAlias->getAliasedSymbol()->asType())
+                        {
+                            Types replicationTypes;
+                            auto  currTypeLvl = type;
+                            while (currTypeLvl)
+                            {
+                                if (arg == currTypeLvl)
+                                {
+                                    StringBuffer aliasedName;
+                                    asAlias->getRelativeName(currentScope, aliasedName);
+
+                                    size_t c = replicationTypes.size();
+                                    while (c--)
+                                    {
+                                        currTypeLvl = replicationTypes[c];
+                                        if (currTypeLvl->asConstType())
+                                        {
+                                            if (currTypeLvl->asVolatileType())
+                                            {
+                                                aliasedName += " const volatile";
+                                            }
+                                            else
+                                            {
+                                                aliasedName += " const";
+                                            }
+                                        }
+                                        else if (currTypeLvl->asVolatileType())
+                                        {
+                                            if (currTypeLvl->asConstType())
+                                            {
+                                                aliasedName += " const volatile";
+                                            }
+                                            else
+                                            {
+                                                aliasedName += " volatile";
+                                            }
+                                        }
+                                        else
+                                        {
+                                            switch (currTypeLvl->getTypeKind())
+                                            {
+                                            case TypeKind::Array:
+                                                aliasedName += '[';
+                                                aliasedName +=
+                                                lexical_cast<String>(static_cast<Array*>(currTypeLvl)->getItemCount());
+                                                aliasedName += ']';
+                                                break;
+                                            case TypeKind::Pointer:
+                                                aliasedName += '*';
+                                                break;
+                                            case TypeKind::LValueReference:
+                                                aliasedName += '&';
+                                                break;
+                                            case TypeKind::RValueReference:
+                                                aliasedName += "&&";
+                                                break;
+                                            default:
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    _printer(aliasedName);
+                                    return;
+                                }
+                                replicationTypes.push_back(currTypeLvl);
+                                currTypeLvl = currTypeLvl->getUnderlyingType();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (auto typeOwnr = typeNaked->getOwner())
+            if (auto pTpl = typeOwnr->asTemplateSpecialization())
+            {
+                TemplateSpecialization* replacingSpec = nullptr;
+                Template*               template_ = pTpl->getTemplate();
+                auto                    alias = getAlias(template_);
+                if (alias)
+                {
+                    if (auto aliasTpl = alias->asTemplate())
+                    {
+                        template_ = aliasTpl;
+
+                        for (auto aliasSpec : aliasTpl->getTemplateSpecializations())
+                        {
+                            if (aliasSpec->isFull())
+                            {
+                                if (auto tpled = aliasSpec->getTemplated())
+                                    if (auto tpledAsAlias = tpled->asAlias())
+                                    {
+                                        if (tpledAsAlias->getAliasedSymbol()->isSame(type))
+                                        {
+                                            replacingSpec = aliasSpec;
+                                            break;
+                                        }
+                                    }
+                            }
+                        }
+                    }
+                }
+
+                Symbol* nakedSym = alias;
+                if (!nakedSym)
+                    nakedSym = typeNaked;
+
+                StringBuffer original;
+                type->getRelativeDecoratedName(currentScope, original);
+
+                StringView suffix = original;
+                size_t     p = suffix.find_last_of('>');
+                suffix = suffix.substr(p + 1);
+
+                StringBuffer relName;
+                nakedSym->getRelativeName(currentScope, relName);
+                _printer(relName);
+                _printer("<");
+                if (replacingSpec)
+                    pTpl = replacingSpec;
+                size_t c = 0;
+                for (auto arg : pTpl->getArguments())
+                {
+                    if ((replacingSpec || !alias) && pTpl->getDefaultArgument(c))
+                        break;
+                    if (c)
+                        _printer(", ");
+                    if (auto argType = arg->asType())
+                    {
+                        PrintName(argType, _printer);
+                    }
+                    else
+                    {
+                        _printer(arg->getRelativeDecoratedName(currentScope));
+                    }
+                    ++c;
+                }
+                _printer("> ");
+                _printer(suffix);
+                return;
+            }
     }
     _printer(_symbol->getRelativeDecoratedName(currentScope));
 }
@@ -1206,7 +1332,9 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Alias* _in
     hpp("using ");
     if (_input->getAliasedSymbol()->asSubroutine() == nullptr)
         hpp(_input->getName())(" = ");
+    m_noAlias++;
     PrintName(_input->getAliasedSymbol());
+    m_noAlias--;
     hpp(";").Ln();
 }
 
@@ -1338,6 +1466,8 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Field* _fi
 
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintForward(Type* _type)
 {
+    if (auto alias = getAlias(_type))
+        return PrintHppInclude(alias);
     _type = _type->removeEverything();
     String  forward;
     Printer printForward(forward);
@@ -1397,6 +1527,17 @@ void CppLiteCompletionHeaderGenerator::PrintCppSymbols(Source* _input, StringVie
 
     // print all symbols
     SourcePrinter sprinter(_input, hppfile_printer, usingfile_printer, _enableModules);
+
+    for (auto& src_dst : aliases)
+    {
+        auto symSrc = phantom::lang::Application::Get()->findCppSymbol(src_dst.first);
+        auto symDst = phantom::lang::Application::Get()->findCppSymbol(src_dst.second);
+        if (symSrc && symDst)
+        {
+            sprinter.aliases[symSrc] = symDst;
+        }
+    }
+
     if (_enableModules)
         hppfile_printer("export module ")(_input->getUniqueName())(";").Ln().Ln();
 

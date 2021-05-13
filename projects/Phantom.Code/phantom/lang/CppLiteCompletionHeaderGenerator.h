@@ -78,6 +78,7 @@ public:
         Printer&               usingfile;
         bool                   enableModules;
         SmallMap<String, bool> includes;
+
         SourcePrinter(Source* _source, Printer& _hpp, Printer& _ufile, bool _enableModules);
 
         String ProtectQuote(StringView _str);
@@ -156,6 +157,18 @@ public:
         LanguageElement*             currentScope = Namespace::Global();
         SmallMap<String, Namespace*> forwards;
         String                       forwardContent;
+        SmallMap<Symbol*, Symbol*>   aliases;
+
+    private:
+        Symbol* getAlias(Symbol* _symbol)
+        {
+            auto found = aliases.find(_symbol);
+            if (found != aliases.end())
+                return found->second;
+            return nullptr;
+        }
+
+        int m_noAlias = 0;
 
     private:
         TemplateSpecialization* m_templatePlaceholderSpec{};
@@ -164,23 +177,14 @@ public:
     void PrintCppSymbols(Source* _input, StringView _dir, bool _enableModules);
 
     void PrintCppSymbols(Module* _input, StringView _dir, bool _enableModules);
-    //
-    // void AddProjectFiles(BuildSessionId a_Id, StringView _dir)
-    // {
-    // 	Vector<String> dirs;
-    // 	Directory::GetDirectories(dirs, _dir);
-    // 	for (auto& file : files)
-    // 	{
-    // 		String fullPath = Path::GetFullPath(_dir + '/' + file);
-    // 		Compiler::Get()->buildProject(a_Id, StringView(fullPath));
-    // 	}
-    // }
 
     void GenerateCppLiteNoExt(StringView _outDir, StringView _relDir, StringView _inputDir);
 
     void PrintModules(ArrayView<StringView> _workspaces, bool _enableModules = false);
 
     int main(int argc, char** argv);
+
+    SmallMap<String, String> aliases;
 };
 
 } // namespace lang
