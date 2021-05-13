@@ -34,14 +34,14 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::Expression>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
-            .constructor<void(Expression*, Expression*)>()["nullptr"]
+            .constructor<void(Expression*, Expression*)>()({"a_pInitializationExpression","a_pCountExpression"})["nullptr"]
             .method<void()>("initialize", &_::initialize)
             .method<::phantom::lang::NewExpression *() const, virtual_>("asNewExpression", &_::asNewExpression)
-            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)
-            .method<::phantom::lang::NewExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)
+            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)({"a_Context"})
+            .method<::phantom::lang::NewExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)({"a_pOwner"})
             .method<Expression*() const>("getInitializationExpression", &_::getInitializationExpression)
             .method<Expression*() const>("getCountExpression", &_::getCountExpression)
         

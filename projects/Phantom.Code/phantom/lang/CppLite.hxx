@@ -53,30 +53,30 @@ PHANTOM_PACKAGE("phantom.lang")
             .enum_<EFlag>().values({
                 {"e_Flag_CppCompatible",_::e_Flag_CppCompatible}})
             .end()
-            .method<bool(StringView) const, virtual_>("checkSymbolSyntax", &_::checkSymbolSyntax)
-            .method<bool(StringView) const>("isIdentifier", &_::isIdentifier)
-            .method<::phantom::lang::Symbol *(StringView, LanguageElement*, Modifiers, uint), virtual_|override_>("findSymbol", &_::findSymbol)["nullptr"]["0"]["0"]
-            .method<void(StringView, Symbols&, LanguageElement*), virtual_|override_>("findSymbols", &_::findSymbols)["nullptr"]
-            .method<::phantom::lang::Symbol *(StringView, LanguageElement*, Modifiers, uint), virtual_|override_>("parseSymbol", &_::parseSymbol)["nullptr"]["0"]["0"]
-            .method<::phantom::lang::Expression *(StringView, LanguageElement*), virtual_|override_>("expression", &_::expression)["nullptr"]
-            .method<Expression*(StringView, Message*, LanguageElement*)>("expression", &_::expression)["nullptr"]
-            .method<::phantom::lang::Expression *(StringView, LanguageElement*), virtual_|override_>("parseExpression", &_::parseExpression)["nullptr"]
-            .method<Expression*(StringView, Message*, LanguageElement*)>("parseExpression", &_::parseExpression)["nullptr"]
+            .method<bool(StringView) const, virtual_>("checkSymbolSyntax", &_::checkSymbolSyntax)({"a_strSymbol"})
+            .method<bool(StringView) const>("isIdentifier", &_::isIdentifier)({"a_strName"})
+            .method<::phantom::lang::Symbol *(StringView, LanguageElement*, Modifiers, uint), virtual_|override_>("findSymbol", &_::findSymbol)({"a_strSymbol","a_pContextScope","a_Modifiers","a_uiFlags"})["nullptr"]["0"]["0"]
+            .method<void(StringView, Symbols&, LanguageElement*), virtual_|override_>("findSymbols", &_::findSymbols)({"a_strSymbolsName","a_Symbols","a_pContextScope"})["nullptr"]
+            .method<::phantom::lang::Symbol *(StringView, LanguageElement*, Modifiers, uint), virtual_|override_>("parseSymbol", &_::parseSymbol)({"a_strSymbol","a_pContextScope","a_Modifiers","a_uiFlags"})["nullptr"]["0"]["0"]
+            .method<::phantom::lang::Expression *(StringView, LanguageElement*), virtual_|override_>("expression", &_::expression)({"a_strExpression","a_pContextScope"})["nullptr"]
+            .method<Expression*(StringView, Message*, LanguageElement*)>("expression", &_::expression)({"a_strExpression","a_pMessage","a_pContextScope"})["nullptr"]
+            .method<::phantom::lang::Expression *(StringView, LanguageElement*), virtual_|override_>("parseExpression", &_::parseExpression)({"a_strExpression","a_pContextScope"})["nullptr"]
+            .method<Expression*(StringView, Message*, LanguageElement*)>("parseExpression", &_::parseExpression)({"a_strExpression","a_pMessage","a_pContextScope"})["nullptr"]
             .method<Semantic*() const>("getDefaultSemantic", &_::getDefaultSemantic)
-            .method<Operator(StringView) const>("getBuiltInBinaryOperatorId", &_::getBuiltInBinaryOperatorId)
-            .method<Operator(StringView) const>("getBuiltInPreUnaryOperatorId", &_::getBuiltInPreUnaryOperatorId)
-            .method<Operator(StringView) const>("getBuiltInPostUnaryOperatorId", &_::getBuiltInPostUnaryOperatorId)
-            .method<BuiltInOperator*(StringView) const>("getBuiltInBinaryOperator", &_::getBuiltInBinaryOperator)
-            .method<BuiltInOperator*(StringView) const>("getBuiltInPreUnaryOperator", &_::getBuiltInPreUnaryOperator)
-            .method<BuiltInOperator*(StringView) const>("getBuiltInPostUnaryOperator", &_::getBuiltInPostUnaryOperator)
-            .method<BuiltInOperator*(Operator) const>("getBuiltInOperator", &_::getBuiltInOperator)
+            .method<Operator(StringView) const>("getBuiltInBinaryOperatorId", &_::getBuiltInBinaryOperatorId)({"a_strName"})
+            .method<Operator(StringView) const>("getBuiltInPreUnaryOperatorId", &_::getBuiltInPreUnaryOperatorId)({"a_strName"})
+            .method<Operator(StringView) const>("getBuiltInPostUnaryOperatorId", &_::getBuiltInPostUnaryOperatorId)({"a_strName"})
+            .method<BuiltInOperator*(StringView) const>("getBuiltInBinaryOperator", &_::getBuiltInBinaryOperator)({"a_strName"})
+            .method<BuiltInOperator*(StringView) const>("getBuiltInPreUnaryOperator", &_::getBuiltInPreUnaryOperator)({"a_strName"})
+            .method<BuiltInOperator*(StringView) const>("getBuiltInPostUnaryOperator", &_::getBuiltInPostUnaryOperator)({"a_strName"})
+            .method<BuiltInOperator*(Operator) const>("getBuiltInOperator", &_::getBuiltInOperator)({"a_Op"})
             .method<Source*() const>("getDefaultSource", &_::getDefaultSource)
         
         .protected_()
-            .method<Parser*(Source*, Message*) const, virtual_|override_>("createParser", &_::createParser)
-            .method<void(Parser*) const, virtual_|override_>("destroyParser", &_::destroyParser)
-            .method<Semantic*(Source*, Message*) const, virtual_|override_>("createSemantic", &_::createSemantic)
-            .method<void(Semantic*) const, virtual_|override_>("destroySemantic", &_::destroySemantic)
+            .method<Parser*(Source*, Message*) const, virtual_|override_>("createParser", &_::createParser)({"a_pSource","a_pMessage"})
+            .method<void(Parser*) const, virtual_|override_>("destroyParser", &_::destroyParser)({"a_pParser"})
+            .method<Semantic*(Source*, Message*) const, virtual_|override_>("createSemantic", &_::createSemantic)({"a_pSource","a_pMessage"})
+            .method<void(Semantic*) const, virtual_|override_>("destroySemantic", &_::destroySemantic)({"a_pSemantic"})
         
         .public_()
             .staticMethod<::phantom::lang::CppLite *()>("Get", &_::Get)

@@ -42,12 +42,12 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
         .public_()
             .constructor<void()>()
-            .constructor<void(TemplateSpecialization*)>()
-            .method<void(Placeholder*, LanguageElement*)>("insert", &_::insert)
-            .method<LanguageElement*(size_t) const>("getArgument", &_::getArgument)
+            .constructor<void(TemplateSpecialization*)>()({"a_pInstantiation"})
+            .method<void(Placeholder*, LanguageElement*)>("insert", &_::insert)({"a_pPlaceholder","a_pArgument"})
+            .method<LanguageElement*(size_t) const>("getArgument", &_::getArgument)({"i"})
             .method<LanguageElements const&() const>("getArguments", &_::getArguments)
-            .method<LanguageElement*(Placeholder*) const>("getArgument", &_::getArgument)
-            .method<void(TemplateSpecialization*)>("setInstantiation", &_::setInstantiation)
+            .method<LanguageElement*(Placeholder*) const>("getArgument", &_::getArgument)({"a_pPlaceholder"})
+            .method<void(TemplateSpecialization*)>("setInstantiation", &_::setInstantiation)({"a_pSpec"})
             .method<TemplateSpecialization*() const>("getInstantiation", &_::getInstantiation)
             .method<size_t() const>("size", &_::size)
             ;
@@ -55,8 +55,8 @@ PHANTOM_PACKAGE("phantom.lang")
         PHANTOM_REGISTER(Variables) { this_().variable("_canBe", &_canBe); }
         PHANTOM_REGISTER(Variables) { this_().variable("_or", &_or); }
         /// missing symbol(s) reflection (va_list) -> use the 'haunt.bind' to bind symbols with your custom haunt files
-        // PHANTOM_REGISTER(Functions) { this_().function<String(const char*, va_list)>("stringf", stringf);}
-        PHANTOM_REGISTER(Functions) { this_().function<StringView(Access)>("getAccessString", getAccessString);}
+        // PHANTOM_REGISTER(Functions) { this_().function<String(const char*, va_list)>("stringf", stringf)({"a_Format","args"});}
+        PHANTOM_REGISTER(Functions) { this_().function<StringView(Access)>("getAccessString", getAccessString)({"a_Access"});}
         PHANTOM_CLASS(SemanticPrivate)
         {
             this_()

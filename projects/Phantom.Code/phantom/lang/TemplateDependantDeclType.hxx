@@ -34,11 +34,11 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()(PHANTOM_R_FLAG_NO_COPY)
             .inherits<::phantom::lang::Type>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
-            .constructor<void(Expression*, Type*)>()["nullptr"]
-            .method<bool(Type*) const, virtual_>("isA", &_::isA)
+            .constructor<void(Expression*, Type*)>()({"m_pExpression","a_pAutoType"})["nullptr"]
+            .method<bool(Type*) const, virtual_>("isA", &_::isA)({""})
             .method<bool() const, virtual_>("isCopyable", &_::isCopyable)
             .method<Type*() const>("getAutoType", &_::getAutoType)
             .method<Expression*() const>("getExpression", &_::getExpression)

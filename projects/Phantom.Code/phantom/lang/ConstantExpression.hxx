@@ -36,22 +36,22 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::Expression>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
         
         .public_()
-            .constructor<void(Constant*)>()
+            .constructor<void(Constant*)>()({"a_pConstant"})
             .method<void()>("initialize", &_::initialize)
             .method<void(), virtual_|override_>("terminate", &_::terminate)
-            .method<void(void const*) const, virtual_>("setValue", &_::setValue)
-            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)
+            .method<void(void const*) const, virtual_>("setValue", &_::setValue)({"a_pSrc"})
+            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)({"a_Context"})
             .method<Constant*() const>("getConstant", &_::getConstant)
             .method<bool() const, virtual_>("hasStorage", &_::hasStorage)
-            .method<void*(ExecutionContext&) const, virtual_|override_>("evalStorage", &_::evalStorage)
+            .method<void*(ExecutionContext&) const, virtual_|override_>("evalStorage", &_::evalStorage)({"a_Context"})
             .method<::phantom::lang::LanguageElement *(), virtual_>("hatchExpression", &_::hatchExpression)
             .method<::phantom::lang::LanguageElement *() const, virtual_|override_>("removeExpression", &_::removeExpression)
-            .method<::phantom::lang::ConstantExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)
+            .method<::phantom::lang::ConstantExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)({"a_pOwner"})
             .method<bool() const, virtual_>("isPersistent", &_::isPersistent)
             .method<bool() const, virtual_|override_>("isCompileTime", &_::isCompileTime)
         
@@ -64,13 +64,13 @@ PHANTOM_PACKAGE("phantom.lang")
         PHANTOM_STRUCT_T((class), (T), ConstantExpressionH)
         {
             this_()
-            .PHANTOM_T staticMethod<::phantom::lang::ConstantExpression *(T)>("Create", &_::Create)
+            .PHANTOM_T staticMethod<::phantom::lang::ConstantExpression *(T)>("Create", &_::Create)({"val"})
             ;
         }
         PHANTOM_STRUCT_TS((class), (T), (T*), ConstantExpressionH)
         {
             this_()
-            .PHANTOM_T staticMethod<::phantom::lang::Expression *(T*)>("Create", &_::Create)
+            .PHANTOM_T staticMethod<::phantom::lang::Expression *(T*)>("Create", &_::Create)({"val"})
             ;
         }
     PHANTOM_END("ConstantExpression")

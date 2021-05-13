@@ -33,16 +33,16 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::ControlStatement>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
             .method<::phantom::lang::BranchStatement *() const, virtual_>("asBranchStatement", &_::asBranchStatement)
-            .constructor<void(Label*)>()
+            .constructor<void(Label*)>()({"a_pLabel"})
             .method<Label*() const>("getLabel", &_::getLabel)
         
         .protected_()
             .method<Statement*() const, virtual_|override_>("getTargetStatement", &_::getTargetStatement)
-            .method<void(Block*), virtual_|override_>("onAttachedToBlock", &_::onAttachedToBlock)
+            .method<void(Block*), virtual_|override_>("onAttachedToBlock", &_::onAttachedToBlock)({"a_pBlock"})
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE
