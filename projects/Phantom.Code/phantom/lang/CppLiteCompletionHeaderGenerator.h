@@ -139,6 +139,7 @@ public:
 
         void PrintNoRet(Subroutine* _input);
 
+        void PrintCppParameter(Parameter* _input, Printer& _printer);
         void PrintCppParameters(Subroutine* _input, Printer& _printer, size_t _firstIdx = 0, bool _append = false);
         void PrintCppSuffix(Subroutine* _input, Printer& _printer);
 

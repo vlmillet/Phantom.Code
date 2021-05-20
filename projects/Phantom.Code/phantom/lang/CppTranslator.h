@@ -307,6 +307,9 @@ protected:
     void _addInclude(SmallMap<String, Source*>& a_Includes, Source* a_pSource);
     void translateTyped(Type* a_pType, const String& a_Identifier);
 
+    Alias* _findAliasOf(Type* a_pType);
+    Alias* _findAliasOf(Module* a_pModule, Type* a_pType);
+
     inline void newLine() { *m_pTranslation += '\n'; }
     inline void indent()
     {
@@ -462,6 +465,7 @@ protected:
     int                                m_noAlias = 0;
     int                                m_ForceQualifiedName = 0;
     StringView                         m_NoKeywordChars = "$";
+    SmallMap<Type*, Alias*>            m_AliasCache;
 
     SmallVector<Operation> m_OperatorStack;
 

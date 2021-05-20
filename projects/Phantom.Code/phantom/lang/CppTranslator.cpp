@@ -3964,24 +3964,51 @@ void CppTranslator::translateTyped(Type* a_pInput, const String& a_Identifier)
     a_pInput->visit(this, data);
 }
 
+Alias* CppTranslator::_findAliasOf(Module* a_pModule, Type* a_pType)
+{
+    Sources sources;
+    a_pModule->getSources(sources);
+    for (auto source : sources)
+    {
+        for (auto al : source->getAliases())
+        {
+            if (al->getAliasedSymbol() == a_pType)
+            {
+                StringView alias = al->getName();
+                if (alias.size())
+                {
+                    return al;
+                }
+            }
+        }
+    }
+    for (auto dep : a_pModule->getDependencies())
+    {
+        if (auto al = _findAliasOf(dep, a_pType))
+            return al;
+    }
+    return nullptr;
+}
+
+phantom::lang::Alias* CppTranslator::_findAliasOf(Type* a_pType)
+{
+    auto found = m_AliasCache.find(a_pType);
+    if (found == m_AliasCache.end())
+    {
+        return m_AliasCache[a_pType] = _findAliasOf(m_pSource->getModule(), a_pType);
+    }
+    return found->second;
+}
+
 void CppTranslator::translateTypeName(Type* a_pType)
 {
     if (!m_noAlias)
     {
-        Scope* pScope = getContextScope()->asScope();
-        if (pScope)
+        if (a_pType->getTemplateSpecialization())
         {
-            for (auto p : pScope->getAliases())
+            if (auto alias = _findAliasOf(a_pType))
             {
-                if (p->getAliasedSymbol() == a_pType)
-                {
-                    const String& alias = p->getName();
-                    if (alias.size())
-                    {
-                        append(alias);
-                        return;
-                    }
-                }
+                return translate(alias, TranslationType::Name);
             }
         }
     }
@@ -4006,6 +4033,14 @@ void CppTranslator::addInclude(SmallMap<String, Source*>& a_Includes, Symbol* a_
     }
     else if (auto pSpec = a_pSymbol->getTemplateSpecialization())
     {
+        if (auto type = a_pSymbol->asType())
+        {
+            if (auto alias = _findAliasOf(type))
+            {
+                return addInclude(a_Includes, alias);
+            }
+        }
+
         if (!pSpec->isNative() && pSpec->getTemplate()->isNative()) // extended
         {
             _addInclude(a_Includes, pSpec->getTemplate()->getSource());
@@ -4058,12 +4093,26 @@ void CppTranslator::addInclude(Symbol* a_pSymbol)
 
 void CppTranslator::addForwardH(Type* a_pType)
 {
+    if (a_pType->getTemplateSpecialization())
+    {
+        if (auto alias = _findAliasOf(a_pType))
+        {
+            return addInclude(m_IncludesH, alias);
+        }
+    }
     PHANTOM_ASSERT(a_pType->asEnum() == nullptr);
     m_ForwardsH[a_pType->getQualifiedName()] = a_pType;
 }
 
 void CppTranslator::addForwardCPP(Type* a_pType)
 {
+    if (a_pType->getTemplateSpecialization())
+    {
+        if (auto alias = _findAliasOf(a_pType))
+        {
+            return addInclude(m_IncludesCPP, alias);
+        }
+    }
     PHANTOM_ASSERT(a_pType->asEnum() == nullptr);
     m_ForwardsCPP[a_pType->getQualifiedName()] = a_pType;
 }

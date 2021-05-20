@@ -109,6 +109,7 @@ PHANTOM_PACKAGE("phantom.lang")
                 .method<void(Type*)>("PrintForward", &_::SourcePrinter::PrintForward)({"_type"})
                 .method<void(Constructor*)>("PrintCppSymbols", &_::SourcePrinter::PrintCppSymbols)({"_input"})
                 .method<void(Subroutine*)>("PrintNoRet", &_::SourcePrinter::PrintNoRet)({"_input"})
+                .method<void(Parameter*, Printer&)>("PrintCppParameter", &_::SourcePrinter::PrintCppParameter)({"_input","_printer"})
                 .method<void(Subroutine*, Printer&, size_t, bool)>("PrintCppParameters", &_::SourcePrinter::PrintCppParameters)({"_input","_printer","_firstIdx","_append"})["0"]["false"]
                 .method<void(Subroutine*, Printer&)>("PrintCppSuffix", &_::SourcePrinter::PrintCppSuffix)({"_input","_printer"})
                 .method<bool(Subroutine*, Printer&)>("PrintGeneric", &_::SourcePrinter::PrintGeneric)({"_input","_printer"})

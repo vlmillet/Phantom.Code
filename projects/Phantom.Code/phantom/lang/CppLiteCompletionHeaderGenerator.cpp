@@ -182,6 +182,40 @@ CppLiteCompletionHeaderGenerator::Printer& CppLiteCompletionHeaderGenerator::Pri
     return *this;
 }
 
+void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppParameter(Parameter* _input, Printer& _printer)
+{
+    if (&_printer == &hpp)
+        if (_input->getValueType()->asClassType() || _input->getValueType()->asEnum())
+            PrintHppInclude(_input->getValueType());
+        else
+            PrintForward(_input->getValueType());
+    String name = StringView(_input->getName());
+    if (name.empty())
+        name = _input->getNativeName();
+    if (name.empty())
+        PrintName(_input->getValueType(), _printer);
+    else
+        PrintVarName(_input->getValueType(), name, _printer);
+    if (_input->getNativeDefaultArgumentString().size())
+    {
+        if (_input->getEnclosingTemplateSpecialization())
+        {
+            // FIXME : do real expression translation here when implemented, for now it's just a placeholder
+            // for parsing correctly
+            auto pNoRefType = _input->getValueType()->removeReference()->removeQualifiers();
+            if (pNoRefType->asPointer() || pNoRefType->asArray())
+                _printer(" = nullptr");
+            else
+                _printer(" = ")(pNoRefType->getQualifiedDecoratedName())("{}");
+        }
+        else
+        {
+            PrintHppInclude(_input->getValueType()->removeConstReference());
+            _printer(" = ")(_input->getNativeDefaultArgumentString());
+        }
+    }
+}
+
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppParameters(Subroutine* _input, Printer& _printer,
                                                                          size_t _firstIdx /*= 0*/,
                                                                          bool   _append /*= false*/)
@@ -192,31 +226,7 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppParameters(Subrout
         Parameter* param = _input->getParameters()[i];
         if (c++)
             _printer(", ");
-        if (&_printer == &hpp)
-            PrintForward(param->getValueType());
-        String name = StringView(param->getName());
-        if (name.empty())
-            name = param->getNativeName();
-        if (name.empty())
-            name = String("_") + std::to_string(i - _firstIdx).c_str();
-        PrintVarName(param->getValueType(), name, _printer);
-        if (param->getNativeDefaultArgumentString().size())
-        {
-            if (_input->getEnclosingTemplateSpecialization())
-            {
-                // FIXME : do real expression translation here when implemented, for now it's just a placeholder
-                // for parsing correctly
-                auto pNoRefType = param->getValueType()->removeReference()->removeQualifiers();
-                if (pNoRefType->asPointer() || pNoRefType->asArray())
-                    _printer(" = nullptr");
-                else
-                    _printer(" = ")(pNoRefType->getQualifiedDecoratedName())("{}");
-            }
-            else
-            {
-                _printer(" = ")(param->getNativeDefaultArgumentString());
-            }
-        }
+        PrintCppParameter(param, _printer);
     }
 }
 
@@ -234,11 +244,26 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSuffix(Subroutine*
 
 bool CppLiteCompletionHeaderGenerator::SourcePrinter::PrintGeneric(Subroutine* _input, Printer& _printer)
 {
+    enum class ParamType : int
+    {
+        Normal,
+        Param,
+        Arg
+    };
+    struct Param
+    {
+        Parameter* param{};
+        ParamType  type = ParamType::Normal;
+    };
+
+    SmallVector<Param> params;
+
     bool                gen = false;
-    size_t              genParamCount = 0;
     SmallVector<size_t> args;
     size_t              retTypeIdx = -1;
     Type*               retType = _input->getReturnType();
+
+    int genParamIndex = 0;
     // handle special Generic cases
     if (retType->getName() == "Return" && retType->getQualifiedName() == "phantom::Generic::Return")
     {
@@ -247,63 +272,92 @@ bool CppLiteCompletionHeaderGenerator::SourcePrinter::PrintGeneric(Subroutine* _
         auto paramParamSpec = paramParam->getTemplateSpecialization();
         auto paramParamSpecCst = paramParamSpec->getArgument(0)->asConstant();
         paramParamSpecCst->getValue(&retTypeIdx);
-    }
-    for (; genParamCount < _input->getParameters().size(); ++genParamCount)
-    {
-        if (_input->getParameterType(genParamCount)->getName() != "Param" ||
-            _input->getParameterType(genParamCount)->getQualifiedName() != "phantom::Generic::Param")
-        {
-            break;
-        }
-    }
-    for (; genParamCount < _input->getParameters().size(); ++genParamCount)
-    {
-        if (_input->getParameterType(genParamCount)->getName() != "Arg" ||
-            _input->getParameterType(genParamCount)->getQualifiedName() != "phantom::Generic::Arg")
-        {
-            break;
-        }
-        size_t arg = -1;
-        auto   spec = _input->getParameterType(genParamCount)->getTemplateSpecialization();
-        auto   paramParam = spec->getArgument(0)->asType()->removeEverything();
-        auto   paramParamSpec = paramParam->getTemplateSpecialization();
-        auto   paramParamSpecCst = paramParamSpec->getArgument(0)->asConstant();
-        paramParamSpecCst->getValue(&arg);
-        args.push_back(arg);
+        gen = true;
     }
 
-    if (genParamCount != 0)
+    for (auto param : _input->getParameters())
     {
-        _printer("template<");
-        for (size_t i = 0; i < genParamCount - args.size(); ++i)
+        Type* type = param->getValueType();
+        if (type->getName() == "Param" && type->getQualifiedName() == "phantom::Generic::Param")
         {
-            if (i)
-                _printer(", ");
-            _printer("class T")(i);
+            params.push_back({param, ParamType::Param});
+            gen = true;
         }
-        _printer(">").Ln();
-        if (_input->asFunction() && _input->getOwner()->asClassType())
-            _printer("static ");
-        if (retTypeIdx == -1)
-            PrintName(_input->getReturnType(), _printer);
+        else if (type->getName() == "Arg" && type->getQualifiedName() == "phantom::Generic::Arg")
+        {
+            params.push_back({param, ParamType::Arg});
+            gen = true;
+        }
         else
-            _printer("T")(retTypeIdx)("*");
-        _printer(" ");
-        _printer(_input->getName())("(");
-        int c = 0;
-        for (auto arg : args)
         {
-            if (c++)
-                _printer(", ");
-            _printer("T")(arg)("*");
+            params.push_back({param, ParamType::Normal});
         }
-        PrintCppParameters(_input, _printer, genParamCount, c != 0);
-        _printer(")");
-        PrintCppSuffix(_input, _printer);
-        _printer(";").Ln();
-        return true;
     }
-    return false;
+
+    if (!gen)
+        return false;
+
+    _printer("template<");
+    int  genParamCnt = 0;
+    bool paramsReadStep = 0;
+    for (auto& p : params)
+    {
+        if (p.type == ParamType::Param)
+        {
+            if (paramsReadStep == 2)
+            {
+                PHANTOM_LOG(Error,
+                            "invalid generic method or function found while generating completion headers : %.*s",
+                            PHANTOM_STRING_AS_PRINTF_ARG(_input->getQualifiedDecoratedName()));
+            }
+            if (genParamCnt)
+                _printer(", ");
+            _printer("class T")(genParamCnt);
+            ++genParamCnt;
+            paramsReadStep = 1;
+        }
+        else if (paramsReadStep == 1)
+        {
+            paramsReadStep = 2;
+        }
+    }
+    _printer(">").Ln();
+    if (_input->asFunction() && _input->getOwner()->asClassType())
+        _printer("static ");
+    if (retTypeIdx == -1)
+        PrintName(_input->getReturnType(), _printer);
+    else
+        _printer("T")(retTypeIdx)("*");
+    _printer(" ");
+    _printer(_input->getName())("(");
+
+    size_t c = 0;
+    for (size_t i = genParamCnt; i < params.size(); ++i)
+    {
+        if (c++)
+            _printer(", ");
+        if (params[i].type == ParamType::Arg)
+        {
+            size_t arg = -1;
+            auto   spec = params[i].param->getValueType()->getTemplateSpecialization();
+            auto   paramParam = spec->getArgument(0)->asType()->removeEverything();
+            auto   paramParamSpec = paramParam->getTemplateSpecialization();
+            auto   paramParamSpecCst = paramParamSpec->getArgument(0)->asConstant();
+            paramParamSpecCst->getValue(&arg);
+            StringView name = params[i].param->getName();
+            if (name.empty())
+                name = params[i].param->getNativeName();
+            _printer("T")(arg)("*")(" ")(name);
+        }
+        else
+        {
+            PrintCppParameter(params[i].param, _printer);
+        }
+    }
+    _printer(")");
+    PrintCppSuffix(_input, _printer);
+    _printer(";").Ln();
+    return true;
 }
 
 String CppLiteCompletionHeaderGenerator::SourcePrinter::GetHppIncludePath(Source* _source)
@@ -319,7 +373,8 @@ String CppLiteCompletionHeaderGenerator::SourcePrinter::GetHppIncludePath(Source
 
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintHppInclude(Source* _source)
 {
-    if (source == _source || _source->getName() == "default" || _source->getName().empty())
+    if (_source->getOwner() == nullptr || source == _source || _source->getName() == "default" ||
+        _source->getName().empty())
         return;
 
     includes[GetHppIncludePath(_source)];
@@ -328,7 +383,7 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintHppInclude(Source* _s
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintHppInclude(Symbol* _input)
 {
     if (auto alias = getAlias(_input))
-        return PrintHppInclude(alias);
+        PrintHppInclude(alias);
 
     Source* includeSource{};
     if (PHANTOM_CLASSOF(TemplateDependantTemplateInstance) == _input->getMetaClass())
@@ -1094,25 +1149,6 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Scope* _in
         return c0->getInheritanceLevel(0) < c1->getInheritanceLevel(0);
     });
 
-    for (auto fullSpec : fullSpecs)
-    {
-        if (fullSpec->getAccess() == _access)
-        {
-            if (_access == Access::Undefined)
-            {
-                SetCurrentNamespace(fullSpec->getTemplate()->getNamespace());
-                if (enableModules)
-                    hpp("export ");
-                PrintCppSymbols(fullSpec);
-                PrintUsing(fullSpec);
-            }
-            else
-            {
-                PrintCppSymbols(fullSpec);
-            }
-        }
-    }
-
     // types except enums
     for (auto elem : _input->getTypes())
     {
@@ -1134,6 +1170,26 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Scope* _in
             }
         }
     }
+
+    for (auto fullSpec : fullSpecs)
+    {
+        if (fullSpec->getAccess() == _access)
+        {
+            if (_access == Access::Undefined)
+            {
+                SetCurrentNamespace(fullSpec->getTemplate()->getNamespace());
+                if (enableModules)
+                    hpp("export ");
+                PrintCppSymbols(fullSpec);
+                PrintUsing(fullSpec);
+            }
+            else
+            {
+                PrintCppSymbols(fullSpec);
+            }
+        }
+    }
+
     for (auto elem : _input->getFunctions())
     {
         if (elem->getAccess() == _access)
@@ -1269,6 +1325,13 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(TemplateSi
             _printer(" ");
         }
         _printer(param->getPlaceholder()->asSymbol()->getName());
+        if (auto defaultArg = param->getDefaultArgument())
+        {
+            _printer(" = ");
+            PrintName(defaultArg);
+            if (auto defaultArgAsType = defaultArg->asType())
+                PrintHppInclude(defaultArgAsType);
+        }
     }
     _printer(">");
 }
@@ -1497,6 +1560,14 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintForward(Type* _type)
         printForward("enum ")(_type->getName())(";");
         forwards[forward] = _type->getNamespace();
     }
+    else if (auto ft = _type->asFunctionType())
+    {
+        PrintForward(ft->getReturnType());
+        for (auto t : ft->getParameterTypes())
+        {
+            PrintForward(t);
+        }
+    }
 }
 
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintNoRet(Subroutine* _input)
@@ -1688,6 +1759,7 @@ void CppLiteCompletionHeaderGenerator::PrintModules(ArrayView<StringView> _works
                 }
             }
         }
+        allH << "using size_t = unsigned long long;" << std::endl;
         allH << "#define assert(...)" << std::endl;
         allH << "#define typeof(...) static_cast<phantom::lang::Type*>(nullptr)" << std::endl;
         allH << "#define classof(...) static_cast<phantom::lang::Class*>(nullptr)" << std::endl;
