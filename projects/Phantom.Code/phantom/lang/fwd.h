@@ -60,6 +60,7 @@ class LoadExpression;
 class ReturnStatement;
 class CallExpression;
 class BuiltInConversionExpression;
+class CommaExpression;
 class ConstantExpression;
 class BinaryOperationExpression;
 class UnaryPreOperationExpression;

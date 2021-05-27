@@ -17,10 +17,15 @@ namespace lang
 {
 class PHANTOM_EXPORT_PHANTOM_CODE CommaExpression : public Expression
 {
+    PHANTOM_DECLARE_LANGUAGE_ELEMENT_VISIT_EX;
+
 public:
     CommaExpression(Expression* a_pLeftExpression, Expression* a_pRightExpression);
 
     void initialize();
+
+    Expression* getLeftExpression() const { return m_pLeftExpression; }
+    Expression* getRightExpression() const { return m_pRightExpression; }
 
     virtual void eval(ExecutionContext& a_Context) const;
 
@@ -29,8 +34,8 @@ public:
     virtual CommaExpression* cloneImpl(LanguageElement* a_pOwner) const override;
 
 protected:
-    Expression* m_pLeftExpression;
-    Expression* m_pRightExpression;
+    Expression* m_pLeftExpression = nullptr;
+    Expression* m_pRightExpression = nullptr;
 };
 
 } // namespace lang

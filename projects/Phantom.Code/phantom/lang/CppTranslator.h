@@ -175,6 +175,7 @@ public:
     virtual void visit(ClassListInitializationExpression* a_pInput, VisitorData a_Data);
     virtual void visit(ClassTypeListInitializationExpression* a_pInput, VisitorData a_Data);
     virtual void visit(ClassType* a_pInput, VisitorData a_Data);
+    virtual void visit(CommaExpression* a_pInput, VisitorData a_Data);
     virtual void visit(ConditionalExpression* a_pInput, VisitorData a_Data);
     virtual void visit(Constant* a_pInput, VisitorData a_Data);
     virtual void visit(ConstantExpression* a_pInput, VisitorData a_Data);

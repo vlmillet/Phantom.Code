@@ -13,6 +13,7 @@
 #include "BaseConstructorCallStatement.h"
 #include "ClassListInitializationExpression.h"
 #include "ClassTypeListInitializationExpression.h"
+#include "CommaExpression.h"
 #include "ConditionalExpression.h"
 #include "CppLite.h"
 #include "Expression.h"
@@ -2100,6 +2101,15 @@ void CppTranslator::visit(ClassType* a_pInput, VisitorData a_Data)
     }
     else
         visit(static_cast<Type*>(a_pInput), a_Data);
+}
+void CppTranslator::visit(CommaExpression* a_pInput, VisitorData a_Data)
+{
+    bool paren = requiresParenthesis(Operator::Comma); // we don't have ternary yet but assignment has same precedence
+    beginParen(paren);
+    a_pInput->getLeftExpression()->visit(this, a_Data);
+    append(", ");
+    a_pInput->getRightExpression()->visit(this, a_Data);
+    endParen(paren);
 }
 void CppTranslator::visit(ConditionalExpression* a_pInput, VisitorData a_Data)
 {

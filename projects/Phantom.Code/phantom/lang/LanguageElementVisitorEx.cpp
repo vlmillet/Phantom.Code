@@ -20,6 +20,7 @@
 #include "CallExpression.h"
 #include "ClassListInitializationExpression.h"
 #include "ClassTypeListInitializationExpression.h"
+#include "CommaExpression.h"
 #include "ConditionalExpression.h"
 #include "ConstantExpression.h"
 #include "ConstructorCallExpression.h"
@@ -120,6 +121,10 @@ void LanguageElementVisitorEx::visit(ClassListInitializationExpression* a_pInput
     return visit(static_cast<Expression*>(a_pInput), a_Data);
 }
 void LanguageElementVisitorEx::visit(ClassTypeListInitializationExpression* a_pInput, VisitorData a_Data)
+{
+    return visit(static_cast<Expression*>(a_pInput), a_Data);
+}
+void LanguageElementVisitorEx::visit(CommaExpression* a_pInput, VisitorData a_Data)
 {
     return visit(static_cast<Expression*>(a_pInput), a_Data);
 }
