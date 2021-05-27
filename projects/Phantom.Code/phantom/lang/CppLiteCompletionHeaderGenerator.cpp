@@ -191,8 +191,6 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppParameter(Paramete
             PrintForward(_input->getValueType());
     String name = StringView(_input->getName());
     if (name.empty())
-        name = _input->getNativeName();
-    if (name.empty())
         PrintName(_input->getValueType(), _printer);
     else
         PrintVarName(_input->getValueType(), name, _printer);
@@ -345,8 +343,6 @@ bool CppLiteCompletionHeaderGenerator::SourcePrinter::PrintGeneric(Subroutine* _
             auto   paramParamSpecCst = paramParamSpec->getArgument(0)->asConstant();
             paramParamSpecCst->getValue(&arg);
             StringView name = params[i].param->getName();
-            if (name.empty())
-                name = params[i].param->getNativeName();
             _printer("T")(arg)("*")(" ")(name);
         }
         else
