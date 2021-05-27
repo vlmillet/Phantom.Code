@@ -120,14 +120,6 @@ void CppLite::_installFundamentalBuiltInOperators(bool a_bAdd)
         Type* T = *it;
         Type* Tr = T->makeLValueReference();
         Type* VTr = T->makeVolatile()->makeLValueReference();
-        _builtInOperator(Operator::PreIncrement)
-        ->editOverload(a_bAdd, Tr, Tr, selector.delegate(Operator::PreIncrement, T));
-        _builtInOperator(Operator::PreIncrement)
-        ->editOverload(a_bAdd, VTr, VTr, selector.delegate(Operator::PreIncrement, T));
-        _builtInOperator(Operator::PostIncrement)
-        ->editOverload(a_bAdd, T, Tr, pIntType, selector.delegate(Operator::PostIncrement, T));
-        _builtInOperator(Operator::PostIncrement)
-        ->editOverload(a_bAdd, T, VTr, pIntType, selector.delegate(Operator::PostIncrement, T));
 
         if (*it != pBoolType)
         {
@@ -135,6 +127,14 @@ void CppLite::_installFundamentalBuiltInOperators(bool a_bAdd)
             /// ------------------------
             /// VQ T & operator--(VQ T &);
             /// T operator--(VQ T &, int);
+            _builtInOperator(Operator::PreIncrement)
+            ->editOverload(a_bAdd, Tr, Tr, selector.delegate(Operator::PreIncrement, T));
+            _builtInOperator(Operator::PreIncrement)
+            ->editOverload(a_bAdd, VTr, VTr, selector.delegate(Operator::PreIncrement, T));
+            _builtInOperator(Operator::PostIncrement)
+            ->editOverload(a_bAdd, T, Tr, pIntType, selector.delegate(Operator::PostIncrement, T));
+            _builtInOperator(Operator::PostIncrement)
+            ->editOverload(a_bAdd, T, VTr, pIntType, selector.delegate(Operator::PostIncrement, T));
             _builtInOperator(Operator::PreDecrement)
             ->editOverload(a_bAdd, Tr, Tr, selector.delegate(Operator::PreDecrement, T));
             _builtInOperator(Operator::PreDecrement)
