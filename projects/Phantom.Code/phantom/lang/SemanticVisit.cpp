@@ -4269,6 +4269,11 @@ void Semantic::visit(InitializerListExpression* a_pInput, VisitorData a_Data)
         if (pTemplateSpecialization &&
             pTemplateSpecialization->getTemplate()->getQualifiedName() == "std::initializer_list")
         {
+            if (in_pOutput->isSame(a_pInput->getValueType()))
+            {
+                out_pResult = a_pInput;
+                return;
+            }
             Conversion* conv = newConversion(a_pInput->getValueType(), in_pOutput, in_ConversionType,
                                              in_UserDefinedConversionsAllowed, in_pContextScope);
             if (conv)
