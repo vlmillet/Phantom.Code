@@ -1,0 +1,1929 @@
+#+#include <phantom/plugin.h>
+
+@skip "\\/\\/.*?[\\r?\\n\\0]" 
+@skip "\\/\\*.*?\\*\\/" 
+@skip "[\\t\\n\\r\\0 ]"
+
+SCOPE "::" -> string
+BLOCK_START '{'
+BLOCK_END '}'
+PAREN_START '(' -> string
+PAREN_END ')'
+BRACKET_START '['
+BRACKET_END ']'
+CLASS "class" ->string
+UNION "union"
+STRUCT "struct" ->string
+ENUM "enum"
+TEMPLATE "template"
+TYPENAME "typename" -> string
+THIS "this" -> string
+NULLPTR "nullptr"
+OPERATOR "operator"
+OVERRIDE "override" -> string
+BREAK "break" -> string
+CONTINUE "continue" -> string
+SEMI_COLON ';'
+COLON ':'
+COMMA ','
+ASS_ADD "\\+=" -> string
+ASS_AND "&=" -> string
+ASS_DIV "\\/=" -> string
+ASS_MOD "%=" -> string
+ASS_MUL "\\*=" -> string
+ASS_OR "\\|=" -> string
+ASS_SHL "<<=" -> string
+ASS_SUB "\\-=" -> string
+ASS_XOR "\\^=" -> string
+LE "<=" -> string
+GE ">=" -> string
+ARROW "->" -> string
+LT '<' -> string
+GT '>' -> string
+EQ "==" -> string
+NE "!=" -> string
+NOT '!' -> string
+QUESTION '?'
+MUL '*' -> string
+DIV '/' -> string
+INC "\\+\\+" -> string
+DEC "\\-\\-" -> string
+PLUS '+' -> string
+MINUS '-' -> string
+COMPL '~' -> string
+DOT '.' -> string
+ATAT "@@" -> string
+LOG_AND "&&" -> string
+BIN_AND '&' -> string
+LOG_OR "\\|\\|" -> string
+BIN_OR '|' -> string
+XOR '^' -> string
+MOD '%' -> string
+SHL "<<" -> string
+// no SHR for ambiguity with templates
+PUBLIC "public" -> string
+PROTECTED "protected" -> string
+PRIVATE "private" -> string
+ASSIGN '=' -> string
+ELLIPSE "\\.\\.\\." -> string
+AUTO "auto" -> string
+UNSIGNED "unsigned"->string
+SIGNED "signed"->string
+LONG "long"->string
+BOOL "bool"->string
+CHAR "\bchar\b"->string
+SHORT "short"->string
+INT "int"->string
+FLOATING_POINT_TYPE "float|double" -> string "floating point type"
+VOID "void" -> string
+CASE "case"
+FOR "for"
+WHILE "while"
+SWITCH "switch"
+DEFAULT "default" -> string
+DO "do"
+IF "if"
+ELSE "else"
+RETURN "return"
+GOTO "goto"
+NEW "new"
+DELETE "delete" -> string
+EXPLICIT "explicit"
+TYPEDEF "typedef"
+USING "using"
+REINTERPRET_CAST "reinterpret_cast" -> string
+STATIC_CAST "static_cast" -> string
+CONST_CAST "const_cast" -> string
+SIZEOF "sizeof" -> string
+ALIGNOF "alignof" -> string
+ALIGNAS "alignas"
+FRIEND "friend"
+
+// PHANTOM RELATED ---------------------
+
+TYPEOF "typeof" -> string
+CLASSOF "classof" -> string
+ENUMOF "enumof" -> string
+UNIONOF "unionof" -> string
+IMPORT "import"
+INCLUDE "#include"
+MODULE "@module"
+
+// serialization
+
+// function ptr 
+FUNCTION "@function"
+FUNCTION_PTR "@function_ptr"
+DELEGATE "@delegate"
+
+// contract programming
+ASSERT "assert"
+STATIC_ASSERT "static_assert"
+
+// traits 
+IS_SAME "@is_same" -> string
+
+// END ---------------------------------
+
+CONST "const" -> string
+VOLATILE "volatile" -> string
+DECLTYPE "decltype"
+FINAL "final" -> string
+VIRTUAL "virtual" -> string
+STATIC "static" -> string
+HEX_VALUE "0[xX][0-9a-fA-F]+([uU]?[Ll][Ll]?)?" -> ulonglong "hexadecimal value"
+FLOAT_VALUE "(([0-9]+\\.[0-9]*([eE][-+]?[0-9]+)?)|(\\.[0-9]+([eE][-+]?[0-9]+)?))f" -> float "float value"
+DOUBLE_VALUE "(([0-9]+\\.[0-9]*([eE][-+]?[0-9]+)?)|(\\.[0-9]+([eE][-+]?[0-9]+)?))" -> double "double value"
+ULONGLONG_VALUE "[0-9]+[uU][Ll][Ll]" -> ulonglong "unsigned long long value"
+ULONG_VALUE "[0-9]+[uU][Ll]" -> ulong "unsigned long value"
+UINT_VALUE "[0-9]+[uU]" -> uint "unsigned int value"
+LONGLONG_VALUE "[0-9]+[Ll][Ll]" -> longlong "long long value"
+LONG_VALUE "[0-9]+[Ll]" -> long "long value"
+INT_VALUE "[0-9]+" -> int "int value"
+BOOL_VALUE "true|false" -> bool "boolean value"
+{SCHAR} "\\\\(x[0-9a-fA-F][0-9a-fA-F])|(u[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])|(\\\\[\\\"'0tbrnafv\\\\])|[^\"\\\\'\\r\\n]" 
+STRING_LIT "\\\"('|{SCHAR})*?\\\"" -> string "double quoted string"
+CHAR_LIT "'(\\\"|{SCHAR})'" -> string "quoted character"
+RESERVED_PHANTOM_KEYWORD "_PHNTM_[a-zA-Z_][a-zA-Z0-9_]*" -> string "reserved phantom keyword"
+IDENTIFIER "[a-zA-Z_][a-zA-Z0-9_]*" -> string "identifier"
+
+@entrypoint Source
+{
+	@opt @list ModuleDeclaration
+	@opt @list ImportDeclaration
+	@opt @list SourceDeclaration
+}
+
+ModuleDeclaration
+{
+	MODULE @list IDENTIFIER % DOT "m_Names" SEMI_COLON
+}
+
+ImportDeclaration
+{
+    @lookahead IMPORT
+    {
+	    IMPORT @opt STATIC @opt PUBLIC @list Import % COMMA SEMI_COLON
+    }
+    @finally 
+    {
+        INCLUDE 
+        @lookahead LT 
+        {
+            LT @list IDENTIFIER % DOT "m_Names" GT
+        }
+        @finally 
+        {
+            STRING_LIT
+        }
+    }
+}
+
+Import
+{
+	ImportBase 
+	@opt COLON 
+	{
+		@list ImportBinding % COMMA
+	}
+}
+
+ImportBinding
+{
+	IDENTIFIER 
+	@opt ASSIGN 
+	{ 
+		IDENTIFIER 
+	}
+}
+
+ImportBase 
+{
+	@lookahead IDENTIFIER ASSIGN
+	{
+		IDENTIFIER "m_Alias"
+		ASSIGN
+		@list IDENTIFIER % DOT "m_Names"
+	}
+	@finally
+	{
+		@list IDENTIFIER % DOT "m_Names"
+	}
+}
+
+Meta
+{
+	@list MetaDecl
+}
+
+MetaDecl 
+{
+	BRACKET_START
+	STRING_LIT "m_Key"
+    @opt ASSIGN
+    {
+        AssignExpression "m_Value"
+    }
+	BRACKET_END 
+}
+
+Annotation
+{
+	BRACKET_START
+	BRACKET_START
+    IDENTIFIER
+	BRACKET_END 
+	BRACKET_END 
+}
+
+MetaOrAnnotation
+{
+	@try Meta
+    @finally
+    {
+        Annotation
+    }
+}
+
+SourceDeclaration
+{
+	@opt @list MetaOrAnnotation
+	Declaration
+}
+
+Declaration
+{
+	@switch 
+	{
+		CLASS|STRUCT
+		{
+			Class
+		}		
+		ENUM
+		{
+			Enum
+		}	
+		USING
+		{
+			@try Alias
+			@finally 
+			{
+				Using
+			}
+		}
+		TYPEDEF 
+		{
+			Typedef
+		}
+		TEMPLATE
+		{
+			Template
+		}
+		ATAT 
+		{
+			MixinStatementDefinition
+		}
+		STATIC_ASSERT
+		{
+			StaticAssert
+		}
+		SEMI_COLON 
+		{
+			SEMI_COLON
+		}
+		@default 
+		{
+			FunctionOrVariable
+		}
+	}
+}
+
+MixinStatementDefinition
+{
+	ATAT IDENTIFIER PAREN_START @opt @list IDENTIFIER % COMMA PAREN_END 
+	BLOCK_START
+	@opt @list Statement
+	BLOCK_END
+}
+
+BlockDeclaration : Statement
+{
+	@switch 
+	{
+		CLASS|STRUCT
+		{
+			Class
+		}	
+		ENUM
+		{
+			Enum
+		}	
+		TYPEDEF
+		{
+			Typedef
+		}	
+		USING
+		{
+			Using
+		}	
+		STATIC_ASSERT
+		{
+			StaticAssert
+		}
+		@default 
+		{
+			Alias
+		}
+	}
+}
+
+ConversionFunction
+{
+	OPERATOR 
+	Type
+	PAREN_START
+	PAREN_END
+	@opt @list CONST|VOLATILE|LOG_AND|BIN_AND
+	FunctionBlock
+}
+
+Constructor
+{
+	@opt EXPLICIT
+	IDENTIFIER 
+	@opt TemplateArgumentList
+	PAREN_START @opt @list Parameter % COMMA PAREN_END 
+	@lookahead ASSIGN
+	{
+		ASSIGN ""
+		DELETE|DEFAULT "m_Suffix" 
+		SEMI_COLON
+	}
+	@finally
+	{
+		@opt COLON
+		{
+			@list ConstructorInitializer % COMMA
+		}	
+		FunctionBlock
+	}
+}
+
+Destructor
+{
+	COMPL IDENTIFIER PAREN_START PAREN_END
+	@opt @list OVERRIDE|FINAL
+	FunctionBlock
+}
+
+ConstructorInitializer
+{
+	Type 
+	@switch 
+	{
+		PAREN_START
+		{
+			CallList
+		}
+		BLOCK_START
+		{
+			InitializerList
+		}
+	}
+}
+
+FunctionEnd
+{
+	PAREN_START
+	@opt @list Parameter % COMMA 
+	PAREN_END
+	@opt @list CONST|VOLATILE|LOG_AND|BIN_AND
+	@lookahead BLOCK_START|OVERRIDE|FINAL
+	{
+		@opt @list OVERRIDE|FINAL
+		FunctionBlock "m_FunctionBlock"
+	}
+	@finally 
+	{
+		ASSIGN ""
+		INT_VALUE|DELETE|DEFAULT "m_Suffix"
+		@lookahead BLOCK_START
+		{
+			FunctionBlock "m_FunctionBlock"
+		}
+		@finally 
+		{
+			SEMI_COLON
+		}
+	}
+}
+
+Operator 
+{
+	OPERATOR
+	@switch
+	{
+		PAREN_START
+		{
+			[PAREN_START PAREN_END] "m_OpParen"
+		}
+		BRACKET_START
+		{
+			[BRACKET_START BRACKET_END] "m_OpBracket"
+		}
+		GT
+		{
+			@lookahead GT GE
+			{
+				[GT GE] "m_RightShiftAssign"
+			}
+			@finally
+			{
+				@lookahead GT GT
+				{
+					[GT GT] "m_RightShift"
+				}
+				@finally 
+				{
+					GT "m_GreaterThan"
+				}
+			}
+		}
+		@default 
+		{
+			ASSIGN
+			| ASS_ADD
+			| ASS_AND
+			| ASS_DIV
+			| ASS_MOD
+			| ASS_MUL
+			| ASS_OR 
+			| ASS_SHL
+			| ASS_SUB
+			| ASS_XOR
+			| BIN_OR|INC|DEC|MUL|PLUS|MINUS|DIV|EQ|NE|XOR|SHL|LT|LE|GE|NOT
+			| ARROW
+		}
+	}
+}
+
+OperatorEnd 
+{
+	Operator FunctionEnd
+}
+
+FunctionOrVariableEnd
+{
+	IDENTIFIER 	
+	@switch
+	{
+		BLOCK_START
+		{
+			InitializerList
+		}
+		BRACKET_START
+		{
+			@list ArrayExtent
+			@opt ASSIGN ""
+			{
+				AssignExpressionOrInitializerList "m_AssignExpressionOrInitializerList"
+			}
+			@opt COMMA ""
+			{
+				@list Declarator % COMMA "m_Declarators"
+			}
+			SEMI_COLON
+		}
+		LT 
+		{
+			TemplateArgumentList
+			FunctionEnd "m_FunctionEnd"
+		}
+		PAREN_START
+		{
+			@try FunctionEnd "m_FunctionEnd"
+			@finally
+			{
+				CallList 
+				@opt COMMA ""
+				{
+					@list Declarator % COMMA "m_Declarators"
+				}
+				SEMI_COLON
+			}
+		}
+		ASSIGN 
+		{
+			ASSIGN ""
+			AssignExpressionOrInitializerList "m_AssignExpressionOrInitializerList"
+			@opt COMMA ""
+			{
+				@list Declarator % COMMA "m_Declarators"
+			}
+			SEMI_COLON
+		}
+		@default
+		{
+			@opt COMMA ""
+			{
+				@list Declarator % COMMA "m_Declarators"
+			}
+			SEMI_COLON
+		}
+	}
+}
+
+MethodSpecifier
+{
+	STATIC|VIRTUAL
+}
+
+Specifier
+{
+	MethodSpecifier
+}
+
+FunctionOrVariable 
+{
+	@opt @list Specifier 
+	@opt ALIGNAS 
+	{
+		PAREN_START INT_VALUE "m_AlignAs" PAREN_END
+	}
+	TypeOrAuto
+	@lookahead OPERATOR
+	{
+		OperatorEnd
+	}	
+	@finally 
+	{
+		FunctionOrVariableEnd
+	}
+}
+
+DeclType
+{
+	DECLTYPE 
+	PAREN_START 
+	Expression
+	PAREN_END
+}
+
+TemplateArgument {}
+
+LastTemplateArgumentAssign : LastTemplateArgument
+{
+	TemplateArgumentAssign
+	GT ""
+}
+
+LastTemplateArgumentNoAssign : LastTemplateArgument
+{
+	TemplateArgumentNoAssign
+	GT ""
+}
+
+LastTemplateArgument : TemplateArgument
+{
+	@try LastTemplateArgumentAssign
+	@finally 
+	{
+		LastTemplateArgumentNoAssign
+	}
+}
+
+NotLastTemplateArgumentAssign : NotLastTemplateArgument
+{
+	TemplateArgumentAssign
+	COMMA ""
+}
+
+NotLastTemplateArgumentNoAssign : NotLastTemplateArgument
+{
+	TemplateArgumentNoAssign
+	COMMA ""
+}
+
+NotLastTemplateArgument : TemplateArgument
+{
+	@try NotLastTemplateArgumentAssign
+	@finally 
+	{
+		NotLastTemplateArgumentNoAssign
+	}
+}
+
+TemplateArgumentListSplit
+{
+	@opt @list NotLastTemplateArgument 
+	LastTemplateArgument
+}
+
+TemplateArgumentNoAssign
+{
+	PostFixExpression
+}
+
+TemplateArgumentAssign
+{
+	@try INT_VALUE | UINT_VALUE | LONG_VALUE | ULONG_VALUE | LONG_VALUE | ULONGLONG_VALUE | HEX_VALUE
+	@finally 
+	{
+		Type
+	}
+}
+
+TemplateArgumentList
+{
+	LT ""
+	@lookahead GT 
+	{
+		GT
+	}
+	@finally
+	{
+		TemplateArgumentListSplit
+	}
+}
+
+FunctionPointerType : Type
+{
+	FUNCTION Type PAREN_START @opt @list Type % COMMA PAREN_END
+}
+
+Name
+{
+	@lookahead OPERATOR
+	{
+		Operator 
+	}
+	@finally
+	{
+		@opt COMPL
+		IDENTIFIER
+		@try TemplateArgumentList
+		@finally {}
+	}
+} 
+
+FundamentalTypeBase 
+{
+	BOOL | CHAR | SHORT | INT | LONG | FLOATING_POINT_TYPE "m_Typename"
+}
+
+UnsignedType : Type
+{
+	UNSIGNED @opt Type 
+}
+
+SignedType : Type
+{
+	SIGNED @opt Type
+}
+
+LongType : Type
+{
+	LONG @opt Type
+}
+
+VoidType : Type 
+{
+	VOID
+}
+
+FundamentalType : Type
+{
+	@switch 
+	{
+		UNSIGNED 
+		{
+			UnsignedType
+		}
+		SIGNED 
+		{
+			SignedType
+		}
+		LONG 
+		{
+			LongType
+		}
+		VOID 
+		{
+			VoidType
+		}
+		@default 
+		{
+			FundamentalTypeBase
+		}
+	}
+}
+
+QualifiedType : Type 
+{
+	QualifiedName @opt FunctionPointerType
+}
+
+ExplicitType : Type
+{
+	@opt @list CONST|VOLATILE
+	BasicType
+	@opt @list TypeExtent
+}
+
+ExpressionType : Type 
+{
+	AssignExpression
+}
+
+Type
+{
+	@try ExplicitType
+	@finally 
+	{
+		ExpressionType
+	}
+}
+
+ExplicitTypeOrAuto : Type
+{
+	@opt @list CONST|VOLATILE
+	BasicTypeOrAuto
+	@opt @list TypeExtent
+}
+
+TypeOrAuto : Type
+{
+	@try ExplicitTypeOrAuto
+	@finally 
+	{
+		ExpressionType
+	}
+}
+
+AutoType : Type
+{
+	@opt @list CONST|VOLATILE
+	Auto
+	@opt @list TypeExtent
+}
+
+BasicType : Type
+{
+	@switch 
+	{
+		UNSIGNED | SIGNED | BOOL | SHORT | INT | LONG | CHAR | FLOATING_POINT_TYPE | VOID
+		{
+			FundamentalType
+		}
+		DECLTYPE
+		{
+			DeclType
+		}
+		FUNCTION
+		{
+			FunctionPointerType
+		}
+		@default 
+		{
+			QualifiedType
+		}
+	}
+}
+
+Auto : Type
+{
+	AUTO
+}
+
+BasicTypeOrAuto : Type
+{
+	@switch 
+	{
+		UNSIGNED | SIGNED | BOOL | SHORT | INT | LONG | CHAR | FLOATING_POINT_TYPE | VOID
+		{
+			FundamentalType
+		}
+		AUTO 
+		{
+			Auto
+		}
+		DECLTYPE
+		{
+			DeclType
+		}
+		FUNCTION 
+		{
+			FunctionPointerType
+		}
+		@default 
+		{
+			QualifiedType
+		}
+	}
+}
+
+IntegralConstant : Expression
+{
+	INT_VALUE|UINT_VALUE|LONG_VALUE|ULONG_VALUE|LONGLONG_VALUE|ULONGLONG_VALUE|BOOL_VALUE|CHAR_LIT|HEX_VALUE
+}
+
+ArrayExtentExpression
+{
+	@try IntegralConstant 
+	@finally
+	{
+		AssignExpression
+	}		
+}
+
+ArrayExtent : TypeExtent
+{
+	BRACKET_START
+	@opt ArrayExtentExpression
+	BRACKET_END
+}
+
+DerivedExtent : TypeExtent
+{
+	BIN_AND | LOG_AND | MUL | CONST | VOLATILE
+}
+
+TypeExtent
+{
+	@lookahead BRACKET_START 
+	{
+		ArrayExtent
+	}
+	@finally
+	{
+		DerivedExtent
+	}
+}
+
+Enum
+{
+	ENUM
+    @opt CLASS
+	IDENTIFIER
+	BLOCK_START
+	@opt @list EnumConstant % COMMA  
+	BLOCK_END
+}
+
+EnumConstant
+{
+	IDENTIFIER
+	@opt ASSIGN ""
+	{
+		AssignExpression
+	}
+}
+
+Using
+{
+	USING QualifiedName SEMI_COLON
+}
+
+Typedef
+{
+	TYPEDEF Type IDENTIFIER SEMI_COLON
+}
+
+Alias
+{
+	USING IDENTIFIER ASSIGN Type SEMI_COLON
+}
+
+TemplateParameterDefault
+{
+	ASSIGN "" 
+	@try TemplateArgumentAssign
+	@finally 
+	{
+		TemplateArgumentNoAssign
+	}
+}
+
+TemplateValueParameter
+{
+	@lookahead IDENTIFIER
+	{
+		QualifiedName
+	}	 
+	@finally 
+	{
+		FundamentalType
+	}
+	IDENTIFIER
+}
+
+TemplateTypeParameter 
+{
+	@opt CLASS|TYPENAME ""
+	IDENTIFIER
+}
+
+TemplateParameter 
+{
+	@try TemplateValueParameter
+	@finally 
+	{
+		TemplateTypeParameter
+	}
+	@lookahead ELLIPSE
+	{
+		ELLIPSE
+	}
+	@finally 
+	{
+		@opt TemplateParameterDefault
+	}
+}
+
+TemplateSignature 
+{
+	TEMPLATE LT ""
+	@opt @list TemplateParameter % COMMA
+	GT ""
+}
+
+Template 
+{
+	TemplateSignature
+	@switch
+	{
+		CLASS|STRUCT
+		{
+			Class
+		}
+		UNION 
+		{
+			Union
+		}
+		USING
+		{
+			Alias
+		}
+	}
+}
+
+FunctionBlock
+{
+	BLOCK_START
+	@opt @list Statement
+	BLOCK_END
+}
+
+QualifiedName 
+{
+	@opt TYPENAME
+	@try QualifiedScopedName "m_Scope"
+	@finally
+	{
+		QualifiedDotName "m_Dot"
+	}
+}
+
+QualifiedDotName 
+{
+	@opt DOT @list Name % DOT
+}
+
+QualifiedScopedName
+{
+	@lookahead SCOPE 
+	{
+		@list Name % SCOPE "m_Names"
+	}
+	@finally 
+	{
+		Name SCOPE @list Name % SCOPE "m_Names"
+	}
+}
+
+BaseClass
+{
+	@opt PUBLIC|PROTECTED|PRIVATE
+	BasicType
+}
+
+Class
+{
+	CLASS|STRUCT
+	@opt PAREN_START
+	{
+		AssignExpression "m_MetaClassConstructionExpression"
+		PAREN_END
+	}
+	@opt ALIGNAS
+	{
+		PAREN_START INT_VALUE "m_AlignAs" PAREN_END 
+	}
+	IDENTIFIER
+	@opt TemplateArgumentList
+	@opt COLON
+	{
+		@list BaseClass % COMMA "m_BaseClasses"
+	}
+	BLOCK_START
+	@opt @list Member
+	BLOCK_END
+}
+
+Union
+{
+	UNION
+	IDENTIFIER
+	@opt TemplateArgumentList
+	BLOCK_START
+	@opt @list BasicMember
+	BLOCK_END
+}
+
+Method
+{
+	@opt @list MethodSpecifier
+	TypeOrAuto 
+	IDENTIFIER
+	FunctionEnd
+}
+
+Parameter
+{
+	Type
+	@opt IDENTIFIER
+	{
+		@opt @list ArrayExtent
+		@opt ASSIGN
+		{
+			AssignExpressionOrInitializerList
+		}
+	}
+}
+
+AccessSpecifier
+{
+	PUBLIC|PROTECTED|PRIVATE COLON
+}
+
+FieldOverride
+{
+	DEFAULT IDENTIFIER ASSIGN AssignExpression SEMI_COLON
+}
+
+@entrypoint Symbol 
+{
+	@try ExplicitType 
+	@finally 
+	{
+		PostFixExpression
+	}
+}
+
+Member
+{
+	@switch 
+	{
+		BRACKET_START
+		{
+			MemberWithMetaOrAnnotation
+		}
+		@default 
+		{
+			BasicMember
+		}
+	}
+}
+
+MemberWithMetaOrAnnotation : Member
+{
+	@list MetaOrAnnotation Member
+}
+
+BasicMemberWithMetaOrAnnotation : Member
+{
+	@list MetaOrAnnotation BasicMember
+}
+
+Friend : Member
+{
+	FRIEND @opt CLASS|STRUCT QualifiedName SEMI_COLON
+}
+
+BasicMember : Member
+{
+	@switch 
+	{
+		PUBLIC|PROTECTED|PRIVATE
+		{
+			AccessSpecifier
+		}	
+		VIRTUAL
+		{
+			Method 
+		}
+		STATIC|ALIGNAS
+		{
+			FunctionOrVariable "m_FunctionOrVariable"
+		}
+		OPERATOR
+		{
+			ConversionFunction "m_ConversionFunction"
+		}
+		EXPLICIT 
+		{
+			@lookahead OPERATOR
+			{
+				ConversionFunction "m_ConversionFunction"
+			}
+			@finally 
+			{
+				Constructor "m_Constructor"
+			}			
+		}
+		COMPL 
+		{
+			Destructor		
+		}
+		FRIEND  
+		{
+			Friend
+		}
+		BRACKET_START
+		{
+			BasicMemberWithMetaOrAnnotation
+		}
+		@default 
+		{
+			@try Constructor "m_Constructor"
+			@finally 
+			{
+				Declaration
+			}
+		}
+	}
+}
+
+StatementOrCase : Statement
+{
+	@switch 
+	{
+		CASE 
+		{
+			CaseStatement
+		}
+		DEFAULT 
+		{
+			DefaultStatement
+		}
+		@default 
+		{
+			Statement
+		}
+	}
+}
+
+IfOrWhileLocalVariableDecl
+{
+	TypeOrAuto
+	IDENTIFIER
+	ASSIGN ""
+	AssignExpressionOrInitializerList "m_Expression"
+}
+
+IfOrWhileCondition
+{
+	@try IfOrWhileLocalVariableDecl
+	@finally
+	{
+		Expression
+	}
+}
+
+IfStatement : Statement
+{
+	IF PAREN_START IfOrWhileCondition "m_Condition" PAREN_END
+	Statement "m_Then"
+	@opt ELSE ""
+	{
+		Statement "m_Else"
+	}
+}
+
+CaseStatement : Statement
+{
+	CASE 
+	Expression 
+	COLON
+}
+
+DefaultStatement : Statement
+{
+	DEFAULT ""
+	COLON ""
+}
+
+LabelStatement : Statement
+{
+	IDENTIFIER COLON ""
+}
+
+SwitchStatement : Statement
+{
+	SWITCH 
+	PAREN_START
+	Expression
+	PAREN_END
+	BLOCK_START
+	@list StatementOrCase 
+	BLOCK_END
+}
+
+ForeachSignature 
+{
+	TypeOrAuto
+	IDENTIFIER
+	COLON
+	Expression
+}
+
+ForInit
+{
+	@try LocalVariableDecl
+	@finally
+	{
+		Expression
+	}
+}
+
+ForStatement : Statement
+{
+	FOR
+	PAREN_START
+	@try ForeachSignature
+	@finally 
+	{
+		@opt ForInit "m_Init"
+		SEMI_COLON
+		@opt Expression "m_Test"
+		SEMI_COLON
+		@opt Expression "m_Update"
+	}
+	PAREN_END
+	Statement
+}
+
+WhileStatement : Statement
+{
+	WHILE
+	PAREN_START
+	IfOrWhileCondition "m_Condition"
+	PAREN_END
+	Statement
+}
+
+BlockStatement : Statement
+{
+	BLOCK_START
+	@opt @list Statement
+	BLOCK_END
+}
+
+DoWhileStatement : Statement
+{
+	DO
+	BlockStatement
+	WHILE
+	PAREN_START
+	Expression
+	PAREN_END
+	COLON
+}
+
+Statement
+{
+	@switch 
+	{
+		IF 
+		{
+			IfStatement
+		}
+		FOR 
+		{
+			ForStatement
+		}
+		SWITCH 
+		{
+			SwitchStatement
+		}
+		WHILE 
+		{
+			WhileStatement
+		}
+		ASSERT
+		{
+			AssertStatement
+		}
+		BREAK
+		{
+			BreakStatement
+		}
+		CONTINUE
+		{
+			ContinueStatement
+		}
+		DO 
+		{
+			DoWhileStatement
+		}
+		BLOCK_START
+		{
+			BlockStatement
+		}
+		RETURN
+		{
+			ReturnStatement
+		}
+		GOTO
+		{
+			GotoStatement
+		}
+		CLASS|ENUM|STRUCT|USING|TYPEDEF
+		{
+			BlockDeclaration
+		}
+		ATAT 
+		{
+			MixinStatement
+		}
+		SEMI_COLON 
+		{
+			SEMI_COLON
+		}
+		@default 
+		{
+			@try LabelStatement
+			@try LocalVariableStatement
+			@finally
+			{
+				ExpressionStatement
+			}
+		}
+	}
+}
+
+MixinStatement 
+{
+	ATAT IDENTIFIER PAREN_START @opt @list Expression % COMMA PAREN_END SEMI_COLON
+}
+
+ReturnStatement
+{
+	RETURN 
+	@opt Expression "m_pExpression" 
+	SEMI_COLON
+}
+
+GotoStatement
+{
+	GOTO IDENTIFIER SEMI_COLON
+}
+
+Declarator 
+{
+	@opt @list TypeExtent
+	IDENTIFIER
+	@switch
+	{
+		BRACKET_START
+		{
+			@list ArrayExtent
+			ASSIGN ""
+			AssignExpressionOrInitializerList "m_AssignExpressionOrInitializerList"
+		}
+		ASSIGN 
+		{
+			ASSIGN ""
+			AssignExpressionOrInitializerList "m_AssignExpressionOrInitializerList"
+		}
+		PAREN_START
+		{
+			CallList
+		}
+		BLOCK_START
+		{
+			InitializerList
+		}
+	}
+}
+
+ExplicitLocalVariableDecl : LocalVariableDecl 
+{
+	@opt @list CONST|VOLATILE
+	BasicType 
+	@list Declarator % COMMA
+}
+
+AutoDeclarator
+{
+	@opt @list TypeExtent
+	IDENTIFIER
+	@switch
+	{
+		PAREN_START
+		{
+			CallList 
+		}
+		BLOCK_START 
+		{
+			InitializerList 
+		}
+		@default 
+		{
+			@opt @list ArrayExtent
+			ASSIGN ""
+			AssignExpressionOrInitializerList "m_AssignExpressionOrInitializerList"
+		}
+	}
+}
+
+AutoLocalVariableDecl : LocalVariableDecl 
+{
+	@opt @list CONST|VOLATILE
+	Auto
+	@list AutoDeclarator % COMMA
+}
+
+LocalVariableDecl 
+{
+	@lookahead AUTO
+	{
+		AutoLocalVariableDecl
+	}
+	@finally
+	{
+		ExplicitLocalVariableDecl
+	}
+}
+
+LocalVariableStatement : Statement
+{
+	LocalVariableDecl SEMI_COLON
+}
+
+ExpressionStatement : Statement
+{
+	Expression 
+	SEMI_COLON
+}
+
+@entrypoint Expression 
+{
+	AssignExpression "m_Expression_AssignExpression"
+	@opt COMMA 
+	{
+		Expression "m_Expression_Expression"
+	}
+}
+
+AssignExpression : Expression
+{
+	ConditionalExpression "m_LeftExpression"
+	@lookahead GT 
+	{
+		@lookahead GT 
+		{
+			@lookahead ASSIGN 
+			{
+				[GT GT ASSIGN] "m_RightShiftAssign"
+				AssignExpression "m_RightShiftAssign_RightExpression"				
+			}
+			@finally 
+			{
+				[GT GT] "m_RightShift"
+				ShiftExpression "m_RightShift_RightExpression"
+			}
+		}
+		@finally 
+		{
+			GT 
+			AddExpression "m_Greater_RightExpression"
+		}	
+	}
+	@finally 
+	{
+		@opt ASSIGN
+			| ASS_ADD
+			| ASS_AND
+			| ASS_DIV
+			| ASS_MOD
+			| ASS_MUL
+			| ASS_OR 
+			| ASS_SHL
+			| ASS_SUB
+			| ASS_XOR "m_Op"
+		{
+			AssignExpression "m_RightExpression"
+		}
+	}
+}
+
+ConditionalExpression : Expression
+{
+	LogicalOrExpression "m_LeftExpression"
+	@opt QUESTION ""
+	{
+		Expression "m_Then"
+		COLON ""
+		Expression "m_Else"
+	}
+}
+
+LogicalOrExpressionRight
+{
+    LOG_OR "m_Op" LogicalAndExpression "m_RightExpression"
+}
+
+LogicalOrExpression : Expression
+{
+	LogicalAndExpression "m_LeftExpression"
+	@opt @list LogicalOrExpressionRight
+}
+
+LogicalAndExpressionRight
+{
+    LOG_AND "m_Op" @opt BinOrExpression "m_RightExpression"
+}
+
+LogicalAndExpression : Expression
+{
+	BinOrExpression "m_LeftExpression"
+	@opt @list LogicalAndExpressionRight
+}
+
+BinOrExpressionRight
+{
+    BIN_OR "m_Op" XOrExpression "m_RightExpression"
+}
+
+BinOrExpression : Expression
+{
+	XOrExpression "m_LeftExpression"
+	@opt @list BinOrExpressionRight
+}
+
+XOrExpressionRight
+{
+    XOR "m_Op" BinAndExpression "m_RightExpression"
+}
+
+XOrExpression : Expression
+{
+	BinAndExpression "m_LeftExpression"
+	@opt @list XOrExpressionRight
+}
+
+BinAndExpressionRight
+{
+    BIN_AND "m_Op" @opt EqualityExpression "m_RightExpression"
+}
+
+BinAndExpression : Expression
+{
+	EqualityExpression "m_LeftExpression"
+	@opt @list BinAndExpressionRight
+}
+
+EqualityExpressionRight
+{
+    EQ|NE "m_Op" RelationalExpression "m_RightExpression"
+}
+
+EqualityExpression : Expression
+{
+	RelationalExpression "m_LeftExpression"
+	@opt @list EqualityExpressionRight 
+	
+}
+
+RelationalExpressionRight
+{
+	@lookahead GT GT
+	{
+		[GT GT] "m_OpMul" ShiftExpression  "m_RightExpression"
+	}
+	@finally 
+	{
+		GT|GE|LE|LT|EQ|NE "m_Op" ShiftExpression "m_RightExpression"
+	}
+}
+
+RelationalExpression : Expression
+{
+	ShiftExpression "m_LeftExpression"
+    @opt @list RelationalExpressionRight
+}
+
+ShiftExpressionRight
+{
+	@lookahead GT
+	{
+	    @lookahead GE
+	    {
+            [GT GE] "m_OpMul" AddExpression "m_RightExpression"
+	    }
+	    @finally 
+	    {
+		    @lookahead GT
+		    {
+			    [GT GT] "m_OpMul" AddExpression "m_RightExpression"
+		    }
+		    @finally 
+		    {
+			    GT "m_Op" RelationalExpression "m_RightExpression"
+		    }
+	    }
+    }
+	@finally
+    {
+        SHL "m_Op" AddExpression "m_RightExpression"
+    }
+}
+
+ShiftExpression : Expression
+{
+	AddExpression "m_LeftExpression"
+	@opt @list ShiftExpressionRight 
+}
+
+AddExpressionRight
+{
+    PLUS|MINUS "m_Op" MulExpression "m_RightExpression"
+}
+
+AddExpression : Expression
+{
+	MulExpression "m_LeftExpression"
+	@opt @list AddExpressionRight "m_RightExpressions"
+}
+
+MulExpressionRight 
+{
+    MUL|DIV|MOD "m_Op" @opt UnaryExpression "m_RightExpression"
+}
+
+MulExpression : Expression
+{
+	UnaryExpression "m_LeftExpression"
+	@opt @list MulExpressionRight "m_RightExpressions"
+}
+
+SpecialCastExpression
+{
+	REINTERPRET_CAST | STATIC_CAST | CONST_CAST "m_CastKind"
+	LT "" Type GT ""
+	PAREN_START Expression PAREN_END
+}
+
+FunctionPtrExpression
+{
+	FUNCTION_PTR Name
+}
+
+UnaryExpression : Expression
+{
+	@switch 
+	{
+		BIN_AND|INC|DEC|MUL|PLUS|MINUS|NOT|COMPL
+		{
+			BIN_AND|INC|DEC|MUL|PLUS|MINUS|NOT|COMPL "m_Op"
+			UnaryExpression "m_Expression"
+		}
+		@default
+		{
+			PostFixExpression 
+		}
+
+	}	
+}
+
+AssignExpressionOrInitializerList : Expression
+{
+	@lookahead BLOCK_START
+	{
+		InitializerList
+	}
+	@finally 
+	{
+		AssignExpression
+	}
+}
+
+ExpressionOrInitializerList : Expression
+{
+	@lookahead BLOCK_START
+	{
+		InitializerList
+	}
+	@finally 
+	{
+		Expression
+	}
+}
+
+InitializerList : Expression
+{
+	BLOCK_START
+	@opt @list AssignExpressionOrInitializerList % COMMA
+	BLOCK_END
+}
+
+CallList
+{
+	PAREN_START
+	@opt @list AssignExpressionOrInitializerList % COMMA
+	PAREN_END
+}
+
+ArrayAccess : Expression
+{
+	BRACKET_START
+	Expression
+	BRACKET_END
+}
+
+KeywordExpression : Expression
+{
+	THIS "m_Keyword" 
+}
+
+NullptrExpression : Expression
+{
+	NULLPTR ""
+}
+
+
+PostFixExpression : Expression
+{
+	PrimaryExpression "m_Expression"
+	@opt @list PostFixEnd
+}
+
+PostFixEnd
+{
+	@switch
+	{
+		PAREN_START
+		{
+			CallList
+		}
+		BRACKET_START
+		{
+			ArrayAccess
+		}
+		BLOCK_START
+		{
+			InitializerList
+		}
+		DOT|ARROW|SCOPE
+		{
+			DOT|ARROW|SCOPE
+			Name
+		}
+		@default
+		{
+			INC|DEC
+		}
+	}
+}
+
+CStyleCastExpression : Expression
+{
+	PAREN_START
+	@try Expression "m_Expression"
+	@finally 
+	{
+		Type "m_Type"
+	}
+	PAREN_END
+	@opt UnaryExpression "m_Casted"
+}
+
+TypeTraitBinary : Expression
+{
+	IS_SAME PAREN_START Type COMMA Type PAREN_END
+}
+
+StaticAssert
+{
+	STATIC_ASSERT
+	PAREN_START 
+	AssignExpression
+	@opt COMMA
+	{
+		STRING_LIT
+	}
+	PAREN_END
+	SEMI_COLON
+}
+
+AssertStatement : Statement
+{
+	ASSERT 
+	PAREN_START 
+	AssignExpression  
+	@opt COMMA
+	{
+		STRING_LIT
+		@opt @list AssignExpression % COMMA
+	}
+	PAREN_END
+	SEMI_COLON
+}
+
+BreakStatement : Statement
+{
+	BREAK SEMI_COLON
+}
+
+ContinueStatement : Statement
+{
+	CONTINUE SEMI_COLON
+}
+
+SizeofExpression : Expression
+{
+	SIZEOF|ALIGNOF PAREN_START Type PAREN_END
+}
+
+TypeofExpression : Expression
+{
+	TYPEOF|CLASSOF|ENUMOF|UNIONOF PAREN_START Type PAREN_END
+}
+
+StringLiteralChain
+{
+    STRING_LIT @opt @list STRING_LIT
+}
+
+FundamentalTypeFunctionCast : Expression
+{
+	FundamentalType PAREN_START Expression PAREN_END
+}
+
+PrimaryExpression : Expression
+{
+	@switch 
+	{
+		THIS
+		{
+			KeywordExpression
+		}
+		SIZEOF|ALIGNOF
+		{
+			SizeofExpression
+		}
+		TYPEOF|CLASSOF|ENUMOF|UNIONOF
+		{
+			TypeofExpression
+		}
+		NULLPTR
+		{
+			NullptrExpression
+		}
+		DOT|SCOPE|IDENTIFIER|OPERATOR
+		{
+			@opt DOT|SCOPE Name
+		}
+		PAREN_START
+		{
+			CStyleCastExpression
+		}
+		IS_SAME 
+		{
+			TypeTraitBinary
+		}
+        STRING_LIT
+        {
+            StringLiteralChain
+        }
+		REINTERPRET_CAST | STATIC_CAST | CONST_CAST
+		{
+			SpecialCastExpression
+		}
+		FUNCTION_PTR
+		{
+			FunctionPtrExpression
+		}
+		UNSIGNED | SIGNED | BOOL | SHORT | INT | LONG | CHAR | FLOATING_POINT_TYPE | VOID
+		{
+			FundamentalTypeFunctionCast
+		}
+		@default 
+		{
+			INT_VALUE|UINT_VALUE|LONG_VALUE|ULONG_VALUE|LONGLONG_VALUE|ULONGLONG_VALUE|BOOL_VALUE|CHAR_LIT|FLOAT_VALUE|DOUBLE_VALUE|HEX_VALUE
+		}
+	}
+}
+
+

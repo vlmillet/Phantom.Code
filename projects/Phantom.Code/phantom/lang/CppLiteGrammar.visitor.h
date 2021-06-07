@@ -180,14 +180,14 @@ namespace phantom
             bool endForeachSignature(ast::ForeachSignature* input);
             bool visitBlockDeclaration(ast::BlockDeclaration* input);
             bool endBlockDeclaration(ast::BlockDeclaration* input);
-            bool visitSizeofExpression(ast::SizeofExpression* input);
-            bool endSizeofExpression(ast::SizeofExpression* input);
             bool visitTypeofExpression(ast::TypeofExpression* input);
             bool endTypeofExpression(ast::TypeofExpression* input);
-            bool visitLastTemplateArgument(ast::LastTemplateArgument* input);
-            bool endLastTemplateArgument(ast::LastTemplateArgument* input);
             bool visitLocalVariableStatement(ast::LocalVariableStatement* input);
             bool endLocalVariableStatement(ast::LocalVariableStatement* input);
+            bool visitLastTemplateArgument(ast::LastTemplateArgument* input);
+            bool endLastTemplateArgument(ast::LastTemplateArgument* input);
+            bool visitFundamentalTypeFunctionCast(ast::FundamentalTypeFunctionCast* input);
+            bool endFundamentalTypeFunctionCast(ast::FundamentalTypeFunctionCast* input);
             bool visitPrimaryExpression(ast::PrimaryExpression* input);
             bool endPrimaryExpression(ast::PrimaryExpression* input);
             bool visitNotLastTemplateArgument(ast::NotLastTemplateArgument* input);
@@ -312,6 +312,8 @@ namespace phantom
             bool endBreakStatement(ast::BreakStatement* input);
             bool visitContinueStatement(ast::ContinueStatement* input);
             bool endContinueStatement(ast::ContinueStatement* input);
+            bool visitSizeofExpression(ast::SizeofExpression* input);
+            bool endSizeofExpression(ast::SizeofExpression* input);
             bool visitLastTemplateArgumentAssign(ast::LastTemplateArgumentAssign* input);
             bool endLastTemplateArgumentAssign(ast::LastTemplateArgumentAssign* input);
             bool visitLastTemplateArgumentNoAssign(ast::LastTemplateArgumentNoAssign* input);
@@ -1025,19 +1027,19 @@ namespace phantom
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::visitSizeofExpression(ast::SizeofExpression* input)
-        {
-            return true;
-        }
-        bool CppLiteGrammarVisitor::endSizeofExpression(ast::SizeofExpression* input)
-        {
-            return true;
-        }
         bool CppLiteGrammarVisitor::visitTypeofExpression(ast::TypeofExpression* input)
         {
             return true;
         }
         bool CppLiteGrammarVisitor::endTypeofExpression(ast::TypeofExpression* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::visitLocalVariableStatement(ast::LocalVariableStatement* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endLocalVariableStatement(ast::LocalVariableStatement* input)
         {
             return true;
         }
@@ -1049,11 +1051,11 @@ namespace phantom
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::visitLocalVariableStatement(ast::LocalVariableStatement* input)
+        bool CppLiteGrammarVisitor::visitFundamentalTypeFunctionCast(ast::FundamentalTypeFunctionCast* input)
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::endLocalVariableStatement(ast::LocalVariableStatement* input)
+        bool CppLiteGrammarVisitor::endFundamentalTypeFunctionCast(ast::FundamentalTypeFunctionCast* input)
         {
             return true;
         }
@@ -1550,6 +1552,14 @@ namespace phantom
             return true;
         }
         bool CppLiteGrammarVisitor::endContinueStatement(ast::ContinueStatement* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::visitSizeofExpression(ast::SizeofExpression* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endSizeofExpression(ast::SizeofExpression* input)
         {
             return true;
         }

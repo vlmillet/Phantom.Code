@@ -1719,6 +1719,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                                    ast::TemplateArgumentList* a_pTemplateArgs, ast::CallList* a_pCallList)
     {
         CppLiteDefaultReturnValue(false);
+        if (!a_pCallList)
+            return nullptr;
 
         //             Symbols symbols;
         //             Accesses accesses;
@@ -4026,6 +4028,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
 
     bool traverseCStyleCastExpression(ast::CStyleCastExpression* input);
 
+    bool traverseFundamentalTypeFunctionCast(ast::FundamentalTypeFunctionCast* input);
+
     bool traversePrimaryExpression(ast::PrimaryExpression* input)
     {
         if (input->m_INT_VALUE.hasValue())
@@ -5053,6 +5057,18 @@ bool CppLitePass<T>::traverseCStyleCastExpression(ast::CStyleCastExpression* inp
         return this->traverse(input->m_Expression);
     }
     return true;
+}
+
+template<class T>
+bool CppLitePass<T>::traverseFundamentalTypeFunctionCast(ast::FundamentalTypeFunctionCast* input)
+{
+    Type* pFundType = CppLiteVisitType(input->m_FundamentalType);
+    PHANTOM_ASSERT(pFundType, "whisper grammar system bug, please report");
+    Expression* pExp = CppLiteVisitExpression(input->m_Expression);
+    if (pExp == nullptr)
+        return true;
+    Expression* pConv = CppLiteConv(pExp, pFundType, CastKind::Explicit, UserDefinedFunctions::All, CppLiteGetScope());
+    CppLiteMapAndReturn(pConv);
 }
 
 // namer
@@ -8675,8 +8691,7 @@ int CppLiteParser::parse(uint pass)
         filebuffer.assign(std::istreambuf_iterator<char>(*pInput), std::istreambuf_iterator<char>());
         m_pPassData->m_pAstSource = m_pPassData->m_CppLiteGrammar.parseSource(
         filebuffer.data(), filebuffer.size(),
-        std::bind(&CppLitePassData::errorDelegate, m_pPassData, std::placeholders::_1, std::placeholders::_2,
-                  std::placeholders::_3));
+        CppLiteGrammar::ErrorDelegate(m_pPassData, &CppLitePassData::errorDelegate));
         getSource()->getSourceStream()->destroyInputStream(pInput);
         if (m_pPassData->m_pAstSource == nullptr ||
             m_pPassData->m_pParser->getMessage()->getMostValuableMessageType() == MessageType::Error)

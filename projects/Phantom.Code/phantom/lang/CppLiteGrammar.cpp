@@ -230,10 +230,10 @@ namespace phantom
                 IfOrWhileCondition m_IfOrWhileCondition;
                 ForeachSignature m_ForeachSignature;
                 BlockDeclaration m_BlockDeclaration;
-                SizeofExpression m_SizeofExpression;
                 TypeofExpression m_TypeofExpression;
-                LastTemplateArgument m_LastTemplateArgument;
                 LocalVariableStatement m_LocalVariableStatement;
+                LastTemplateArgument m_LastTemplateArgument;
+                FundamentalTypeFunctionCast m_FundamentalTypeFunctionCast;
                 PrimaryExpression m_PrimaryExpression;
                 NotLastTemplateArgument m_NotLastTemplateArgument;
                 FunctionPointerType m_FunctionPointerType;
@@ -296,6 +296,7 @@ namespace phantom
                 AssertStatement m_AssertStatement;
                 BreakStatement m_BreakStatement;
                 ContinueStatement m_ContinueStatement;
+                SizeofExpression m_SizeofExpression;
                 LastTemplateArgumentAssign m_LastTemplateArgumentAssign;
                 LastTemplateArgumentNoAssign m_LastTemplateArgumentNoAssign;
                 NotLastTemplateArgumentAssign m_NotLastTemplateArgumentAssign;
@@ -5578,6 +5579,20 @@ namespace phantom
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
                     return true;
                 }
+                bool readFundamentalTypeFunctionCast(Expression*& output)
+                {
+                    m_LookaheadCounter = 0;
+                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(FundamentalTypeFunctionCast);
+                    auto pos_begin = m_Tokens.back().location.begin;
+                    output = __element__;
+                    if(!readFundamentalType(__element__->m_FundamentalType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(!read(token_PAREN_START, __element__->m_PAREN_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(!readExpression(__element__->m_Expression)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    output->__location.begin = pos_begin;
+                    output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
+                    return true;
+                }
                 bool readPrimaryExpression(Expression*& output)
                 {
                     m_LookaheadCounter = 0;
@@ -5664,6 +5679,20 @@ namespace phantom
                         case token_FUNCTION_PTR:
                         {
                             if(!readFunctionPtrExpression(__element__->m_FunctionPtrExpression)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        }
+                        break;
+                        case token_UNSIGNED:
+                        case token_SIGNED:
+                        case token_BOOL:
+                        case token_SHORT:
+                        case token_INT:
+                        case token_LONG:
+                        case token_CHAR:
+                        case token_FLOATING_POINT_TYPE:
+                        case token_VOID:
+                        {
+                            if(!readFundamentalTypeFunctionCast(__element__->m_FundamentalTypeFunctionCast)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __reduction__ = &__element__->m_FundamentalTypeFunctionCast;
                         }
                         break;
                         default:
