@@ -117,6 +117,9 @@ void BuiltInOperator::fetchExtraOverloads(Type* a_pType, Overloads& a_Overloads,
     case TypeKind::MethodPointer:
         fetchExtraOverloads(static_cast<MethodPointer*>(a_pType), a_Overloads, a_AlreadyTreated);
         break;
+    case TypeKind::FunctionPointer:
+        fetchExtraOverloads(static_cast<FunctionPointer*>(a_pType), a_Overloads, a_AlreadyTreated);
+        break;
     case TypeKind::Class:
         fetchExtraOverloads(static_cast<Class*>(a_pType), a_Overloads, a_AlreadyTreated);
         break;
