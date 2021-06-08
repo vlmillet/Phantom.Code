@@ -3992,7 +3992,29 @@ Alias* CppTranslator::_findAliasOf(Module* a_pModule, Type* a_pType)
             }
         }
     }
+
+    struct ModuleSorter
+    {
+        bool operator()(Module* m0, Module* m1) const
+        {
+            if (m0 == m1)
+                return m0 < m1;
+            if (m0->hasDependencyCascade(m1))
+                return true;
+            if (m1->hasDependencyCascade(m0))
+                return false;
+            return m0->getName() < m1->getName();
+        }
+    };
+
+    SmallSet<Module*, 8, ModuleSorter> sortedModules;
+
     for (auto dep : a_pModule->getDependencies())
+    {
+        sortedModules.insert(dep);
+    }
+
+    for (auto dep : sortedModules)
     {
         if (auto al = _findAliasOf(dep, a_pType))
             return al;
