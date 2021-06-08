@@ -340,7 +340,7 @@ BlockDeclaration : Statement
 ConversionFunction
 {
 	OPERATOR 
-	Type
+	TypeNoFunctionType
 	PAREN_START
 	PAREN_END
 	@opt @list CONST|VOLATILE|LOG_AND|BIN_AND
@@ -378,7 +378,7 @@ Destructor
 
 ConstructorInitializer
 {
-	Type 
+	BasicType 
 	@switch 
 	{
 		PAREN_START
@@ -646,11 +646,6 @@ TemplateArgumentList
 	}
 }
 
-FunctionPointerType : Type
-{
-	FUNCTION Type PAREN_START @opt @list Type % COMMA PAREN_END
-}
-
 Name
 {
 	@lookahead OPERATOR
@@ -720,7 +715,7 @@ FundamentalType : Type
 
 QualifiedType : Type 
 {
-	QualifiedName @opt FunctionPointerType
+	QualifiedName
 }
 
 ExplicitType : Type
@@ -728,6 +723,22 @@ ExplicitType : Type
 	@opt @list CONST|VOLATILE
 	BasicType
 	@opt @list TypeExtent
+}
+
+TypeNoFunctionType : Type 
+{
+	@try ExplicitTypeNoFunctionType
+	@finally 
+	{
+		ExpressionType
+	}
+}
+
+ExplicitTypeNoFunctionType : Type
+{
+	@opt @list CONST|VOLATILE
+	BasicType
+	@opt @list TypeExtentNoFunction
 }
 
 ExpressionType : Type 
@@ -779,10 +790,6 @@ BasicType : Type
 		{
 			DeclType
 		}
-		FUNCTION
-		{
-			FunctionPointerType
-		}
 		@default 
 		{
 			QualifiedType
@@ -810,10 +817,6 @@ BasicTypeOrAuto : Type
 		DECLTYPE
 		{
 			DeclType
-		}
-		FUNCTION 
-		{
-			FunctionPointerType
 		}
 		@default 
 		{
@@ -843,20 +846,49 @@ ArrayExtent : TypeExtent
 	BRACKET_END
 }
 
+FunctionTypeExtent : TypeExtent 
+{
+	PAREN_START
+	@opt @list Type % COMMA
+	PAREN_END
+}
+
 DerivedExtent : TypeExtent
 {
 	BIN_AND | LOG_AND | MUL | CONST | VOLATILE
 }
 
+TypeExtentNoFunction : TypeExtent
+{
+	@switch  
+	{
+		BRACKET_START 
+		{
+			ArrayExtent
+		}
+		@default
+		{
+			DerivedExtent
+		}
+	}
+}
+
 TypeExtent
 {
-	@lookahead BRACKET_START 
+	@switch  
 	{
-		ArrayExtent
-	}
-	@finally
-	{
-		DerivedExtent
+		BRACKET_START 
+		{
+			ArrayExtent
+		}
+		PAREN_START
+		{
+			FunctionTypeExtent
+		}
+		@default
+		{
+			DerivedExtent
+		}
 	}
 }
 
@@ -919,7 +951,7 @@ TemplateValueParameter
 
 TemplateTypeParameter 
 {
-	@opt CLASS|TYPENAME ""
+	CLASS|TYPENAME ""
 	IDENTIFIER
 }
 
@@ -964,7 +996,19 @@ Template
 		{
 			Alias
 		}
+		@default 
+		{
+			TemplateFunctionBody
+		}
 	}
+}
+
+TemplateFunctionBody
+{
+	@opt STATIC
+	TypeOrAuto 
+	IDENTIFIER
+	FunctionEnd
 }
 
 FunctionBlock

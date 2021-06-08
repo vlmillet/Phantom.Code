@@ -58,6 +58,8 @@
 #include <phantom/lang/MethodPointer.h>
 #include <phantom/lang/Namespace.h>
 #include <phantom/lang/Parameter.h>
+#include <phantom/lang/Placeholder.h>
+#include <phantom/lang/PlaceholderType.h>
 #include <phantom/lang/Pointer.h>
 #include <phantom/lang/PrimitiveType.h>
 #include <phantom/lang/Property.h>
@@ -1486,6 +1488,113 @@ void Semantic::newImplicitConversions(FunctionType* a_pFuncType, ExpressionsView
     }
     newImplicitConversions(a_pFuncType, types, a_Out, a_pContextScope);
 }
+void Semantic::newImplicitConversionsWithArgDeductions(Signature* a_pSignature, TypesView a_ArgTypes,
+                                                       ConversionResults& a_Out,
+                                                       PlaceholderMap&    a_TemplateArgDeductions,
+                                                       LanguageElement*   a_pContextScope)
+{
+    size_t paramCount = a_pSignature->getParameters().size();
+    size_t argCount = a_ArgTypes.size();
+    if ((argCount < a_pSignature->getRequiredArgumentCount()) ||
+        (argCount > paramCount && !(a_pSignature->isVariadic())))
+        return;
+    size_t                 i = 0;
+    SmallSet<Placeholder*> deduced;
+    for (; i < argCount; ++i)
+    {
+        Type* pParamType = a_pSignature->getParameters()[i]->getValueType();
+        Type* pInputType =
+        (i < a_ArgTypes.size()) ? a_ArgTypes[i] : a_pSignature->getParameterDefaultValueExpression(i)->getValueType();
+        if (pParamType->isTemplateDependant())
+        {
+            Type* pParamTypeResolvedOrDeduced = nullptr;
+            if (a_TemplateArgDeductions.size())
+            {
+                TemplateSubstitution ts;
+                for (auto& ph_arg : a_TemplateArgDeductions)
+                    ts.insert(ph_arg.first, ph_arg.second);
+
+                pParamTypeResolvedOrDeduced = static_cast<Type*>(
+                resolveTemplateDependency(pParamType, ts, e_ClassBuildState_Members, a_pContextScope, 0));
+            }
+            if (!pParamTypeResolvedOrDeduced)
+            {
+                pParamTypeResolvedOrDeduced =
+                callTemplateArgumentDeductionRef(pParamType, pInputType, a_TemplateArgDeductions);
+                if (!pParamTypeResolvedOrDeduced)
+                {
+                    a_Out.push_back(nullptr);
+                }
+                else
+                {
+                    a_Out.push_back(newConversion(pInputType, pParamTypeResolvedOrDeduced, a_pContextScope, false));
+                }
+            }
+            else
+                a_Out.push_back(newConversion(pInputType, pParamTypeResolvedOrDeduced, a_pContextScope, false));
+        }
+        else
+        {
+            a_Out.push_back(newConversion(pInputType, pParamType, a_pContextScope, false));
+        }
+    }
+}
+
+void Semantic::newImplicitConversionsWithArgDeductions(Signature* a_pSignature, ExpressionsView a_Args,
+                                                       ConversionResults& a_Out,
+                                                       PlaceholderMap&    a_TemplateArgDeductions,
+                                                       LanguageElement*   a_pContextScope)
+{
+    Types types;
+    for (auto& arg : a_Args)
+    {
+        types.push_back(arg->getValueType());
+    }
+    newImplicitConversionsWithArgDeductions(a_pSignature, types, a_Out, a_TemplateArgDeductions, a_pContextScope);
+}
+
+void Semantic::newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType, TypesView a_ArgTypes,
+                                                       ConversionResults& a_Out,
+                                                       PlaceholderMap&    a_TemplateArgDeductions,
+                                                       LanguageElement*   a_pContextScope)
+{
+    size_t paramCount = a_pFuncType->getParameterTypes().size();
+    size_t argCount = a_ArgTypes.size();
+    if ((argCount != paramCount))
+        return;
+    size_t i = 0;
+    for (; i < argCount; ++i)
+    {
+        Type* pParamType = a_pFuncType->getParameterTypes()[i];
+        if (pParamType->removeEverything()->asPlaceholder())
+        {
+            auto deduction = templateArgumentDeduction(pParamType, a_ArgTypes[i], a_TemplateArgDeductions);
+            if (!deduction)
+            {
+                a_Out.push_back(nullptr);
+            }
+            else
+            {
+                a_Out.push_back(newConversion(a_ArgTypes[i], a_ArgTypes[i], a_pContextScope, false));
+            }
+        }
+        else
+            a_Out.push_back(newConversion(a_ArgTypes[i], pParamType, a_pContextScope, false));
+    }
+}
+
+void Semantic::newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType, ExpressionsView a_Args,
+                                                       ConversionResults& a_Out,
+                                                       PlaceholderMap&    a_TemplateArgDeductions,
+                                                       LanguageElement*   a_pContextScope)
+{
+    Types types;
+    for (auto& arg : a_Args)
+    {
+        types.push_back(arg->getValueType());
+    }
+    newImplicitConversionsWithArgDeductions(a_pFuncType, types, a_Out, a_TemplateArgDeductions, a_pContextScope);
+}
 
 Expression* Semantic::_createFieldCopyConstruction(Class* a_pThis, Class* a_pClass, Expression* a_pWhere)
 {
@@ -2042,9 +2151,13 @@ void Semantic::selectCallCandidate(Subroutines& inoutViableCandidates, Symbols& 
     Source* pSource = getSource();
 
     SmallVector<ConversionResults*> viableImplicitConversions;
+    SmallVector<PlaceholderMap>     viableArgDeductions;
 
     if (in_pTemplateArguments)
     {
+        for (auto candidate : candidates)
+            if (candidate->asTemplate())
+                goto skipGenericCall;
         // template arguments are only resolved with 'phantom::Generic' calls for now
 
         Types requiredBaseTypes;
@@ -2074,7 +2187,9 @@ void Semantic::selectCallCandidate(Subroutines& inoutViableCandidates, Symbols& 
         arguments.insert(arguments.begin(), templateArgsAsMetaValue.begin(), templateArgsAsMetaValue.end());
     }
 
-    OptionalArrayView<LanguageElement*> emptyTemplateArguments;
+    in_pTemplateArguments = OptionalArrayView<LanguageElement*>{};
+
+skipGenericCall:
 
     /// Filter viable calls
     for (auto it = candidates.begin(); it != candidates.end(); ++it)
@@ -2082,8 +2197,9 @@ void Semantic::selectCallCandidate(Subroutines& inoutViableCandidates, Symbols& 
         ConversionResults* convs = new_<ConversionResults>();
         VisitorData        data;
         Subroutine*        out_pSubroutine = nullptr;
-        const void*        in[4] = {&emptyTemplateArguments, &arguments, &a_Modifiers, &in_pContextScope};
-        void*              out[2] = {convs, &out_pSubroutine};
+        PlaceholderMap     argDeductions;
+        const void*        in[4] = {&in_pTemplateArguments, &arguments, &a_Modifiers, &in_pContextScope};
+        void*              out[3] = {convs, &out_pSubroutine, &argDeductions};
         data.id = e_VisitorFunction_IsViableCallCandidate;
         data.in = in;
         data.out = out;
@@ -2092,6 +2208,7 @@ void Semantic::selectCallCandidate(Subroutines& inoutViableCandidates, Symbols& 
         {
             inoutViableCandidates.push_back(out_pSubroutine);
             viableImplicitConversions.push_back(convs);
+            viableArgDeductions.push_back(std::move(argDeductions));
         }
         else
         {
@@ -2103,10 +2220,12 @@ void Semantic::selectCallCandidate(Subroutines& inoutViableCandidates, Symbols& 
         /// Find best viable call or display ambiguity error
         ConversionResults* pBest = nullptr;
         Subroutine*        pBestCandidate = nullptr;
+        PlaceholderMap*    pBestDeductions = nullptr;
         if (viableImplicitConversions.size() == 1)
         {
             pBest = viableImplicitConversions.back();
             pBestCandidate = inoutViableCandidates.back();
+            pBestDeductions = &viableArgDeductions.back();
         }
         else
         {
@@ -2132,12 +2251,21 @@ void Semantic::selectCallCandidate(Subroutines& inoutViableCandidates, Symbols& 
                 {
                     if (i == j)
                         continue;
-                    int result = viableImplicitConversions[i]->compare(*viableImplicitConversions[j]);
-                    PHANTOM_ASSERT(viableImplicitConversions[j]->compare(*viableImplicitConversions[i]) ==
-                                   -result); /// compare() coherence test
-                    if (result == -1)
-                        break;
-                    bestResult = std::max(bestResult, result);
+                    if (viableArgDeductions[i].size() == viableArgDeductions[j].size())
+                    {
+                        int result = viableImplicitConversions[i]->compare(*viableImplicitConversions[j]);
+                        PHANTOM_ASSERT(viableImplicitConversions[j]->compare(*viableImplicitConversions[i]) ==
+                                       -result); /// compare() coherence test
+                        if (result == -1)
+                            break;
+                        bestResult = std::max(bestResult, result);
+                    }
+                    else
+                    {
+                        if (viableArgDeductions[i].size() > viableArgDeductions[j].size())
+                            break;
+                        bestResult = 1;
+                    }
                 }
                 if (j == viableImplicitConversions.size()) /// superior or equal to every one (not worst to any)
                 {
@@ -2147,6 +2275,7 @@ void Semantic::selectCallCandidate(Subroutines& inoutViableCandidates, Symbols& 
                         /// to the others)
                         pBest = viableImplicitConversions[i];
                         pBestCandidate = inoutViableCandidates[i];
+                        pBestDeductions = &viableArgDeductions[i];
                         goto end_of_selection;
                     }
                 }
@@ -2155,6 +2284,19 @@ void Semantic::selectCallCandidate(Subroutines& inoutViableCandidates, Symbols& 
     end_of_selection:
         if (pBest)
         {
+            if (auto pTSpec = pBestCandidate->getTemplateSpecialization())
+            {
+                LanguageElements tplArguments;
+                tplArguments.resize(pBestDeductions->size());
+                for (auto& ph_arg : *pBestDeductions)
+                {
+                    tplArguments[pTSpec->getTemplateSignature()->getTemplateParameterIndex(ph_arg.first)] =
+                    ph_arg.second;
+                }
+                pBestCandidate =
+                static_cast<Subroutine*>(instantiateTemplate(pTSpec->getTemplate(), tplArguments, in_pContextScope));
+            }
+
             PHANTOM_ASSERT(pBestCandidate);
             bool thisCall = static_cast<Subroutine*>(pBestCandidate)->asMethod() != nullptr &&
             static_cast<Subroutine*>(pBestCandidate)->asConstructor() == nullptr;
@@ -2405,13 +2547,21 @@ LanguageElement* Semantic::unqualifiedLookup(StringView                         
                 {
                     if (Function* pFunction = candidate->asFunction())
                     {
-                        CxxSemanticError("'%.*s' : no function overload found with arguments :",
-                                         PHANTOM_STRING_AS_PRINTF_ARG(a_strName));
+                        if (a_pFunctionArguments->empty())
+                            CxxSemanticError("'%.*s' : no function overload found with arguments :",
+                                             PHANTOM_STRING_AS_PRINTF_ARG(a_strName));
+                        else
+                            CxxSemanticError("'%.*s' : no function overload found",
+                                             PHANTOM_STRING_AS_PRINTF_ARG(a_strName));
                     }
                     else
                     {
-                        CxxSemanticError("'%.*s' : no method overload found with arguments :",
-                                         PHANTOM_STRING_AS_PRINTF_ARG(a_strName));
+                        if (a_pFunctionArguments->empty())
+                            CxxSemanticError("'%.*s' : no method overload found with arguments :",
+                                             PHANTOM_STRING_AS_PRINTF_ARG(a_strName));
+                        else
+                            CxxSemanticError("'%.*s' : no method overload found",
+                                             PHANTOM_STRING_AS_PRINTF_ARG(a_strName));
                     }
                     for (auto args : *a_pFunctionArguments)
                     {
@@ -2699,18 +2849,38 @@ Expression* Semantic::autoDeduction(Type* a_pParameter, Expression* a_pArgument)
 
 Type* Semantic::autoDeduction(Type* a_pParameter, Type* a_pArgument)
 {
-    // auto local variable
     PlaceholderMap deductions;
-    // Apply template argument deduction from a function call
-    Type* pDeduced = callTemplateArgumentDeduction(a_pParameter, a_pArgument, deductions);
+    Type*          pDeduced = callTemplateArgumentDeduction(a_pParameter, a_pArgument, deductions);
     if (pDeduced == nullptr || deductions.size() != 1)
     {
         CxxSemanticError("auto type deduction failed, check your initialization "
                          "expression"); // deduction succeeded
         return nullptr;
     }
-    PHANTOM_ASSERT(deductions.begin()->second->asType(), "deduced type is not a type !?");
-    Type* pDeducedAutoType = deductions.begin()->second->asType();
+    Type* pDeducedAutoType = static_cast<Type*>(deductions.begin()->second);
+    if (a_pParameter->asReference() == nullptr) // !auto ...&
+    {
+        pDeducedAutoType = pDeducedAutoType->removeReference()->removeQualifiers();
+    }
+    else if (a_pParameter->asRValueReference() &&
+             pDeduced->asLValueReference()) // universal reference (auto&&) combined with l-value keeps l-value
+    {
+        return a_pParameter->addLValueReference()->replicate(pDeducedAutoType); // drop r-value if argument i a l-value
+    }
+    return a_pParameter->replicate(pDeducedAutoType);
+}
+
+Type* Semantic::callTemplateArgumentDeductionRef(Type* a_pParameter, Type* a_pArgument, PlaceholderMap& a_Deductions)
+{
+    // Apply template argument deduction from a function call
+    Type* pDeduced = callTemplateArgumentDeduction(a_pParameter, a_pArgument, a_Deductions);
+    if (pDeduced == nullptr || a_Deductions.size() != 1)
+    {
+        CxxSemanticError("auto type deduction failed, check your initialization "
+                         "expression"); // deduction succeeded
+        return nullptr;
+    }
+    Type* pDeducedAutoType = pDeduced;
     if (a_pParameter->asReference() == nullptr) // !auto ...&
     {
         pDeducedAutoType = pDeducedAutoType->removeReference()->removeQualifiers();

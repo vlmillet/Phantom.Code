@@ -802,6 +802,17 @@ public:
     Type* autoDeduction(Type* a_pAutoBasedType, Type* a_pCandidate);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// \brief  Performs C++ compliant 'auto' keyword deduction and choose final type
+    ///
+    /// \param [in,out] a_pParameter    If non-null, the parameter type.
+    /// \param [in,out] a_pArgument     If non-null, the argument type.
+    ///
+    /// \return null if it fails, else the deduced type.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	Type* callTemplateArgumentDeductionRef(Type* a_pParameter, Type* a_pArgument, PlaceholderMap& a_Deductions);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Performs C++ compliant 'auto' keyword deduction and convert final expression
     ///
     /// \param [in,out] a_pParameter    If non-null, the parameter type.
@@ -956,6 +967,18 @@ public:
                                 LanguageElement* a_pContextScope);
     void newImplicitConversions(FunctionType* a_pFuncType, ExpressionsView a_Args, ConversionResults& a_Out,
                                 LanguageElement* a_pContextScope);
+    void newImplicitConversionsWithArgDeductions(Signature* a_pSignature, TypesView a_ArgTypes,
+                                                 ConversionResults& a_Out, PlaceholderMap& a_TemplateArgDeductions,
+                                                 LanguageElement* a_pContextScope);
+    void newImplicitConversionsWithArgDeductions(Signature* a_pSignature, ExpressionsView a_Args,
+                                                 ConversionResults& a_Out, PlaceholderMap& a_TemplateArgDeductions,
+                                                 LanguageElement* a_pContextScope);
+    void newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType, TypesView a_ArgTypes,
+                                                 ConversionResults& a_Out, PlaceholderMap& a_TemplateArgDeductions,
+                                                 LanguageElement* a_pContextScope);
+    void newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType, ExpressionsView a_Args,
+                                                 ConversionResults& a_Out, PlaceholderMap& a_TemplateArgDeductions,
+                                                 LanguageElement* a_pContextScope);
 
 private:
     template<typename t_Ty>

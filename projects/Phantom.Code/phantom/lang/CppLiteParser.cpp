@@ -125,6 +125,8 @@
 /* *********************************************** */
 #include "CppLiteMemory.h"
 #include "phantom/lang/TemplateDependantTemplateInstance.h"
+
+#include <phantom/lang/FunctionType.h>
 #define DUMP_CODE_RANGES 0
 
 namespace phantom
@@ -1976,6 +1978,224 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         return result;
     }
 
+    template<class TypeOrAuto>
+    bool resolveFunctionEnd(TypeOrAuto* pTypeOrAuto, const char* name, soul::ast::FunctionEnd* input,
+                            Modifiers& modifiers, Subroutine*& a_pSubroutine, bool a_bOperator)
+    {
+        auto* pScope = CppLiteGetScope();
+        PHANTOM_ASSERT(pScope);
+
+        Parameters              params;
+        ClassType*              pClassType = nullptr;
+        Type*                   pType = nullptr;
+        TemplateSpecialization* pTSpec = nullptr;
+        {
+            if (auto ts = m_Data.getTemplateSignature())
+            {
+                m_Data.pushScope(ts);
+            }
+
+            auto scopeExit = phantom::makeScopeExit([&]() {
+                if (auto ps = m_Data.getTemplateSignature())
+                    m_Data.popScope();
+            });
+
+            auto pScopeElem = pScope->asLanguageElement();
+
+            if ((pTSpec = pScopeElem->asTemplateSpecialization()))
+                pClassType = pTSpec->getNamingScope()->asClassType();
+            else
+                pClassType = pScopeElem->asClassType();
+
+            if (pTypeOrAuto)
+            {
+                pType = CppLiteVisitType(pTypeOrAuto);
+                if (pType == nullptr)
+                    return true;
+            }
+
+            CppLiteDefaultReturnValue(false);
+
+            // signature
+            if (!resolveParameters(input, input->m_Parameters, params))
+                return false;
+        }
+
+        Signature* pSignature = New<Signature>(pType, params);
+
+        if (a_bOperator)
+        {
+            BuiltInOperator* pBinOp = CppLite::Get()->getBuiltInBinaryOperator(name + 8);
+            BuiltInOperator* pPreOp = CppLite::Get()->getBuiltInPreUnaryOperator(name + 8);
+            BuiltInOperator* pPostOp = CppLite::Get()->getBuiltInPostUnaryOperator(name + 8);
+            CppLiteErrorReturnIf(pBinOp && pPreOp == nullptr && pSignature->getParameterCount() != 1,
+                                 "'%s' : binary operator expects a single parameter, %zu have been declared", name,
+                                 pSignature->getParameterCount());
+            CppLiteErrorReturnIf(pPreOp && pBinOp == nullptr && pSignature->getParameterCount() != 0,
+                                 "'%s' : prefix operator does not expect any parameter, %zu have been declared", name,
+                                 pSignature->getParameterCount());
+            CppLiteErrorReturnIf(
+            pPostOp && (pPostOp->getId() == Operator::PostDecrement || pPostOp->getId() == Operator::PostIncrement) &&
+            pSignature->getParameterCount() != 1,
+            "'%s' : postfix operator expects one parameter, %zud have been declared", name,
+            pSignature->getParameterCount());
+            CppLiteErrorReturnIf(pPostOp && pBinOp == nullptr && pSignature->getParameterCount() != 0,
+                                 "'%s' : postfix operator does not expect any parameter, %zu have been declared", name,
+                                 pSignature->getParameterCount());
+            CppLiteErrorReturnIf(name[8] == '=' && pClassType == nullptr,
+                                 "'%s' : illegal declaration of assignment operator outside class/structure scope",
+                                 name);
+            CppLiteErrorReturnIf(
+            name[8] == '=' && pSignature->getParameterCount() == 1 &&
+            (pSignature->getParameterType(0)->isSame(pClassType->addConst()->addLValueReference()) ||
+             pSignature->getParameterType(0)->isSame(pClassType)) &&
+            pClassType->getCopyAssignmentOperator(),
+            "'%s' : copy assignment operator already declared", name);
+            CppLiteErrorReturnIf(name[8] == '=' && pSignature->getParameterCount() == 1 &&
+                                 pSignature->getParameterType(0)->isSame(pClassType->addRValueReference()) &&
+                                 pClassType->getMoveAssignmentOperator(),
+                                 "'%s' : move assignment operator already declared", name);
+        }
+
+        Modifiers refQualifiers = 0;
+        // function
+        uint flags = PHANTOM_R_NONE;
+        // abstract ?
+        if (input->m_Suffix.hasValue())
+        {
+            const char* defaultOrDelete = nullptr;
+            if (input->m_Suffix.type() == spell::any::e_int)
+            {
+                CppLiteErrorReturnIf(a_bOperator, "'%s' : illegal non-zero value after '='", name);
+                CppLiteErrorReturnIf(input->m_Suffix.as_int() != 0, "'%s' : ilegal non-zero value after '='", name);
+                PHANTOM_ASSERT((modifiers & Modifier::PureVirtual) != Modifier::PureVirtual);
+                CppLiteErrorReturnIf((modifiers & Modifier::Virtual) == 0,
+                                     "'%s' : pure virtual method must be 'virtual'", name);
+                modifiers |= Modifier::PureVirtual;
+            }
+            else if (strcmp(input->m_Suffix.as_string(), defaultOrDelete = "delete") == 0)
+            {
+                modifiers |= Modifier::Deleted;
+            }
+            else if (strcmp(input->m_Suffix.as_string(), defaultOrDelete = "default") == 0)
+            {
+                modifiers |= Modifier::Defaulted;
+            }
+            else
+            {
+                PHANTOM_ASSERT(false);
+            }
+            if (modifiers & (Modifier::Deleted | Modifier::Defaulted))
+            {
+                CppLiteErrorReturnIf(!(a_bOperator) || name[8] != '=' || pClassType == nullptr,
+                                     "'%s' : '%s' can only be used on default/copy/move constructors "
+                                     "or assignment operators",
+                                     name, defaultOrDelete);
+                CppLiteErrorReturnIf(
+                !(pSignature->getReturnType()->isTemplateDependant()) &&
+                !(pSignature->getReturnType()->isSame(pClassType->addLValueReference())),
+                "'%s' : illegal assignment operator return type, expects '%.*s'", name,
+                PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pClassType->addLValueReference())));
+                CppLiteErrorReturnIf(
+                pSignature->getParameterCount() != 1 ||
+                (!(pSignature->getParameterType(0)->isTemplateDependant()) &&
+                 !(pSignature->getParameterType(0)->isSame(pClassType->addConst()->addLValueReference())) &&
+                 !(pSignature->getParameterType(0)->isSame(pClassType->addRValueReference()))),
+                "'%s' : '%s' invalid copy/move assignment operator signature, expects '%.*s' or "
+                "'%.*s'",
+                name, defaultOrDelete,
+                PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pClassType->addConst()->addLValueReference())),
+                PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pClassType->addRValueReference())));
+            }
+        }
+        // override ?
+
+        else if (input->m_OVERRIDEs && !input->m_OVERRIDEs->empty())
+        {
+            resolveOverrideAndFinal(input, name, *input->m_OVERRIDEs, modifiers);
+        }
+        // ref qualifiers
+        if (input->m_CONSTs && input->m_CONSTs->size())
+        {
+            CppLiteErrorReturnIf(modifiers & PHANTOM_R_STATIC,
+                                 "'%s' : 'static' is not compatible with '&/&&/const/volatile' ref-qualifiers", name);
+            for (auto val : *input->m_CONSTs)
+            {
+                const char* cstr = val.as_string();
+                switch (cstr[0])
+                {
+                case '&':
+                {
+                    if (cstr[1] == '&')
+                    {
+                        CppLiteErrorReturnIf((refQualifiers & PHANTOM_R_RVALUEREF) != 0,
+                                             "'%s' : rvalue ref-qualifier && already declared", name);
+                        refQualifiers |= PHANTOM_R_RVALUEREF;
+                    }
+                    else
+                    {
+                        CppLiteErrorReturnIf((refQualifiers & PHANTOM_R_LVALUEREF) != 0,
+                                             "'%s' : lvalue ref-qualifier & already declared", name);
+                        refQualifiers |= PHANTOM_R_LVALUEREF;
+                    }
+                }
+                break;
+                case 'c':
+                {
+                    CppLiteErrorReturnIf((refQualifiers & PHANTOM_R_CONST) != 0,
+                                         "'%s' : const ref-qualifier already declared", name);
+                    refQualifiers |= PHANTOM_R_CONST;
+                }
+                break;
+                case 'v':
+                {
+                    CppLiteErrorReturnIf((refQualifiers & PHANTOM_R_VOLATILE) != 0,
+                                         "'%s' : volatile ref-qualifier already declared", name);
+                    refQualifiers |= PHANTOM_R_VOLATILE;
+                }
+                break;
+                default:
+                    PHANTOM_ASSERT(false);
+                    break;
+                }
+            }
+        }
+        pSignature->addModifiers(refQualifiers);
+        modifiers |= refQualifiers;
+        Types types = pSignature->getParameterTypes();
+
+        Subroutines subroutines;
+
+        MetaDatas metas;
+        a_pSubroutine = nullptr;
+        if ((modifiers & PHANTOM_R_STATIC) != 0)
+        {
+            Function* pFunction = NewInScope<Function>(name, pSignature, modifiers, flags);
+            a_pSubroutine = pFunction;
+        }
+        else
+        {
+            Method* pMethod = NewInScope<Method>(name, pSignature, modifiers, flags);
+            pMethod->setAccess(CppLiteGetAccess());
+            CppLiteErrorReturnIf(pClassType == nullptr, "'%s' : method can only be declared at class type scope", name);
+            if ((modifiers & PHANTOM_R_VIRTUAL) != 0)
+            {
+                CppLiteErrorReturnIf(pClassType->asClass() == nullptr,
+                                     "'%s' : virtual method can only be declared at class scope", name);
+            }
+            a_pSubroutine = pMethod;
+            pMethod->createThis(pClassType);
+        }
+        if (pTSpec)
+            pTSpec->setTemplated(a_pSubroutine);
+        // CppLiteAddMetas(pFunction);
+        for (auto& m : metas)
+        {
+            a_pSubroutine->setMetaData(m.first, m.second);
+        }
+        return true;
+    }
+
     template<class Declarator>
     bool resolveDeclarator(Type*& a_pType, Declarator* input, Expression*& a_pInitExpression, bool types, bool inits)
     {
@@ -2345,6 +2565,90 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         return true;
     }
 
+    /// <class T, int A...>
+    bool traverseTemplateSignature(ast::TemplateSignature* input)
+    {
+        TemplateSignature* pTemplateSignature = NewInScope<TemplateSignature>();
+        bool               bPack = false;
+        if (!input->m_TemplateParameters)
+        {
+            CppLiteMapAndReturn(pTemplateSignature);
+            return true;
+        }
+        CppLiteGuard(pTemplateSignature);
+        for (auto pTP : *input->m_TemplateParameters)
+        {
+            const char* name = pTP->m_TemplateTypeParameter ? pTP->m_TemplateTypeParameter->m_IDENTIFIER
+                                                            : pTP->m_TemplateValueParameter->m_IDENTIFIER;
+            CppLiteErrorContinueIf(pTemplateSignature->isVariadic() && pTP->m_ELLIPSE.hasValue(),
+                                   "'%s' : template parameter pack already declared", name);
+            CppLiteErrorContinueIf(pTemplateSignature->isVariadic() && !pTP->m_ELLIPSE.hasValue(),
+                                   "'%s' : template parameter pack must be the last template "
+                                   "parameter in a variadic template signature",
+                                   name);
+
+            if (pTP->m_TemplateTypeParameter) // class ..
+            {
+                LanguageElement* pDefaultType = nullptr;
+                if (pTP->m_TemplateParameterDefault)
+                {
+                    pTemplateSignature->setOwner(CppLiteGetScope());
+                    pDefaultType = CppLiteVisitType(pTP->m_TemplateParameterDefault, pTemplateSignature);
+                    CppLiteErrorReturnIf(pDefaultType == nullptr,
+                                         "'%s' : invalid template parameter default argument type", name);
+                    pTemplateSignature->setOwner(nullptr);
+                }
+                CppLiteErrorContinueIf(
+                pTemplateSignature->getTemplateParameter(pTP->m_TemplateTypeParameter->m_IDENTIFIER) != nullptr,
+                "'%s' : a template parameter already exists with the same name", name);
+                pTemplateSignature->addTemplateParameter(NewInScope<TemplateParameter>(
+                NewInScope<PlaceholderType>(pTP->m_TemplateTypeParameter->m_IDENTIFIER), pDefaultType));
+            }
+            else // int ..
+            {
+                pTemplateSignature->setOwner(CppLiteGetScope());
+                Type* pType = pTP->m_TemplateValueParameter->m_FundamentalType
+                ? CppLiteVisitType(pTP->m_TemplateValueParameter->m_FundamentalType)
+                : CppLiteVisitType(pTP->m_TemplateValueParameter->m_QualifiedName);
+                pTemplateSignature->setOwner(nullptr);
+
+                CppLiteErrorReturnIf(pType == nullptr, "invalid template value parameter type");
+                CppLiteErrorReturnIf(!(pType->asIntegralType()),
+                                     "template value parameter type must be an integral type");
+                Expression* pDefaultExpression = nullptr;
+                CppLiteGuard(pDefaultExpression);
+                if (pTP->m_TemplateParameterDefault)
+                {
+                    pTemplateSignature->setOwner(CppLiteGetScope());
+                    pDefaultExpression = CppLiteVisitExpression(pTP->m_TemplateParameterDefault, pTemplateSignature);
+                    CppLiteErrorReturnIf(pDefaultExpression == nullptr,
+                                         "'%s' : invalid template parameter default argument expression", name);
+                    CppLiteErrorReturnIf(!(pDefaultExpression->isCompileTime()) &&
+                                         !(pDefaultExpression->isTemplateDependant()),
+                                         "'%s' : template parameter default argument must be a "
+                                         "compile-time constant expression",
+                                         name);
+                    Expression* pConvExpression =
+                    CppLiteConv(pDefaultExpression, pType, CppLiteGetScopeAs(LanguageElement));
+                    if (pConvExpression == nullptr)
+                        return true;
+                    pDefaultExpression = pConvExpression;
+                    pTemplateSignature->setOwner(nullptr);
+                }
+                pTemplateSignature->addTemplateParameter(NewInScope<TemplateParameter>(
+                NewInScope<PlaceholderConstant>(pType, pTP->m_TemplateValueParameter->m_IDENTIFIER),
+                pDefaultExpression));
+                PHANTOM_ASSERT(pDefaultExpression == nullptr || pDefaultExpression->getOwner());
+            }
+            if (pTP->m_ELLIPSE.hasValue())
+            {
+                pTemplateSignature->setVariadic(true);
+            }
+        }
+        CppLiteUnguard(pTemplateSignature);
+        CppLiteMapAndReturn(pTemplateSignature);
+    }
+
     /// (<type>) varX = X, varY = Y
     bool traverseDeclarator(ast::Declarator* input)
     {
@@ -2682,6 +2986,26 @@ struct CppLitePass : public ast::visitor::Recursive<T>
     {
         CppLiteMapAndReturn(CppLiteConstantExpression(input->m_INT_VALUE));
     }
+    bool traverseFunctionTypeExtent(ast::FunctionTypeExtent* input)
+    {
+        Type* pReturnType = CppLiteGetInitializationType();
+        PHANTOM_ASSERT(pReturnType);
+        OwnersGuard<Types> types;
+        if (input->m_Types)
+        {
+            for (auto pAstType : *input->m_Types)
+            {
+                Type* pType = CppLiteVisitType(pAstType);
+                if (pType == nullptr)
+                    return true;
+                types.push_back(pType);
+            }
+        }
+        Type* pFuncType = CppLiteGetSource()->functionType(pReturnType, types);
+        CppLiteErrorReturnIf(pFuncType == nullptr, "invalid function type");
+        CppLiteMapAndReturn(pFuncType);
+    }
+
     bool traverseArrayExtent(ast::ArrayExtent* input)
     {
         Type* pType = CppLiteGetInitializationType();
@@ -2935,47 +3259,7 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         LanguageElement* pElement = CppLiteVisitElement(input->m_QualifiedName);
         if (pElement == nullptr)
             return true;
-        if (input->m_FunctionPointerType)
-        {
-            ClassType* pClassType = pElement->asClassType();
-            CppLiteErrorReturnIf(pClassType == nullptr, "expected class type on the left of @function");
-            m_Data.pushInitializationType(pClassType);
-            pElement = CppLiteVisitType(input->m_FunctionPointerType);
-            if (pElement == nullptr)
-                return true;
-            m_Data.popInitializationType();
-        }
         CppLiteMapAndReturn(pElement);
-    }
-    bool traverseFunctionPointerType(ast::FunctionPointerType* input)
-    {
-        Type* pReturnType = CppLiteVisitType(input->m_Type);
-        if (pReturnType == nullptr)
-            return true;
-        OwnersGuard<Types> types;
-        if (input->m_Types)
-        {
-            for (auto pAstType : *input->m_Types)
-            {
-                Type* pType = CppLiteVisitType(pAstType);
-                if (pReturnType == nullptr)
-                    return true;
-                types.push_back(pType);
-            }
-        }
-        Type* pObjectType = m_Data.getInitializationType();
-        Type* pPtrType = nullptr;
-        if (pObjectType)
-        {
-            PHANTOM_ASSERT(pObjectType->asClassType());
-            pPtrType = CppLiteGetSource()->methodPointerType(static_cast<ClassType*>(pObjectType), pReturnType, types);
-        }
-        else
-        {
-            pPtrType = CppLiteGetSource()->functionPointerType(pReturnType, ABI::CDecl, types);
-        }
-        CppLiteErrorReturnIf(pPtrType == nullptr, "invalid function pointer type");
-        CppLiteMapAndReturn(pPtrType);
     }
     bool traverseExplicitType(ast::ExplicitType* input)
     {
@@ -2996,6 +3280,10 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             }
         }
         CppLiteMapAndReturn(pType);
+    }
+    bool traverseExplicitTypeNoFunctionType(ast::ExplicitTypeNoFunctionType* input)
+    {
+        return traverseExplicitType(reinterpret_cast<ast::ExplicitType*>(input));
     }
 
     bool applyQualifiers(ast::_BaseRule* input, Type*& a_pType, const phantom::SmallVector<spell::any, 4>* a_Quals)
@@ -4438,6 +4726,38 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         return nullptr;
     }
 
+    bool _CheckTemplateParamReferenced(Placeholder* pPlaceHolder, LanguageElement* pArg)
+    {
+        if (Placeholder* pPH = pArg->asPlaceholder())
+        {
+            if (pPH->asSymbol()->isSame(pPlaceHolder->asSymbol()))
+            {
+                return true;
+            }
+        }
+        else if (Type* pType = pArg->asType())
+        {
+            auto naked = pType->removeEverything();
+            if (Placeholder* pNakedAsPlaceholder = naked->asPlaceholder())
+            {
+                if (pNakedAsPlaceholder->asSymbol()->isSame(pPlaceHolder->asSymbol()))
+                {
+                    return true;
+                }
+            }
+            else if (FunctionType* pFT = naked->asFunctionType())
+            {
+                if (_CheckTemplateParamReferenced(pPlaceHolder, pFT->getReturnType()))
+                    return true;
+                for (auto pParamType : pFT->getParameterTypes())
+
+                    if (_CheckTemplateParamReferenced(pPlaceHolder, pParamType))
+                        return true;
+            }
+        }
+        return false;
+    }
+
     template<class T>
     bool resolveTemplateSpecialization(T* input, ast::TemplateArgumentList* a_pTemplateArgumentList,
                                        TemplateSpecialization*& a_pTemplateSpec)
@@ -4519,29 +4839,13 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             for (auto pTemplateParam : pTemplateSignature->getTemplateParameters())
             {
                 Placeholder* pPlaceHolder = pTemplateParam->getPlaceholder();
-                bool         referenced = false;
+
+                bool referenced = false;
 
                 for (auto pArg : specializationArguments)
                 {
-                    if (Placeholder* pPH = pArg->asPlaceholder())
-                    {
-                        if (pPH->asSymbol()->isSame(pPlaceHolder->asSymbol()))
-                        {
-                            referenced = true;
-                            break;
-                        }
-                    }
-                    else if (Type* pType = pArg->asType())
-                    {
-                        if (Placeholder* pNakedAsPlaceholder = pType->removeEverything()->asPlaceholder())
-                        {
-                            if (pNakedAsPlaceholder->asSymbol()->isSame(pPlaceHolder->asSymbol()))
-                            {
-                                referenced = true;
-                                break;
-                            }
-                        }
-                    }
+                    if ((referenced = _CheckTemplateParamReferenced(pPlaceHolder, pArg)))
+                        break;
                     // FIXME
                     //                     for (LanguageElement* pReferencing :
                     //                     pPlaceHolder->asSymbol()->getReferencingElements())
@@ -4552,8 +4856,6 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                     //                             break;
                     //                         }
                     //                     }
-                    if (referenced)
-                        break;
                 }
                 CppLiteErrorReturnIf(!referenced,
                                      "'%s' : template parameter not referenced in specialization arguments",
@@ -4637,7 +4939,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                     pTemplate->setAccess(CppLiteGetAccess());
                     Source* pSource = getSource();
                     pScope->addTemplate(pTemplate);
-                    pSource->getPackage()->getCounterpartNamespace()->addTemplate(pTemplate);
+                    if (pScope == pSource)
+                        pSource->getPackage()->getCounterpartNamespace()->addTemplate(pTemplate);
                     pScope->addTemplateSpecialization(pTemplate->getEmptyTemplateSpecialization());
                 }
                 a_pTemplateSpec = pTemplate->getEmptyTemplateSpecialization();
@@ -5576,90 +5879,6 @@ struct CppLitePassGlobals : public CppLitePass<CppLitePassGlobals>
         return true;
     }
 
-    /// <class T, int A...>
-    bool traverseTemplateSignature(ast::TemplateSignature* input)
-    {
-        TemplateSignature* pTemplateSignature = NewInScope<TemplateSignature>();
-        bool               bPack = false;
-        if (!input->m_TemplateParameters)
-        {
-            CppLiteMapAndReturn(pTemplateSignature);
-            return true;
-        }
-        CppLiteGuard(pTemplateSignature);
-        for (auto pTP : *input->m_TemplateParameters)
-        {
-            const char* name = pTP->m_TemplateTypeParameter ? pTP->m_TemplateTypeParameter->m_IDENTIFIER
-                                                            : pTP->m_TemplateValueParameter->m_IDENTIFIER;
-            CppLiteErrorContinueIf(pTemplateSignature->isVariadic() && pTP->m_ELLIPSE.hasValue(),
-                                   "'%s' : template parameter pack already declared", name);
-            CppLiteErrorContinueIf(pTemplateSignature->isVariadic() && !pTP->m_ELLIPSE.hasValue(),
-                                   "'%s' : template parameter pack must be the last template "
-                                   "parameter in a variadic template signature",
-                                   name);
-
-            if (pTP->m_TemplateTypeParameter) // class ..
-            {
-                LanguageElement* pDefaultType = nullptr;
-                if (pTP->m_TemplateParameterDefault)
-                {
-                    pTemplateSignature->setOwner(CppLiteGetScope());
-                    pDefaultType = CppLiteVisitType(pTP->m_TemplateParameterDefault, pTemplateSignature);
-                    CppLiteErrorReturnIf(pDefaultType == nullptr,
-                                         "'%s' : invalid template parameter default argument type", name);
-                    pTemplateSignature->setOwner(nullptr);
-                }
-                CppLiteErrorContinueIf(
-                pTemplateSignature->getTemplateParameter(pTP->m_TemplateTypeParameter->m_IDENTIFIER) != nullptr,
-                "'%s' : a template parameter already exists with the same name", name);
-                pTemplateSignature->addTemplateParameter(NewInScope<TemplateParameter>(
-                NewInScope<PlaceholderType>(pTP->m_TemplateTypeParameter->m_IDENTIFIER), pDefaultType));
-            }
-            else // int ..
-            {
-                pTemplateSignature->setOwner(CppLiteGetScope());
-                Type* pType = pTP->m_TemplateValueParameter->m_FundamentalType
-                ? CppLiteVisitType(pTP->m_TemplateValueParameter->m_FundamentalType)
-                : CppLiteVisitType(pTP->m_TemplateValueParameter->m_QualifiedName);
-                pTemplateSignature->setOwner(nullptr);
-
-                CppLiteErrorReturnIf(pType == nullptr, "invalid template value parameter type");
-                CppLiteErrorReturnIf(!(pType->asIntegralType()),
-                                     "template value parameter type must be an integral type");
-                Expression* pDefaultExpression = nullptr;
-                CppLiteGuard(pDefaultExpression);
-                if (pTP->m_TemplateParameterDefault)
-                {
-                    pTemplateSignature->setOwner(CppLiteGetScope());
-                    pDefaultExpression = CppLiteVisitExpression(pTP->m_TemplateParameterDefault, pTemplateSignature);
-                    CppLiteErrorReturnIf(pDefaultExpression == nullptr,
-                                         "'%s' : invalid template parameter default argument expression", name);
-                    CppLiteErrorReturnIf(!(pDefaultExpression->isCompileTime()) &&
-                                         !(pDefaultExpression->isTemplateDependant()),
-                                         "'%s' : template parameter default argument must be a "
-                                         "compile-time constant expression",
-                                         name);
-                    Expression* pConvExpression =
-                    CppLiteConv(pDefaultExpression, pType, CppLiteGetScopeAs(LanguageElement));
-                    if (pConvExpression == nullptr)
-                        return true;
-                    pDefaultExpression = pConvExpression;
-                    pTemplateSignature->setOwner(nullptr);
-                }
-                pTemplateSignature->addTemplateParameter(NewInScope<TemplateParameter>(
-                NewInScope<PlaceholderConstant>(pType, pTP->m_TemplateValueParameter->m_IDENTIFIER),
-                pDefaultExpression));
-                PHANTOM_ASSERT(pDefaultExpression == nullptr || pDefaultExpression->getOwner());
-            }
-            if (pTP->m_ELLIPSE.hasValue())
-            {
-                pTemplateSignature->setVariadic(true);
-            }
-        }
-        CppLiteUnguard(pTemplateSignature);
-        CppLiteMapAndReturn(pTemplateSignature);
-    }
-
     bool traverseTemplate(ast::Template* input)
     {
         Source* pSource = CppLiteGetScopeAs(Source);
@@ -5682,6 +5901,10 @@ struct CppLitePassGlobals : public CppLitePass<CppLitePassGlobals>
         else if (templated = input->m_Alias)
         {
             traverse(input->m_Alias);
+        }
+        else if (templated = input->m_TemplateFunctionBody)
+        {
+            traverse(input->m_TemplateFunctionBody);
         }
         else if (templated = input->m_TemplateSignature)
         {
@@ -5718,6 +5941,30 @@ struct CppLitePassGlobals : public CppLitePass<CppLitePassGlobals>
         Class* pClass = nullptr;
         resolveClass(input, pClass);
         CppLiteMapAndReturn(pClass);
+    }
+
+    bool traverseTemplateFunctionBody(ast::TemplateFunctionBody* input)
+    {
+        if (input->m_STATIC.hasValue())
+        {
+            CppLiteWarningMsg("static : optional on global functions");
+        }
+
+        TemplateSpecialization* pTemplateSpec = nullptr;
+        if (!(resolveTemplateSpecialization(input, /*input->m_TemplateArgumentList*/ nullptr, pTemplateSpec)))
+            return false;
+
+        m_Data.pushScope(pTemplateSpec);
+        const char* name = input->m_IDENTIFIER;
+        Subroutine* pSubroutine = nullptr;
+        if (!resolveFunctionEnd(input->m_TypeOrAuto, name, input->m_FunctionEnd, Modifiers{PHANTOM_R_STATIC},
+                                pSubroutine, false))
+        {
+            m_Data.popScope();
+            return true;
+        }
+        m_Data.popScope();
+        CppLiteMapAndReturn(pSubroutine);
     }
 
     bool traverseFunctionOrVariable(ast::FunctionOrVariable* input)
@@ -6005,6 +6252,17 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
         {
             traverse(input->m_Alias);
         }
+        else if (input->m_TemplateFunctionBody)
+        {
+            LanguageElement* pElement = CppLiteVisitElement(input->m_TemplateSignature);
+            if (pElement == nullptr)
+                return true;
+            PHANTOM_ASSERT(pElement->asTemplateSignature());
+            TemplateSignature* pTemplateSignature = static_cast<TemplateSignature*>(pElement);
+            m_Data.pushTemplateSignature(pTemplateSignature);
+            traverse(input->m_TemplateFunctionBody);
+            m_Data.popTemplateSignature();
+        }
         else if (input->m_TemplateSignature)
         {
             CppLiteError("Template are forbiden");
@@ -6142,7 +6400,7 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
         ClassType* pClassType = CppLiteGetScopeAs(ClassType);
         if (pClassType == nullptr)
             return true;
-        Type* pType = CppLiteVisitType(input->m_Type);
+        Type* pType = CppLiteVisitType(input->m_TypeNoFunctionType);
         if (pType == nullptr)
             return true;
         CppLiteAddTypeDependency(pType);
@@ -6235,16 +6493,11 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
         {
             const char* name = pFunctionOrVariableEnd->m_IDENTIFIER;
 
-            Type* pType = CppLiteVisitType(input->m_TypeOrAuto);
-            if (pType == nullptr)
-                return true;
-            CppLiteAddTypeDependency(pType);
-
             // methods
             if (pFunctionOrVariableEnd->m_FunctionEnd)
             {
                 Subroutine* pSubroutine = nullptr;
-                if (!resolveFunctionEnd(pType, pFunctionOrVariableEnd->m_IDENTIFIER,
+                if (!resolveFunctionEnd(input->m_TypeOrAuto, pFunctionOrVariableEnd->m_IDENTIFIER,
                                         pFunctionOrVariableEnd->m_FunctionEnd, modifiers, pSubroutine, false))
                     return true;
                 CppLiteMapAndReturn(pSubroutine);
@@ -6253,6 +6506,10 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
             // fields
             else
             {
+                Type* pType = CppLiteVisitType(input->m_TypeOrAuto);
+                if (pType == nullptr)
+                    return true;
+                CppLiteAddTypeDependency(pType);
                 // read alignment
                 int align = 0;
                 if (input->m_AlignAs.hasValue())
@@ -6355,9 +6612,6 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
         // operators
         else if (input->m_OperatorEnd)
         {
-            Type* pType = CppLiteVisitType(input->m_TypeOrAuto);
-            if (pType == nullptr)
-                return true;
             Subroutine* pSubroutine = nullptr;
             char        other[12] = "operator";
             const char* op = nullptr;
@@ -6387,198 +6641,11 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
                 op = "operator>>=";
             }
             PHANTOM_ASSERT(op);
-            if (!resolveFunctionEnd(pType, op, input->m_OperatorEnd->m_FunctionEnd, modifiers, pSubroutine, true))
+            if (!resolveFunctionEnd(input->m_TypeOrAuto, op, input->m_OperatorEnd->m_FunctionEnd, modifiers,
+                                    pSubroutine, true))
                 return true;
             PHANTOM_ASSERT(pSubroutine->asMethod());
             CppLiteMapAndReturn(pSubroutine);
-        }
-        return true;
-    }
-
-    bool resolveFunctionEnd(Type*& pType, const char* name, soul::ast::FunctionEnd* input, Modifiers& modifiers,
-                            Subroutine*& a_pSubroutine, bool a_bOperator)
-    {
-        Scope* pScope = CppLiteGetScopeAs(Scope);
-        PHANTOM_ASSERT(pScope);
-
-        ClassType* pClassType = pScope->asLanguageElement()->asClassType();
-
-        CppLiteDefaultReturnValue(false);
-
-        // signature
-        Parameters params;
-        if (!resolveParameters(input, input->m_Parameters, params))
-            return false;
-
-        Signature* pSignature = New<Signature>(pType, params);
-
-        if (a_bOperator)
-        {
-            BuiltInOperator* pBinOp = CppLite::Get()->getBuiltInBinaryOperator(name + 8);
-            BuiltInOperator* pPreOp = CppLite::Get()->getBuiltInPreUnaryOperator(name + 8);
-            BuiltInOperator* pPostOp = CppLite::Get()->getBuiltInPostUnaryOperator(name + 8);
-            CppLiteErrorReturnIf(pBinOp && pPreOp == nullptr && pSignature->getParameterCount() != 1,
-                                 "'%s' : binary operator expects a single parameter, %zu have been declared", name,
-                                 pSignature->getParameterCount());
-            CppLiteErrorReturnIf(pPreOp && pBinOp == nullptr && pSignature->getParameterCount() != 0,
-                                 "'%s' : prefix operator does not expect any parameter, %zu have been declared", name,
-                                 pSignature->getParameterCount());
-            CppLiteErrorReturnIf(
-            pPostOp && (pPostOp->getId() == Operator::PostDecrement || pPostOp->getId() == Operator::PostIncrement) &&
-            pSignature->getParameterCount() != 1,
-            "'%s' : postfix operator expects one parameter, %zud have been declared", name,
-            pSignature->getParameterCount());
-            CppLiteErrorReturnIf(pPostOp && pBinOp == nullptr && pSignature->getParameterCount() != 0,
-                                 "'%s' : postfix operator does not expect any parameter, %zu have been declared", name,
-                                 pSignature->getParameterCount());
-            CppLiteErrorReturnIf(name[8] == '=' && pClassType == nullptr,
-                                 "'%s' : illegal declaration of assignment operator outside class/structure scope",
-                                 name);
-            CppLiteErrorReturnIf(
-            name[8] == '=' && pSignature->getParameterCount() == 1 &&
-            (pSignature->getParameterType(0)->isSame(pClassType->addConst()->addLValueReference()) ||
-             pSignature->getParameterType(0)->isSame(pClassType)) &&
-            pClassType->getCopyAssignmentOperator(),
-            "'%s' : copy assignment operator already declared", name);
-            CppLiteErrorReturnIf(name[8] == '=' && pSignature->getParameterCount() == 1 &&
-                                 pSignature->getParameterType(0)->isSame(pClassType->addRValueReference()) &&
-                                 pClassType->getMoveAssignmentOperator(),
-                                 "'%s' : move assignment operator already declared", name);
-        }
-
-        Modifiers refQualifiers = 0;
-        // function
-        uint flags = PHANTOM_R_NONE;
-        // abstract ?
-        if (input->m_Suffix.hasValue())
-        {
-            const char* defaultOrDelete = nullptr;
-            if (input->m_Suffix.type() == spell::any::e_int)
-            {
-                CppLiteErrorReturnIf(a_bOperator, "'%s' : illegal non-zero value after '='", name);
-                CppLiteErrorReturnIf(input->m_Suffix.as_int() != 0, "'%s' : ilegal non-zero value after '='", name);
-                PHANTOM_ASSERT((modifiers & Modifier::PureVirtual) != Modifier::PureVirtual);
-                CppLiteErrorReturnIf((modifiers & Modifier::Virtual) == 0,
-                                     "'%s' : pure virtual method must be 'virtual'", name);
-                modifiers |= Modifier::PureVirtual;
-            }
-            else if (strcmp(input->m_Suffix.as_string(), defaultOrDelete = "delete") == 0)
-            {
-                modifiers |= Modifier::Deleted;
-            }
-            else if (strcmp(input->m_Suffix.as_string(), defaultOrDelete = "default") == 0)
-            {
-                modifiers |= Modifier::Defaulted;
-            }
-            else
-            {
-                PHANTOM_ASSERT(false);
-            }
-            if (modifiers & (Modifier::Deleted | Modifier::Defaulted))
-            {
-                CppLiteErrorReturnIf(!(a_bOperator) || name[8] != '=' || pClassType == nullptr,
-                                     "'%s' : '%s' can only be used on default/copy/move constructors "
-                                     "or assignment operators",
-                                     name, defaultOrDelete);
-                CppLiteErrorReturnIf(
-                !(pSignature->getReturnType()->isTemplateDependant()) &&
-                !(pSignature->getReturnType()->isSame(pClassType->addLValueReference())),
-                "'%s' : illegal assignment operator return type, expects '%.*s'", name,
-                PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pClassType->addLValueReference())));
-                CppLiteErrorReturnIf(
-                pSignature->getParameterCount() != 1 ||
-                (!(pSignature->getParameterType(0)->isTemplateDependant()) &&
-                 !(pSignature->getParameterType(0)->isSame(pClassType->addConst()->addLValueReference())) &&
-                 !(pSignature->getParameterType(0)->isSame(pClassType->addRValueReference()))),
-                "'%s' : '%s' invalid copy/move assignment operator signature, expects '%.*s' or "
-                "'%.*s'",
-                name, defaultOrDelete,
-                PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pClassType->addConst()->addLValueReference())),
-                PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pClassType->addRValueReference())));
-            }
-        }
-        // override ?
-
-        else if (input->m_OVERRIDEs && !input->m_OVERRIDEs->empty())
-        {
-            resolveOverrideAndFinal(input, name, *input->m_OVERRIDEs, modifiers);
-        }
-        // ref qualifiers
-        if (input->m_CONSTs && input->m_CONSTs->size())
-        {
-            CppLiteErrorReturnIf(modifiers & PHANTOM_R_STATIC,
-                                 "'%s' : 'static' is not compatible with '&/&&/const/volatile' ref-qualifiers", name);
-            for (auto val : *input->m_CONSTs)
-            {
-                const char* cstr = val.as_string();
-                switch (cstr[0])
-                {
-                case '&':
-                {
-                    if (cstr[1] == '&')
-                    {
-                        CppLiteErrorReturnIf((refQualifiers & PHANTOM_R_RVALUEREF) != 0,
-                                             "'%s' : rvalue ref-qualifier && already declared", name);
-                        refQualifiers |= PHANTOM_R_RVALUEREF;
-                    }
-                    else
-                    {
-                        CppLiteErrorReturnIf((refQualifiers & PHANTOM_R_LVALUEREF) != 0,
-                                             "'%s' : lvalue ref-qualifier & already declared", name);
-                        refQualifiers |= PHANTOM_R_LVALUEREF;
-                    }
-                }
-                break;
-                case 'c':
-                {
-                    CppLiteErrorReturnIf((refQualifiers & PHANTOM_R_CONST) != 0,
-                                         "'%s' : const ref-qualifier already declared", name);
-                    refQualifiers |= PHANTOM_R_CONST;
-                }
-                break;
-                case 'v':
-                {
-                    CppLiteErrorReturnIf((refQualifiers & PHANTOM_R_VOLATILE) != 0,
-                                         "'%s' : volatile ref-qualifier already declared", name);
-                    refQualifiers |= PHANTOM_R_VOLATILE;
-                }
-                break;
-                default:
-                    PHANTOM_ASSERT(false);
-                    break;
-                }
-            }
-        }
-        pSignature->addModifiers(refQualifiers);
-        modifiers |= refQualifiers;
-        Types types = pSignature->getParameterTypes();
-
-        Subroutines subroutines;
-
-        MetaDatas metas;
-        a_pSubroutine = nullptr;
-        if ((modifiers & PHANTOM_R_STATIC) != 0)
-        {
-            Function* pFunction = NewInScope<Function>(name, pSignature, modifiers, flags);
-            a_pSubroutine = pFunction;
-        }
-        else
-        {
-            Method* pMethod = NewInScope<Method>(name, pSignature, modifiers, flags);
-            pMethod->setAccess(CppLiteGetAccess());
-            ClassType* pClassType = pScope->asLanguageElement()->asClassType();
-            CppLiteErrorReturnIf(pClassType == nullptr, "'%s' : method can only be declared at class type scope", name);
-            if ((modifiers & PHANTOM_R_VIRTUAL) != 0)
-            {
-                CppLiteErrorReturnIf(pClassType->asClass() == nullptr,
-                                     "'%s' : virtual method can only be declared at class scope", name);
-            }
-            a_pSubroutine = pMethod;
-        }
-        // CppLiteAddMetas(pFunction);
-        for (auto& m : metas)
-        {
-            a_pSubroutine->setMetaData(m.first, m.second);
         }
         return true;
     }
@@ -6619,18 +6686,30 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
         }
 
         const char* name = input->m_IDENTIFIER;
-        Type*       pType = nullptr;
-        if (input->m_TypeOrAuto)
-        {
-            pType = CppLiteVisitType(input->m_TypeOrAuto);
-            if (pType == nullptr)
-                return true;
-        }
         Subroutine* pSubroutine = nullptr;
-        if (!resolveFunctionEnd(pType, name, input->m_FunctionEnd, modifiers, pSubroutine, false))
+        if (!resolveFunctionEnd(input->m_TypeOrAuto, name, input->m_FunctionEnd, modifiers, pSubroutine, false))
         {
             return true;
         }
+        CppLiteMapAndReturn(pSubroutine);
+    }
+
+    bool traverseTemplateFunctionBody(ast::TemplateFunctionBody* input)
+    {
+        TemplateSpecialization* pTemplateSpec = nullptr;
+        if (!(resolveTemplateSpecialization(input, /*input->m_TemplateArgumentList*/ nullptr, pTemplateSpec)))
+            return false;
+
+        const char* name = input->m_IDENTIFIER;
+        Subroutine* pSubroutine = nullptr;
+        m_Data.pushScope(pTemplateSpec);
+        if (!resolveFunctionEnd(input->m_TypeOrAuto, name, input->m_FunctionEnd,
+                                input->m_STATIC.hasValue() ? PHANTOM_R_STATIC : Modifiers{}, pSubroutine, false))
+        {
+            m_Data.popScope();
+            return true;
+        }
+        m_Data.popScope();
         CppLiteMapAndReturn(pSubroutine);
     }
 
@@ -6707,6 +6786,10 @@ struct CppLitePassMembersGlobal : public CppLitePass<CppLitePassMembersGlobal>
         else if (input->m_Alias)
         {
             traverse(input->m_Alias);
+        }
+        else if (input->m_TemplateFunctionBody)
+        {
+            traverse(input->m_TemplateFunctionBody);
         }
         else if (input->m_TemplateSignature)
         {
@@ -6868,6 +6951,8 @@ struct CppLitePassMembersGlobal : public CppLitePass<CppLitePassMembersGlobal>
         return true;
     }
 
+    bool traverseTemplateFunctionBody(ast::TemplateFunctionBody* input);
+
     bool traverseMethod(ast::Method* input)
     {
         ClassType* pClassType = CppLiteGetScopeAs(ClassType);
@@ -6994,6 +7079,10 @@ struct CppLitePassFieldDefaults : public CppLitePass<CppLitePassFieldDefaults>
         else if (input->m_Alias)
         {
             traverse(input->m_Alias);
+        }
+        else if (input->m_TemplateFunctionBody)
+        {
+            return true;
         }
         else if (input->m_TemplateSignature)
         {
@@ -7205,6 +7294,10 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         {
             traverse(input->m_Alias);
         }
+        else if (input->m_TemplateFunctionBody)
+        {
+            traverse(input->m_TemplateFunctionBody);
+        }
         else if (input->m_TemplateSignature)
         {
             CppLiteError("Template are forbiden");
@@ -7350,7 +7443,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         bool                                                                 inheritedConstructor = false;
         for (ast::ConstructorInitializer* ctorInit : *ctorInitializers)
         {
-            Symbol* pSym = CppLiteVisitSymbol(ctorInit->m_Type);
+            Symbol* pSym = CppLiteVisitSymbol(ctorInit->m_BasicType);
             if (!pSym)
             {
                 continue;
@@ -7661,6 +7754,23 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         Destructor* pDestructor = CppLiteGetElementAs(Destructor);
         CppLiteCheckShouldWeContinueParsing(pDestructor);
         CppLiteVisitElement(input->m_FunctionBlock, pDestructor);
+        return true;
+    }
+    bool traverseTemplateFunctionBody(ast::TemplateFunctionBody* input)
+    {
+        Subroutine* pSubroutine = CppLiteGetElementAs(Subroutine);
+        CppLiteCheckShouldWeContinueParsing(pSubroutine);
+        if (pSubroutine->getBlockBuilder()) // block builder is still here, it means we haven't built the template
+                                            // function body block yet
+        {
+            pSubroutine->setBlockBuilder({});
+            PHANTOM_ASSERT(input->m_FunctionEnd->m_FunctionBlock ||
+                           (pSubroutine->asMethod() && pSubroutine->isPureVirtual()));
+            if (input->m_FunctionEnd->m_FunctionBlock)
+            {
+                CppLiteVisitElement(input->m_FunctionEnd->m_FunctionBlock, pSubroutine);
+            }
+        }
         return true;
     }
     bool traverseMethod(ast::Method* input)
@@ -8629,8 +8739,24 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         }
         CppLiteMapAndReturn(pSwitchStatement);
     }
+};
 
-}; // namespace soul
+bool CppLitePassMembersGlobal::traverseTemplateFunctionBody(ast::TemplateFunctionBody* input)
+{
+    if (Subroutine* pSubroutine = CppLiteGetElementAs(Subroutine))
+    {
+        if (input->m_FunctionEnd->m_FunctionBlock)
+        {
+            CppLitePassData* data = &m_Data;
+            AddBlock(pSubroutine);
+            pSubroutine->setBlockBuilder([=](Block* a_pBlock) {
+                CppLitePassBlocks blocks(*data);
+                return blocks.traverse(input);
+            });
+        }
+    }
+    return true;
+}
 
 #if DUMP_CODE_RANGES
 static void dumpCodeRanges(LanguageElement* a_pLanguageElement, size_t level = 0)

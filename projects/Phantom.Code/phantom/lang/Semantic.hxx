@@ -465,6 +465,10 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void(Signature*, ExpressionsView, ConversionResults&, LanguageElement*)>("newImplicitConversions", &_::newImplicitConversions)({"a_pSignature","a_Args","a_Out","a_pContextScope"})
             .method<void(FunctionType*, TypesView, ConversionResults&, LanguageElement*)>("newImplicitConversions", &_::newImplicitConversions)({"a_pFuncType","a_ArgTypes","a_Out","a_pContextScope"})
             .method<void(FunctionType*, ExpressionsView, ConversionResults&, LanguageElement*)>("newImplicitConversions", &_::newImplicitConversions)({"a_pFuncType","a_Args","a_Out","a_pContextScope"})
+            .method<void(Signature*, TypesView, ConversionResults&, PlaceholderMap&, LanguageElement*)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pSignature","a_ArgTypes","a_Out","a_TemplateArgDeductions","a_pContextScope"})
+            .method<void(Signature*, ExpressionsView, ConversionResults&, PlaceholderMap&, LanguageElement*)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pSignature","a_Args","a_Out","a_TemplateArgDeductions","a_pContextScope"})
+            .method<void(FunctionType*, TypesView, ConversionResults&, PlaceholderMap&, LanguageElement*)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pFuncType","a_ArgTypes","a_Out","a_TemplateArgDeductions","a_pContextScope"})
+            .method<void(FunctionType*, ExpressionsView, ConversionResults&, PlaceholderMap&, LanguageElement*)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pFuncType","a_Args","a_Out","a_TemplateArgDeductions","a_pContextScope"})
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE
