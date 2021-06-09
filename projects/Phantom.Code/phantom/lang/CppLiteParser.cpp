@@ -6696,6 +6696,8 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
 
     bool traverseTemplateFunctionBody(ast::TemplateFunctionBody* input)
     {
+        if (Subroutine* pSubroutine = CppLiteGetElementAs(Subroutine)) // already compiled above
+            return true;
         TemplateSpecialization* pTemplateSpec = nullptr;
         if (!(resolveTemplateSpecialization(input, /*input->m_TemplateArgumentList*/ nullptr, pTemplateSpec)))
             return false;

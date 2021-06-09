@@ -810,7 +810,7 @@ public:
     /// \return null if it fails, else the deduced type.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	Type* callTemplateArgumentDeductionRef(Type* a_pParameter, Type* a_pArgument, PlaceholderMap& a_Deductions);
+    Type* callTemplateArgumentDeductionRef(Type* a_pParameter, Type* a_pArgument, PlaceholderMap& a_Deductions);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Performs C++ compliant 'auto' keyword deduction and convert final expression
@@ -1065,6 +1065,9 @@ private:
 
     void _moveAssignField(Class* a_pThis, Block* a_pBlock, Expression* a_pDME, Class* a_pClass, Expression* a_pWhere);
     void _moveAssignField(Class* a_pThis, Block* a_pBlock, Expression* a_pDME, Array* a_pArray, Expression* a_pWhere);
+    bool _useExplicitTemplateArguments(Subroutine* a_pInput, TemplateSpecialization* a_pTSpec,
+                                       OptionalArrayView<LanguageElement*> a_ExplicitTemplateArguments,
+                                       PlaceholderMap& a_Deductions, const char* a_SubroutineKind);
 
 private:
     BuiltInOperator*   m_BuiltInOperators[int(Operator::COUNT)];

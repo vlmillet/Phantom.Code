@@ -9,9 +9,12 @@
 #include "Semantic.h"
 #include "phantom/lang/TemplateParameter.h"
 
+#include <phantom/lang/Message.h>
 #include <phantom/lang/Placeholder.h>
 #include <phantom/lang/TemplateSpecialization.h>
 #include <stdarg.h>
+
+#define PHANTOM_SEMANTIC_ASSERT(...)
 
 namespace phantom
 {
@@ -104,7 +107,7 @@ inline StringView getAccessString(Access a_Access)
     case Access::Private:
         return "private";
     default:
-        PHANTOM_ASSERT(false);
+        PHANTOM_SEMANTIC_ASSERT(false);
         return "unknown";
     }
 }
@@ -183,9 +186,9 @@ inline StringView getAccessString(Access a_Access)
 
 #define in_Pass (*(EClassBuildState*)a_Data.in[1])
 
-#define PHANTOM_ASSERT_SEMANTIC_HAS_ERROR_REPORT(elem)                                                                 \
-    PHANTOM_ASSERT(elem || this->getMessage() == nullptr ||                                                            \
-                   this->getMessage()->getMostValuableMessageType() == MessageType::Error)
+#define PHANTOM_SEMANTIC_ASSERT_SEMANTIC_HAS_ERROR_REPORT(elem)                                                        \
+    PHANTOM_SEMANTIC_ASSERT(elem || this->getMessage() == nullptr ||                                                   \
+                            this->getMessage()->getMostValuableMessageType() == MessageType::Error)
 
 /// TEMPLATE INSTANCIATION
 
@@ -241,10 +244,10 @@ public:
                                                 Semantic::EClassBuildState a_uiPass, LanguageElement* a_pScope,
                                                 int a_Flags, T* (LanguageElement::*a_Func)() const)
     {
-        PHANTOM_ASSERT(a_pElement);
+        PHANTOM_SEMANTIC_ASSERT(a_pElement);
         LanguageElement* pResult =
         a_pSemantic->resolveTemplateDependency(a_pElement, a_TemplateSubstitution, a_uiPass, a_pScope, a_Flags);
-        PHANTOM_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
+        PHANTOM_SEMANTIC_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
         return pResult ? (pResult->*a_Func)() : nullptr;
     }
     template<class T>
@@ -257,10 +260,32 @@ public:
             return nullptr;
         LanguageElement* pResult =
         a_pSemantic->instantiateTemplateElement(a_pElement, a_TemplateSubstitution, a_uiPass, a_pScope, a_Flags);
-        PHANTOM_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
+        PHANTOM_SEMANTIC_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
         if (!pResult)
             return nullptr;
         T* pResT = (pResult->*a_Func)();
+        if (!pResT)
+        {
+            CxxCustomSemanticError(a_pSemantic, "'%s' : unexpected symbol", a_pSemantic->FormatCStr(pResult));
+        }
+        return pResT;
+    }
+    inline static Expression*
+    SemanticInstantiateTemplateElement(Semantic* a_pSemantic, Expression* a_pElement,
+                                       const class TemplateSubstitution& a_TemplateSubstitution,
+                                       Semantic::EClassBuildState a_uiPass, LanguageElement* a_pScope, int a_Flags,
+                                       Expression* (LanguageElement::*a_Func)() const)
+    {
+        if (a_pElement == nullptr)
+            return nullptr;
+        if (!a_pElement->isTemplateDependant())
+            return a_pElement->clone(a_pSemantic->getSource());
+        LanguageElement* pResult =
+        a_pSemantic->instantiateTemplateElement(a_pElement, a_TemplateSubstitution, a_uiPass, a_pScope, a_Flags);
+        PHANTOM_SEMANTIC_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
+        if (!pResult)
+            return nullptr;
+        Expression* pResT = (pResult->*a_Func)();
         if (!pResT)
         {
             CxxCustomSemanticError(a_pSemantic, "'%s' : unexpected symbol", a_pSemantic->FormatCStr(pResult));
@@ -273,10 +298,12 @@ public:
                                                 Semantic::EClassBuildState a_uiPass, LanguageElement* a_pScope,
                                                 int a_Flags)
     {
-        PHANTOM_ASSERT(a_pElement);
+        PHANTOM_SEMANTIC_ASSERT(a_pElement);
+        if (!a_pElement->isTemplateDependant())
+            return static_cast<T*>(a_pElement);
         LanguageElement* pResult =
         a_pSemantic->resolveTemplateDependency(a_pElement, a_TemplateSubstitution, a_uiPass, a_pScope, a_Flags);
-        PHANTOM_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
+        PHANTOM_SEMANTIC_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
         return pResult ? phantom::Object::Cast<T>(pResult) : nullptr;
     }
     template<class T>
@@ -289,7 +316,7 @@ public:
             return nullptr;
         LanguageElement* pResult =
         a_pSemantic->instantiateTemplateElement(a_pElement, a_TemplateSubstitution, a_uiPass, a_pScope, a_Flags);
-        PHANTOM_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
+        PHANTOM_SEMANTIC_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
         return pResult ? phantom::Object::Cast<T>(pResult) : nullptr;
     }
 };
