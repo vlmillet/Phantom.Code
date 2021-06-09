@@ -2136,6 +2136,7 @@ void CppTranslator::visit(Constant* a_pInput, VisitorData a_Data)
         }
         else
             a_pInput->toLiteral(buffer);
+        PHANTOM_ASSERT(buffer.size());
         m_pTranslation->append(buffer.data(), buffer.size());
     }
     else
