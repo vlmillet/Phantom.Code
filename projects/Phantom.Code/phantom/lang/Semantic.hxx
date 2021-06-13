@@ -33,6 +33,7 @@
 #include <phantom/utils/Delegate.hxx>
 #include <phantom/utils/Optional.hxx>
 #include <phantom/utils/SmallString.hxx>
+#include <phantom/utils/SmallVector.hxx>
 #include <phantom/utils/StringView.hxx>
 
 #include <phantom/template-only-pop>
@@ -66,6 +67,8 @@ PHANTOM_PACKAGE("phantom.lang")
             using NameLookupData = typedef_<_::NameLookupData>;
             using PlaceholderMap = typedef_< phantom::lang::PlaceholderMap>;
             using QualifiedLookupData = typedef_<_::QualifiedLookupData>;
+            using SelectedOverloadInfo = typedef_<_::SelectedOverloadInfo>;
+            using SelectedOverloadInfos = typedef_<_::SelectedOverloadInfos>;
             using StringBuffer = typedef_< phantom::StringBuffer>;
             using StringView = typedef_< phantom::StringView>;
             using Subroutines = typedef_< phantom::lang::Subroutines>;
@@ -388,7 +391,16 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<Expression*(Type*, Expression*, LanguageElement*)>("createDestructionExpression", &_::createDestructionExpression)({"a_pType","a_pObjExpression","a_pScope"})
             .method<Expression*(Field*, Expression*, LanguageElement*)>("createDestructionExpression", &_::createDestructionExpression)({"a_pDM","a_pObjExpression","a_pScope"})
             .method<void(Class*)>("generateImplicitDestructorCode", &_::generateImplicitDestructorCode)({"a_pClass"})
+            .struct_<SelectedOverloadInfo>()
+                .field("subroutine", &_::SelectedOverloadInfo::subroutine)
+                .field("conversions", &_::SelectedOverloadInfo::conversions)
+                .field("deductions", &_::SelectedOverloadInfo::deductions)
+            .end()
+            .typedef_<SelectedOverloadInfos>("SelectedOverloadInfos")
             .method<void(Subroutines&, Symbols&, OptionalArrayView<LanguageElement*>, Expressions&, LanguageElement*&, StringView, LanguageElement*, Type*, Modifiers, uint)>("selectCallCandidate", &_::selectCallCandidate)({"outViableCandidates","candidates","a_pTemplateArguments","a_Arguments","a_pSelectedCandidate","a_strName","a_pContextScope","a_pInitializationType","a_Modifiers","a_uiFlags"})["nullptr"]["nullptr"]["0"]["0"]
+            .method<void(SelectedOverloadInfos&, Symbols&, OptionalArrayView<LanguageElement*>, TypesView, LanguageElement*, UserDefinedFunctions, Modifiers, uint)>("findCallOverloads", &_::findCallOverloads)({"a_OutOverloads","candidates","in_pTemplateArguments","a_ArgTypes","in_pContextScope","a_ConversionAllowedUserDefinedFunctions","a_Modifiers","a_uiFlags"})["UserDefinedFunctions::All"]["0"]["0"]
+            .method<void(SelectedOverloadInfos&, LanguageElement*)>("applyOverloadsSFINAE", &_::applyOverloadsSFINAE)({"a_InOverloads","a_pInstantiationScope"})
+            .method<SelectedOverloadInfo const*(SelectedOverloadInfos const&)>("selectBestOverload", &_::selectBestOverload)({"_InOverloads"})
             .method<Expression*(StringView, Expression*, Expression*, LanguageElement*)>("solveBinaryOperator", &_::solveBinaryOperator)({"a_strOp","a_pLeftOperand","a_pRightOperand","a_pContextScope"})["nullptr"]
             .method<Expression*(Operator, Expression*, Expression*, LanguageElement*)>("solveBinaryOperator", &_::solveBinaryOperator)({"a_eOp","a_pLeft","a_pRight","a_pContextScope"})["nullptr"]
             .method<Expression*(StringView, Expression*, LanguageElement*)>("solveUnaryPreOperator", &_::solveUnaryPreOperator)({"a_strOp","a_pOperand","a_pContextScope"})["nullptr"]
@@ -436,7 +448,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<Expression*(Field*, Expression*)>("toExpression", &_::toExpression)({"a_pField","a_pObjectExpression"})
             .method<Expression*(Property*, Expression*)>("toExpression", &_::toExpression)({"a_pProperty","a_pObjectExpression"})
             .method<::phantom::lang::Conversion *(Type*, Type*, CastKind, UserDefinedFunctions, LanguageElement*, bool), virtual_>("newConversion", &_::newConversion)({"a_pInput","a_pOutput","a_iConversionType","a_eUserDefinedConversions","a_pContextScope","a_bInitialize"})["CastKind::Implicit"]["UserDefinedFunctions::ImplicitsOnly"]["nullptr"]["false"]
-            .method<::phantom::lang::Conversion *(Type*, Type*, LanguageElement*, bool), virtual_>("newConversion", &_::newConversion)({"a_pInputType","a_pOutputType","a_pContextScope","a_bInitialize"})["nullptr"]["false"]
+            .method<::phantom::lang::Conversion *(Type*, Type*, LanguageElement*, UserDefinedFunctions, bool), virtual_>("newConversion", &_::newConversion)({"a_pInputType","a_pOutputType","a_pContextScope","a_ConversionAllowedUserDefinedFunctions","a_bInitialize"})["nullptr"]["UserDefinedFunctions::ImplicitsOnly"]["false"]
             .method<void(Conversion*), virtual_>("deleteConversion", &_::deleteConversion)({"a_pConversion"})
             .method<void(ConversionResults&), virtual_>("deleteConversions", &_::deleteConversions)({"a_Conversions"})
             .method<void(Type*), virtual_>("computeSizeAndAlignment", &_::computeSizeAndAlignment)({"a_pType"})
@@ -462,14 +474,14 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<Block*(Subroutine*, bool)>("addBlock", &_::addBlock)({"a_pSubroutine","a_EnsureTemplateInstanceComplete"})["false"]
             .staticMethod<::phantom::lang::Block *(Method*)>("AddBlock", &_::AddBlock)({"a_pMethod"})
             .staticMethod<::phantom::lang::Block *(Subroutine*)>("AddBlock", &_::AddBlock)({"a_pSubroutine"})
-            .method<void(Signature*, TypesView, ConversionResults&, LanguageElement*)>("newImplicitConversions", &_::newImplicitConversions)({"a_pSignature","a_ArgTypes","a_Out","a_pContextScope"})
-            .method<void(Signature*, ExpressionsView, ConversionResults&, LanguageElement*)>("newImplicitConversions", &_::newImplicitConversions)({"a_pSignature","a_Args","a_Out","a_pContextScope"})
-            .method<void(FunctionType*, TypesView, ConversionResults&, LanguageElement*)>("newImplicitConversions", &_::newImplicitConversions)({"a_pFuncType","a_ArgTypes","a_Out","a_pContextScope"})
-            .method<void(FunctionType*, ExpressionsView, ConversionResults&, LanguageElement*)>("newImplicitConversions", &_::newImplicitConversions)({"a_pFuncType","a_Args","a_Out","a_pContextScope"})
-            .method<void(Signature*, TypesView, ConversionResults&, PlaceholderMap&, LanguageElement*)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pSignature","a_ArgTypes","a_Out","a_TemplateArgDeductions","a_pContextScope"})
-            .method<void(Signature*, ExpressionsView, ConversionResults&, PlaceholderMap&, LanguageElement*)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pSignature","a_Args","a_Out","a_TemplateArgDeductions","a_pContextScope"})
-            .method<void(FunctionType*, TypesView, ConversionResults&, PlaceholderMap&, LanguageElement*)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pFuncType","a_ArgTypes","a_Out","a_TemplateArgDeductions","a_pContextScope"})
-            .method<void(FunctionType*, ExpressionsView, ConversionResults&, PlaceholderMap&, LanguageElement*)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pFuncType","a_Args","a_Out","a_TemplateArgDeductions","a_pContextScope"})
+            .method<void(Signature*, TypesView, ConversionResults&, LanguageElement*, UserDefinedFunctions)>("newImplicitConversions", &_::newImplicitConversions)({"a_pSignature","a_ArgTypes","a_Out","a_pContextScope","a_ConversionAllowedUserDefinedFunctions"})
+            .method<void(Signature*, ExpressionsView, ConversionResults&, LanguageElement*, UserDefinedFunctions)>("newImplicitConversions", &_::newImplicitConversions)({"a_pSignature","a_Args","a_Out","a_pContextScope","a_ConversionAllowedUserDefinedFunctions"})
+            .method<void(FunctionType*, TypesView, ConversionResults&, LanguageElement*, UserDefinedFunctions)>("newImplicitConversions", &_::newImplicitConversions)({"a_pFuncType","a_ArgTypes","a_Out","a_pContextScope","a_ConversionAllowedUserDefinedFunctions"})
+            .method<void(FunctionType*, ExpressionsView, ConversionResults&, LanguageElement*, UserDefinedFunctions)>("newImplicitConversions", &_::newImplicitConversions)({"a_pFuncType","a_Args","a_Out","a_pContextScope","a_ConversionAllowedUserDefinedFunctions"})
+            .method<void(Signature*, TypesView, ConversionResults&, PlaceholderMap&, LanguageElement*, UserDefinedFunctions)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pSignature","a_ArgTypes","a_Out","a_TemplateArgDeductions","a_pContextScope","a_ConversionAllowedUserDefinedFunctions"})
+            .method<void(Signature*, ExpressionsView, ConversionResults&, PlaceholderMap&, LanguageElement*, UserDefinedFunctions)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pSignature","a_Args","a_Out","a_TemplateArgDeductions","a_pContextScope","a_ConversionAllowedUserDefinedFunctions"})
+            .method<void(FunctionType*, TypesView, ConversionResults&, PlaceholderMap&, LanguageElement*, UserDefinedFunctions)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pFuncType","a_ArgTypes","a_Out","a_TemplateArgDeductions","a_pContextScope","a_ConversionAllowedUserDefinedFunctions"})
+            .method<void(FunctionType*, ExpressionsView, ConversionResults&, PlaceholderMap&, LanguageElement*, UserDefinedFunctions)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pFuncType","a_Args","a_Out","a_TemplateArgDeductions","a_pContextScope","a_ConversionAllowedUserDefinedFunctions"})
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE

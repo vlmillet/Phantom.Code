@@ -103,6 +103,9 @@ class TemplateDependantExpression;
 class TemplateDependantTemplateInstance;
 class TemplateDependantType;
 class TemplateDependantTypeOfExpression;
+class TemplateParameterPackExpansion;
+class TemplateParameterPackTypeExpansion;
+class TemplateParameterPackExpressionExpansion;
 } // namespace lang
 
 namespace lang

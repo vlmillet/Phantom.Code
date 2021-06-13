@@ -216,7 +216,7 @@ namespace phantom
                 TemplateParameter m_TemplateParameter;
                 TemplateSignature m_TemplateSignature;
                 Template m_Template;
-                TemplateFunctionBody m_TemplateFunctionBody;
+                TemplateFunction m_TemplateFunction;
                 FunctionBlock m_FunctionBlock;
                 QualifiedName m_QualifiedName;
                 QualifiedDotName m_QualifiedDotName;
@@ -1230,7 +1230,15 @@ namespace phantom
                         break;
                         case token_USING:
                         {
-                            if(!readUsing(__element__->m_Using)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            beginTry();
+                            readAlias(__element__->m_Alias);
+                            if(endTry())
+                            {
+                            }
+                            else
+                            {
+                                if(!readUsing(__element__->m_Using)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            }
                         }
                         break;
                         case token_STATIC_ASSERT:
@@ -1239,7 +1247,7 @@ namespace phantom
                         }
                         break;
                         default:
-                        if(!readAlias(__element__->m_Alias)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        if(!readAlias(__element__->m_Alias0)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         break;
                     }
                     if(__reductible__ && *__reduction__ != __element__)
@@ -1354,6 +1362,11 @@ namespace phantom
                     auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(Destructor);
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
+                    if(token() == token_VIRTUAL)
+                    {
+                        valueAs(__element__->m_VIRTUAL);
+                        consume();
+                    }
                     if(!read(token_COMPL, __element__->m_COMPL)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_PAREN_START, __element__->m_PAREN_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
@@ -2254,6 +2267,12 @@ namespace phantom
                             break;
                         }
                     }
+                    if(token() == token_ELLIPSE)
+                    {
+                        __reductible__ = false;
+                        valueAs(__element__->m_ELLIPSE);
+                        consume();
+                    }
                     if(__reductible__ && *__reduction__ != __element__)
                     {
                         output = *__reduction__;
@@ -2949,6 +2968,11 @@ namespace phantom
                     {
                         if(!readFundamentalType(__element__->m_FundamentalType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     }
+                    if(token() == token_ELLIPSE)
+                    {
+                        valueAs(__element__->m_ELLIPSE);
+                        consume();
+                    }
                     if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -2962,6 +2986,11 @@ namespace phantom
                     output = __element__;
                     char const* temp54=nullptr;
                     if(!read({token_CLASS,token_TYPENAME}, temp54)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(token() == token_ELLIPSE)
+                    {
+                        valueAs(__element__->m_ELLIPSE);
+                        consume();
+                    }
                     if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -2984,19 +3013,12 @@ namespace phantom
                     {
                         if(!readTemplateTypeParameter(__element__->m_TemplateTypeParameter)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     }
-                    if(lookahead(token_ELLIPSE))
+                    beginTry();
+                    phantom::lang::ast::TemplateParameterDefault* temp55=nullptr;
+                    readTemplateParameterDefault(temp55);
+                    if(endTry())
                     {
-                        if(!read(token_ELLIPSE, __element__->m_ELLIPSE)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    }
-                    else
-                    {
-                        beginTry();
-                        phantom::lang::ast::TemplateParameterDefault* temp55=nullptr;
-                        readTemplateParameterDefault(temp55);
-                        if(endTry())
-                        {
-                            __element__->m_TemplateParameterDefault=temp55;
-                        }
+                        __element__->m_TemplateParameterDefault=temp55;
                     }
                     if(__reductible__ && *__reduction__ != __element__)
                     {
@@ -3065,17 +3087,25 @@ namespace phantom
                         }
                         break;
                         default:
-                        if(!readTemplateFunctionBody(__element__->m_TemplateFunctionBody)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        beginTry();
+                        readTemplateFunction(__element__->m_TemplateFunction);
+                        if(endTry())
+                        {
+                        }
+                        else
+                        {
+                            if(!readConstructor(__element__->m_Constructor)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        }
                         break;
                     }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
                     return true;
                 }
-                bool readTemplateFunctionBody(TemplateFunctionBody*& output)
+                bool readTemplateFunction(TemplateFunction*& output)
                 {
                     m_LookaheadCounter = 0;
-                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(TemplateFunctionBody);
+                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(TemplateFunction);
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
                     if(token() == token_STATIC)
@@ -3621,7 +3651,21 @@ namespace phantom
                         break;
                         case token_VIRTUAL:
                         {
-                            if(!readMethod(__element__->m_Method)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            if(lookahead(token_VIRTUAL))
+                            {
+                                if(lookahead(token_COMPL))
+                                {
+                                    if(!readDestructor(__element__->m_Destructor)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                                }
+                                else
+                                {
+                                    if(!readMethod(__element__->m_Method)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                                }
+                            }
+                            else
+                            {
+                                if(!readMethod(__element__->m_Method0)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            }
                         }
                         break;
                         case token_STATIC:
@@ -3649,7 +3693,7 @@ namespace phantom
                         break;
                         case token_COMPL:
                         {
-                            if(!readDestructor(__element__->m_Destructor)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            if(!readDestructor(__element__->m_Destructor0)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         }
                         break;
                         case token_FRIEND:
@@ -5478,6 +5522,11 @@ namespace phantom
                             __reductible__ = false;
                             if(!read({token_DOT,token_ARROW,token_SCOPE}, __element__->m_DOT)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                             if(!readName(__element__->m_Name)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        }
+                        break;
+                        case token_ELLIPSE:
+                        {
+                            if(!read(token_ELLIPSE, __element__->m_ELLIPSE)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         }
                         break;
                         default:

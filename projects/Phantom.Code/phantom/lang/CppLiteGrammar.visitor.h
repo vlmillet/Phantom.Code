@@ -152,8 +152,8 @@ namespace phantom
             bool endTemplateSignature(ast::TemplateSignature* input);
             bool visitTemplate(ast::Template* input);
             bool endTemplate(ast::Template* input);
-            bool visitTemplateFunctionBody(ast::TemplateFunctionBody* input);
-            bool endTemplateFunctionBody(ast::TemplateFunctionBody* input);
+            bool visitTemplateFunction(ast::TemplateFunction* input);
+            bool endTemplateFunction(ast::TemplateFunction* input);
             bool visitFunctionBlock(ast::FunctionBlock* input);
             bool endFunctionBlock(ast::FunctionBlock* input);
             bool visitQualifiedName(ast::QualifiedName* input);
@@ -923,11 +923,11 @@ namespace phantom
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::visitTemplateFunctionBody(ast::TemplateFunctionBody* input)
+        bool CppLiteGrammarVisitor::visitTemplateFunction(ast::TemplateFunction* input)
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::endTemplateFunctionBody(ast::TemplateFunctionBody* input)
+        bool CppLiteGrammarVisitor::endTemplateFunction(ast::TemplateFunction* input)
         {
             return true;
         }

@@ -9,6 +9,7 @@
 /* ****************** Includes ******************* */
 #include "Expression.h"
 #include "LanguageElementVisitorEx.h"
+#include "conversions.h"
 #include "lang.h"
 
 #include <phantom/lang/LanguageElement.h>
@@ -392,6 +393,9 @@ public:
     virtual void visit(TemplateDependantType* a_pInput, VisitorData a_Data);
     virtual void visit(TemplateDependantTypeOfExpression* a_pInput, VisitorData a_Data);
     virtual void visit(TemplateParameter* a_pInput, VisitorData a_Data);
+    virtual void visit(TemplateParameterPackExpansion* a_pInput, VisitorData a_Data);
+    virtual void visit(TemplateParameterPackTypeExpansion* a_pInput, VisitorData a_Data);
+    virtual void visit(TemplateParameterPackExpressionExpansion* a_pInput, VisitorData a_Data);
     virtual void visit(TemplateSignature* a_pInput, VisitorData a_Data);
     virtual void visit(TemplateSpecialization* a_pInput, VisitorData a_Data);
     virtual void visit(Type* a_pInput, VisitorData a_Data);
@@ -451,11 +455,29 @@ public:
     /// PHANTOM_R_VIRTUAL). \param  a_uiFlags                       (optional) the flags.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    struct SelectedOverloadInfo
+    {
+        Subroutine*       subroutine = nullptr;
+        ConversionResults conversions;
+        PlaceholderMap    deductions;
+    };
+
+    using SelectedOverloadInfos = SmallVector<SelectedOverloadInfo>;
+
     void selectCallCandidate(Subroutines& outViableCandidates, Symbols& candidates,
                              OptionalArrayView<LanguageElement*> a_pTemplateArguments, Expressions& a_Arguments,
                              LanguageElement*& a_pSelectedCandidate, StringView a_strName,
                              LanguageElement* a_pContextScope = nullptr, Type* a_pInitializationType = nullptr,
                              Modifiers a_Modifiers = 0, uint a_uiFlags = 0);
+
+    void findCallOverloads(SelectedOverloadInfos& a_OutOverloads, Symbols& candidates,
+                           OptionalArrayView<LanguageElement*> in_pTemplateArguments, TypesView a_ArgTypes,
+                           LanguageElement*     in_pContextScope,
+                           UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions = UserDefinedFunctions::All,
+                           Modifiers a_Modifiers = 0, uint a_uiFlags = 0);
+
+    void applyOverloadsSFINAE(SelectedOverloadInfos& a_InOverloads, LanguageElement* a_pInstantiationScope);
+    SelectedOverloadInfo const* selectBestOverload(SelectedOverloadInfos const& _InOverloads);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Solve C++ binary operator.
@@ -914,10 +936,12 @@ public:
                   UserDefinedFunctions a_eUserDefinedConversions = UserDefinedFunctions::ImplicitsOnly,
                   LanguageElement* a_pContextScope = nullptr, bool a_bInitialize = false);
 
-    virtual Conversion* newConversion(Type* a_pInputType, Type* a_pOutputType,
-                                      LanguageElement* a_pContextScope = nullptr, bool a_bInitialize = false)
+    virtual Conversion*
+    newConversion(Type* a_pInputType, Type* a_pOutputType, LanguageElement* a_pContextScope = nullptr,
+                  UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions = UserDefinedFunctions::ImplicitsOnly,
+                  bool                 a_bInitialize = false)
     {
-        return newConversion(a_pInputType, a_pOutputType, CastKind::Implicit, UserDefinedFunctions::ImplicitsOnly,
+        return newConversion(a_pInputType, a_pOutputType, CastKind::Implicit, a_ConversionAllowedUserDefinedFunctions,
                              a_pContextScope, a_bInitialize);
     }
 
@@ -960,25 +984,33 @@ public:
     static Block* AddBlock(Subroutine* a_pSubroutine);
 
     void newImplicitConversions(Signature* a_pSignature, TypesView a_ArgTypes, ConversionResults& a_Out,
-                                LanguageElement* a_pContextScope);
+                                LanguageElement*     a_pContextScope,
+                                UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
     void newImplicitConversions(Signature* a_pSignature, ExpressionsView a_Args, ConversionResults& a_Out,
-                                LanguageElement* a_pContextScope);
+                                LanguageElement*     a_pContextScope,
+                                UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
     void newImplicitConversions(FunctionType* a_pFuncType, TypesView a_ArgTypes, ConversionResults& a_Out,
-                                LanguageElement* a_pContextScope);
+                                LanguageElement*     a_pContextScope,
+                                UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
     void newImplicitConversions(FunctionType* a_pFuncType, ExpressionsView a_Args, ConversionResults& a_Out,
-                                LanguageElement* a_pContextScope);
+                                LanguageElement*     a_pContextScope,
+                                UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
     void newImplicitConversionsWithArgDeductions(Signature* a_pSignature, TypesView a_ArgTypes,
                                                  ConversionResults& a_Out, PlaceholderMap& a_TemplateArgDeductions,
-                                                 LanguageElement* a_pContextScope);
+                                                 LanguageElement*     a_pContextScope,
+                                                 UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
     void newImplicitConversionsWithArgDeductions(Signature* a_pSignature, ExpressionsView a_Args,
                                                  ConversionResults& a_Out, PlaceholderMap& a_TemplateArgDeductions,
-                                                 LanguageElement* a_pContextScope);
+                                                 LanguageElement*     a_pContextScope,
+                                                 UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
     void newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType, TypesView a_ArgTypes,
                                                  ConversionResults& a_Out, PlaceholderMap& a_TemplateArgDeductions,
-                                                 LanguageElement* a_pContextScope);
+                                                 LanguageElement*     a_pContextScope,
+                                                 UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
     void newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType, ExpressionsView a_Args,
                                                  ConversionResults& a_Out, PlaceholderMap& a_TemplateArgDeductions,
-                                                 LanguageElement* a_pContextScope);
+                                                 LanguageElement*     a_pContextScope,
+                                                 UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
 
 private:
     template<typename t_Ty>
@@ -1036,11 +1068,11 @@ private:
 
     SmallMap<TemplateSpecialization*, SmallMap<LanguageElement*, LanguageElement*>>& templateInstantiations();
 
-    LanguageElement* resolveTemplateDependency(LanguageElement*                  a_pElement,
-                                               const class TemplateSubstitution& a_TemplateSubstitution,
+    LanguageElement* resolveTemplateDependency(LanguageElement*                   a_pElement,
+                                               const struct TemplateSubstitution& a_TemplateSubstitution,
                                                EClassBuildState a_uiPass, LanguageElement* a_pScope, int flags);
-    LanguageElement* instantiateTemplateElement(LanguageElement*                  a_pPrimary,
-                                                const class TemplateSubstitution& a_TemplateSubstitution,
+    LanguageElement* instantiateTemplateElement(LanguageElement*                   a_pPrimary,
+                                                const struct TemplateSubstitution& a_TemplateSubstitution,
                                                 EClassBuildState a_Pass, LanguageElement* a_pScope, int a_Flags);
 
     void ErrorTemplateInstantiationFailure(TemplateDependantElement* a_pInput, LanguageElements* pTemplateArguments,
@@ -1051,6 +1083,12 @@ private:
 
     void _selectCallCandidateError(StringView name, Symbols const& candidates, Subroutines const& viableCandidates,
                                    Expressions const& arguments);
+
+    void _resolveTemplateSpecializationArguments(TemplateSpecialization*     a_pInput,
+                                                 TemplateSubstitution const& in_TemplateSubstitution,
+                                                 EClassBuildState            in_eClassBuildState,
+                                                 LanguageElement*            in_pContextScope,
+                                                 LanguageElements&           resolvedArguments);
 
 private:
     void        _errorToMessage(const CodeRangeLocation& loc, const char* txt);
@@ -1068,6 +1106,8 @@ private:
     bool _useExplicitTemplateArguments(Subroutine* a_pInput, TemplateSpecialization* a_pTSpec,
                                        OptionalArrayView<LanguageElement*> a_ExplicitTemplateArguments,
                                        PlaceholderMap& a_Deductions, const char* a_SubroutineKind);
+    LanguageElement* _findInstantiation(TemplateSubstitution const& a_TSubs, LanguageElement* a_pPrimary);
+    LanguageElement* _findInstantiation(TemplateSubstitution const& a_TSubs, Evaluable* a_pPrimary);
 
 private:
     BuiltInOperator*   m_BuiltInOperators[int(Operator::COUNT)];

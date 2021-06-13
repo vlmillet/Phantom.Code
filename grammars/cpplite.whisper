@@ -324,7 +324,11 @@ BlockDeclaration : Statement
 		}	
 		USING
 		{
-			Using
+			@try Alias
+			@finally 
+			{
+				Using
+			}
 		}	
 		STATIC_ASSERT
 		{
@@ -371,6 +375,7 @@ Constructor
 
 Destructor
 {
+	@opt VIRTUAL
 	COMPL IDENTIFIER PAREN_START PAREN_END
 	@opt @list OVERRIDE|FINAL
 	FunctionBlock
@@ -723,6 +728,7 @@ ExplicitType : Type
 	@opt @list CONST|VOLATILE
 	BasicType
 	@opt @list TypeExtent
+	@opt ELLIPSE
 }
 
 TypeNoFunctionType : Type 
@@ -946,12 +952,14 @@ TemplateValueParameter
 	{
 		FundamentalType
 	}
+	@opt ELLIPSE
 	IDENTIFIER
 }
 
 TemplateTypeParameter 
 {
 	CLASS|TYPENAME ""
+	@opt ELLIPSE
 	IDENTIFIER
 }
 
@@ -962,14 +970,7 @@ TemplateParameter
 	{
 		TemplateTypeParameter
 	}
-	@lookahead ELLIPSE
-	{
-		ELLIPSE
-	}
-	@finally 
-	{
-		@opt TemplateParameterDefault
-	}
+	@opt TemplateParameterDefault
 }
 
 TemplateSignature 
@@ -998,12 +999,16 @@ Template
 		}
 		@default 
 		{
-			TemplateFunctionBody
+			@try TemplateFunction
+			@finally 
+			{
+				Constructor
+			}
 		}
 	}
 }
 
-TemplateFunctionBody
+TemplateFunction
 {
 	@opt STATIC
 	TypeOrAuto 
@@ -1164,7 +1169,22 @@ BasicMember : Member
 		}	
 		VIRTUAL
 		{
-			Method 
+		
+			@lookahead VIRTUAL
+			{
+				@lookahead COMPL
+				{
+					Destructor
+				}
+				@finally 
+				{
+					Method
+				}
+			}
+			@finally
+			{
+				Method 
+			}
 		}
 		STATIC|ALIGNAS
 		{
@@ -1833,6 +1853,10 @@ PostFixEnd
 		{
 			DOT|ARROW|SCOPE
 			Name
+		}
+		ELLIPSE
+		{
+			ELLIPSE
 		}
 		@default
 		{

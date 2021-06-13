@@ -35,5 +35,10 @@ VariableExpression* VariableExpression::cloneImpl(LanguageElement* a_pOwner) con
     return a_pOwner->New<VariableExpression>(m_pVariable);
 }
 
+LanguageElement* VariableExpression::removeExpression() const
+{
+    return m_pVariable;
+}
+
 } // namespace lang
 } // namespace phantom

@@ -138,11 +138,16 @@ namespace lang
 #include "CppLite.h"
 #include "ExpressionStatement.h"
 #include "ReturnStatement.h"
+#include "TemplateParameterPackExpansion.h"
+#include "TemplateParameterPackExpressionExpansion.h"
+#include "TemplateParameterPackTypeExpansion.h"
 #include "VarArgCallExpression.h"
 
 #include <phantom/lang/TypeIndex.h>
 
 #define PHANTOM_SEMANTIC_ASSERT_ElementIsVisible(...)
+
+#pragma optimize("", off)
 
 namespace phantom
 {
@@ -463,26 +468,37 @@ bool Semantic::_useExplicitTemplateArguments(Subroutine* a_pInput, TemplateSpeci
         {
             a_Deductions[a_pTSpec->getArgument(i)->asPlaceholder()] = (*a_ExplicitTemplateArguments)[i];
         }
-        //
-        //         for (; i < tparams.size(); ++i)
-        //         {
-        //             auto& deduced = a_Deductions[tparams[i]->getPlaceholder()];
-        //             if (deduced)
-        //                 continue;
-        //             if (auto darg = tparams[i]->getDefaultArgument())
-        //             {
-        //                 deduced = darg;
-        //             }
-        //             else
-        //             {
-        //                 CxxSemanticError("cannot deduce argument '%.*s' in call of template %s '%.*'",
-        //                                  PHANTOM_STRING_AS_PRINTF_ARG(tparams[i]->getName()), a_SubroutineKind,
-        //                                  PHANTOM_STRING_AS_PRINTF_ARG(a_pInput->getName()));
-        //                 return false;
-        //             }
-        //         }
     }
     return true;
+}
+
+LanguageElement* Semantic::_findInstantiation(TemplateSubstitution const& a_TSubs, Evaluable* a_pPrimary)
+{
+    if (auto instantiation = a_TSubs.getInstantiation())
+    {
+        return templateInstantiations()[instantiation][a_pPrimary];
+    }
+    return nullptr;
+}
+LanguageElement* Semantic::_findInstantiation(TemplateSubstitution const& a_TSubs, LanguageElement* a_pPrimary)
+{
+    if (auto instantiation = a_TSubs.getInstantiation())
+    {
+        auto& instance = templateInstantiations()[instantiation][a_pPrimary];
+        if (instance)
+            return instance;
+        if (!a_pPrimary->isTemplateDependant())
+        {
+            PHANTOM_SEMANTIC_ASSERT(!a_pPrimary->isTemplateElement());
+            return instance = a_pPrimary;
+        }
+    }
+    if (!a_pPrimary->isTemplateDependant())
+    {
+        PHANTOM_SEMANTIC_ASSERT(!a_pPrimary->isTemplateElement());
+        return a_pPrimary;
+    }
+    return nullptr;
 }
 
 template<typename t_Ty, CastKind a_CastKind>
@@ -2541,9 +2557,10 @@ void Semantic::visit(Constructor* a_pInput, VisitorData a_Data)
     case e_VisitorFunction_IsViableCallCandidate:
     {
         OptionalArrayView<LanguageElement*> templateArguments = *(OptionalArrayView<LanguageElement*>*)a_Data.in[0];
-        ExpressionsView                     functionArguments = *(const Expressions*)a_Data.in[1];
+        TypesView                           functionArguments = *(const TypesView*)a_Data.in[1];
         Modifiers                           modifiers = *(Modifiers*)a_Data.in[2];
         LanguageElement*                    pScope = *(LanguageElement**)a_Data.in[3];
+        UserDefinedFunctions                convUserDefinedFunctions = *(UserDefinedFunctions*)a_Data.in[4];
         ConversionResults&                  out_conversions = *(ConversionResults*)a_Data.out[0];
         Subroutine*&                        out_subroutine = *(Subroutine**)a_Data.out[1];
         PlaceholderMap&                     out_deductions = *(PlaceholderMap*)a_Data.out[2];
@@ -2555,37 +2572,26 @@ void Semantic::visit(Constructor* a_pInput, VisitorData a_Data)
         {
             return;
         }
-        Expressions              arguments;
-        OwnersGuard<Expressions> defaultArguments;
-        auto&                    params = a_pInput->getParameters();
+        Types argumentTypes;
+        auto& params = a_pInput->getParameters();
         for (size_t i = 0; i < params.size(); ++i)
         {
             if (i < functionArguments.size())
             {
-                arguments.push_back(functionArguments[i]);
+                argumentTypes.push_back(functionArguments[i]);
             }
-            //             else
-            //             {
-            //                 Expression* pExp = params[i]->getDefaultArgumentExpression();
-            //                 CxxSemanticErrorReturnIf(pExp == nullptr, "failed to parse and resolve default argument
-            //                 '%.*s'",
-            //                                          PHANTOM_STRING_AS_PRINTF_ARG(params[i]->getNativeDefaultArgumentString()));
-            //                 pExp = pExp->clone(getSource());
-            //                 arguments.push_back(pExp);
-            //                 defaultArguments.push_back(pExp);
-            //             }
         }
-        defaultArguments.cancel();
 
         if (auto pTSpec = a_pInput->getTemplateSpecialization())
         {
             if (!_useExplicitTemplateArguments(a_pInput, pTSpec, templateArguments, out_deductions, "constructor"))
                 return;
-            newImplicitConversionsWithArgDeductions(a_pInput->getSignature(), arguments, out_conversions,
-                                                    out_deductions, pScope);
+            newImplicitConversionsWithArgDeductions(a_pInput->getSignature(), argumentTypes, out_conversions,
+                                                    out_deductions, pScope, convUserDefinedFunctions);
         }
         else
-            newImplicitConversions(a_pInput->getSignature(), arguments, out_conversions, pScope);
+            newImplicitConversions(a_pInput->getSignature(), argumentTypes, out_conversions, pScope,
+                                   convUserDefinedFunctions);
         if (!out_conversions.hasNull())
         {
             out_subroutine = a_pInput;
@@ -2599,18 +2605,40 @@ void Semantic::visit(Constructor* a_pInput, VisitorData a_Data)
         LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
         LanguageElement*&           pInstanciated = *(LanguageElement**)a_Data.out[0];
 
-        ClassType* pInstanceClassType = static_cast<ClassType*>(in_pContextScope);
-        PHANTOM_SEMANTIC_ASSERT(pInstanceClassType->asClassType());
+        auto pInstanceClassType = in_pContextScope->asClassType();
+
+        TemplateSpecialization* pSpec = {};
+        if (!pInstanceClassType)
+        {
+            pSpec = in_pContextScope->asTemplateSpecialization();
+            PHANTOM_SEMANTIC_ASSERT(pSpec);
+            // in_TemplateSubstitution.getInstantiation()->getInstantiationSpecialization() == a_pInput->getOwner());
+            pInstanceClassType = static_cast<ClassType*>(pSpec->getNamingScope());
+        }
+        else
+        {
+            if (a_pInput->testFlags(PHANTOM_R_FLAG_IMPLICIT) || a_pInput->getVisibility() == Visibility::Private)
+            {
+                // not instanciating trivial members
+                return;
+            }
+        }
 
         switch (in_eClassBuildState)
         {
+        case e_ClassBuildState_None:
+        {
+            if (!pSpec)
+                break;
+        }
         case e_ClassBuildState_Members:
         {
             Signature* pSignature = o_instantiateT(Signature, a_pInput->getSignature());
             if (pSignature == nullptr)
                 return;
             OwnerGuard<Constructor> pInstanceConstructor =
-            New<Constructor>(a_pInput->getName(), pSignature, a_pInput->getModifiers(), a_pInput->getFlags());
+            New<Constructor>(a_pInput->getName(), pSignature, a_pInput->getModifiers(),
+                             a_pInput->getFlags() & ~PHANTOM_R_FLAG_TEMPLATE_DEPENDANT);
             Subroutines conflicting;
             if (!(pInstanceClassType->acceptsSubroutine(pInstanceConstructor.element(), &conflicting)))
             {
@@ -2622,12 +2650,27 @@ void Semantic::visit(Constructor* a_pInput, VisitorData a_Data)
                 }
                 return;
             }
-            pInstanceClassType->addConstructor(pInstanceConstructor);
             pInstanciated = pInstanceConstructor;
+            if (!pSpec)
+            {
+                pInstanceClassType->addConstructor(pInstanceConstructor);
+                break;
+            }
+            else
+            {
+                pSpec->setTemplated(pInstanceConstructor);
+                pInstanceConstructor->createThis(pInstanceClassType);
+            }
         }
-        break;
         case e_ClassBuildState_Blocks:
         {
+            if (!a_pInput->buildBlock())
+            {
+                CxxSemanticError("failed to instantiate block of template constructor '%.*s'",
+                                 PHANTOM_STRING_AS_PRINTF_ARG(a_pInput->getName()));
+                pInstanciated = nullptr;
+                return;
+            }
             if (pInstanciated)
             {
                 Constructor* pInstanceConstructor = static_cast<Constructor*>(pInstanciated);
@@ -2648,8 +2691,8 @@ void Semantic::visit(Constructor* a_pInput, VisitorData a_Data)
                         {}); // avoid cyclic builder invocation if function is recursive and calls itself
                         PHANTOM_SEMANTIC_ASSERT(a_pBlock == pInstanceConstructor->getBlock());
                         SemanticPrivate::SemanticInstantiateTemplateElement<Block>(
-                        this, a_pInput->getBlock(), in_TemplateSubstitution, in_eClassBuildState, pInstanceConstructor,
-                        a_Data.flags, &LanguageElement::asBlock);
+                        this, a_pInput->getBlock(), in_TemplateSubstitution, e_ClassBuildState_Blocks,
+                        pInstanceConstructor, a_Data.flags, &LanguageElement::asBlock);
                         return true;
                     });
 
@@ -3004,9 +3047,32 @@ void Semantic::visit(FieldInitializationStatement* a_pInput, VisitorData a_Data)
                         return;
                     }
                 }
-                pInstanciated = unqualifiedLookup(
-                a_pInput->getField()->getName(), phantom::NullOpt, MakeArrayView(newArguments.elements()),
-                in_pContextScope->asBlock()->getLocalVariableCascade("this"), nullptr, 0);
+
+                Field* pField = o_findT(Field, a_pInput->getField());
+                PHANTOM_SEMANTIC_ASSERT(pField);
+                Expression* pInitExp{};
+                if (newArguments->size() == 0)
+                    pInitExp = defaultConstruct(pField->getValueType(), in_pContextScope);
+                else if (newArguments->size() == 1)
+                    pInitExp = initialize(newArguments->front(), pField->getValueType(), in_pContextScope);
+                else if (auto pCT = pField->getValueType()->asClassType())
+                {
+                    auto templateArgs = pTDE->getTemplateDependantElement()->getTemplateArguments();
+                    pInitExp = static_cast<Expression*>(qualifiedLookup(
+                    pCT, pCT->getName(), templateArgs ? OptionalArrayView<LanguageElement*>(*templateArgs) : NullOpt,
+                    MakeArrayView(newArguments.elements()), in_pContextScope, nullptr, 0));
+                }
+
+                if (!pInitExp)
+                    return;
+
+                pInstanciated = New<FieldInitializationStatement>(pField, pInitExp);
+                //                     :
+                //
+                //                 pInstanciated = unqualifiedLookup(
+                //                 a_pInput->getField()->getName(), phantom::NullOpt,
+                //                 MakeArrayView(newArguments.elements()),
+                //                 in_pContextScope->asBlock()->getLocalVariableCascade("this"), nullptr, 0);
             }
             else
             {
@@ -3729,8 +3795,8 @@ void Semantic::visit(Expression* a_pInput, VisitorData a_Data)
                                         return;
                                     }
                                     ConversionResults convs;
-                                    newImplicitConversions(pMFPT->getFunctionType(), arguments, convs,
-                                                           in_pContextScope);
+                                    newImplicitConversions(pMFPT->getFunctionType(), arguments, convs, in_pContextScope,
+                                                           UserDefinedFunctions::ImplicitsOnly);
                                     if (!convs.hasNull())
                                     {
                                         for (size_t i = 0; i < arguments.size(); ++i)
@@ -4061,9 +4127,10 @@ void Semantic::visit(Function* a_pInput, VisitorData a_Data)
     case e_VisitorFunction_IsViableCallCandidate:
     {
         OptionalArrayView<LanguageElement*>& templateArguments = *(OptionalArrayView<LanguageElement*>*)a_Data.in[0];
-        ExpressionsView                      functionArguments = *(Expressions*)a_Data.in[1];
+        TypesView                            functionArguments = *(const TypesView*)a_Data.in[1];
         Modifiers                            modifiers = *(Modifiers*)a_Data.in[2];
         LanguageElement*                     pScope = *(LanguageElement**)a_Data.in[3];
+        UserDefinedFunctions                 convUserDefinedFunctions = *(UserDefinedFunctions*)a_Data.in[4];
         ConversionResults&                   out_conversions = *(ConversionResults*)a_Data.out[0];
         Subroutine*&                         out_subroutine = *(Subroutine**)a_Data.out[1];
         PlaceholderMap&                      out_deductions = *(PlaceholderMap*)a_Data.out[2];
@@ -4077,37 +4144,26 @@ void Semantic::visit(Function* a_pInput, VisitorData a_Data)
             {
                 return;
             }
-            Expressions              arguments;
-            OwnersGuard<Expressions> defaultArguments;
-            auto&                    params = a_pInput->getParameters();
+            Types argumentTypes;
+            auto& params = a_pInput->getParameters();
             for (size_t i = 0; i < params.size(); ++i)
             {
                 if (i < functionArguments.size())
                 {
-                    arguments.push_back(functionArguments[i]);
+                    argumentTypes.push_back(functionArguments[i]);
                 }
-                //                 else
-                //                 {
-                //                     Expression* pExp = params[i]->getDefaultArgumentExpression();
-                //                     CxxSemanticErrorReturnIf(pExp == nullptr, "failed to parse and resolve default
-                //                     argument '%.*s'",
-                //                                              PHANTOM_STRING_AS_PRINTF_ARG(params[i]->getNativeDefaultArgumentString()));
-                //                     pExp = pExp->clone(getSource());
-                //                     arguments.push_back(pExp);
-                //                     defaultArguments.push_back(pExp);
-                //                 }
             }
-            defaultArguments.cancel();
 
             if (auto pTSpec = a_pInput->getTemplateSpecialization())
             {
                 if (!_useExplicitTemplateArguments(a_pInput, pTSpec, templateArguments, out_deductions, "function"))
                     return;
-                newImplicitConversionsWithArgDeductions(a_pInput->getSignature(), arguments, out_conversions,
-                                                        out_deductions, pScope);
+                newImplicitConversionsWithArgDeductions(a_pInput->getSignature(), argumentTypes, out_conversions,
+                                                        out_deductions, pScope, convUserDefinedFunctions);
             }
             else
-                newImplicitConversions(a_pInput->getSignature(), arguments, out_conversions, pScope);
+                newImplicitConversions(a_pInput->getSignature(), argumentTypes, out_conversions, pScope,
+                                       convUserDefinedFunctions);
 
             if (!out_conversions.hasNull())
             {
@@ -4137,36 +4193,25 @@ void Semantic::visit(Function* a_pInput, VisitorData a_Data)
                 out_subroutine = nullptr;
                 return;
             }
-            Expressions              arguments;
-            OwnersGuard<Expressions> defaultArguments;
-            auto&                    params = a_pInput->getParameters();
+            Types argTypes;
+            auto& params = a_pInput->getParameters();
             for (size_t i = 0; i < params.size(); ++i)
             {
                 if (i < (functionArguments.size() - 1))
                 {
-                    arguments.push_back(functionArguments[i + 1]);
+                    argTypes.push_back(functionArguments[i + 1]);
                 }
-                //                 else
-                //                 {
-                //                     Expression* pExp = params[i]->getDefaultArgumentExpression();
-                //                     CxxSemanticErrorReturnIf(pExp == nullptr, "failed to parse and resolve default
-                //                     argument '%.*s'",
-                //                                              PHANTOM_STRING_AS_PRINTF_ARG(params[i]->getNativeDefaultArgumentString()));
-                //                     pExp = pExp->clone(getSource());
-                //                     arguments.push_back(pExp);
-                //                     defaultArguments.push_back(pExp);
-                //                 }
             }
-            defaultArguments.cancel();
             if (auto pTSpec = a_pInput->getTemplateSpecialization())
             {
                 if (!_useExplicitTemplateArguments(a_pInput, pTSpec, templateArguments, out_deductions, "function"))
                     return;
-                newImplicitConversionsWithArgDeductions(a_pInput->getSignature(), arguments, out_conversions,
-                                                        out_deductions, pScope);
+                newImplicitConversionsWithArgDeductions(a_pInput->getSignature(), argTypes, out_conversions,
+                                                        out_deductions, pScope, convUserDefinedFunctions);
             }
             else
-                newImplicitConversions(a_pInput->getSignature(), arguments, out_conversions, pScope);
+                newImplicitConversions(a_pInput->getSignature(), argTypes, out_conversions, pScope,
+                                       convUserDefinedFunctions);
             if (!out_conversions.hasNull())
             {
                 out_subroutine = a_pInput;
@@ -4829,8 +4874,8 @@ void Semantic::visit(InitializerListType* a_pInput, VisitorData a_Data)
                             aggregate = false;
                             // not a pure aggregate type, cannot value/list-initialize
                             ConversionResults argConvs;
-                            newImplicitConversions(pCtor->getSignature(), a_pInput->getTypes(), argConvs,
-                                                   pContextScope);
+                            newImplicitConversions(pCtor->getSignature(), a_pInput->getTypes(), argConvs, pContextScope,
+                                                   UserDefinedFunctions::ImplicitsOnly);
                             if (argConvs.size() && !argConvs.hasNull())
                             {
                                 argConvs.destroy(getSource());
@@ -5021,10 +5066,6 @@ void Semantic::visit(LanguageElement* a_pInput, VisitorData a_Data)
                 return;
             }
         }
-        if (a_pInput->getName() == "$")
-        {
-            printf("");
-        }
         if (a_pInput->getOwner())
         {
             a_pInput->getOwner()->visit(this, a_Data);
@@ -5071,8 +5112,6 @@ void Semantic::visit(LanguageElement* a_pInput, VisitorData a_Data)
         /// Find all candidates
         Symbols  candidates;
         Accesses outAccesses;
-        if (in_name == "templateFunctionStatic")
-            printf("");
 
         internalQualifiedSymbolsLookup(a_pInput, in_name, candidates, outAccesses, in_pContextScope, Access::Public,
                                        a_Data.flags);
@@ -5464,7 +5503,7 @@ void Semantic::visit(LanguageElement* a_pInput, VisitorData a_Data)
                 if (bIsTemplateDependant)
                 {
                     out_pResult = New<TemplateDependantExpression>(New<TemplateDependantElement>(
-                    a_Data.hasFlag(e_VisitorFlag_Unqualified) ? nullptr : a_pInput, in_name, NullOpt,
+                    a_Data.hasFlag(e_VisitorFlag_Unqualified) ? nullptr : a_pInput, in_name, in_pTemplateArguments,
                     *(OptionalArrayView<LanguageElement*>*)&in_pFunctionArguments));
                     return;
                 }
@@ -6272,9 +6311,10 @@ void Semantic::visit(Method* a_pInput, VisitorData a_Data)
     case e_VisitorFunction_IsViableCallCandidate:
     {
         OptionalArrayView<LanguageElement*> templateArguments = *(OptionalArrayView<LanguageElement*>*)a_Data.in[0];
-        ExpressionsView                     functionArguments = *(const Expressions*)a_Data.in[1];
+        TypesView                           functionArguments = *(const TypesView*)a_Data.in[1];
         Modifiers                           modifiers = *(Modifiers*)a_Data.in[2];
         LanguageElement*                    pScope = *(LanguageElement**)a_Data.in[3];
+        UserDefinedFunctions                convUserDefinedFunctions = *(UserDefinedFunctions*)a_Data.in[4];
         ConversionResults&                  out_conversions = *(ConversionResults*)a_Data.out[0];
         Subroutine*&                        out_subroutine = *(Subroutine**)a_Data.out[1];
         PlaceholderMap&                     out_deductions = *(PlaceholderMap*)a_Data.out[2];
@@ -6291,7 +6331,7 @@ void Semantic::visit(Method* a_pInput, VisitorData a_Data)
         {
             return;
         }
-        if (a_pInput->acceptsCallerExpressionType(functionArguments.front()->getValueType()))
+        if (a_pInput->acceptsCallerExpressionType(functionArguments.front()))
         {
             /// implicit conversion of the implicit object parameter
             Type*       pOutput = a_pInput->getImplicitObjectParameterType();
@@ -6306,16 +6346,11 @@ void Semantic::visit(Method* a_pInput, VisitorData a_Data)
             void*            out[1] = {&pConversion};
             conversionData.in = in;
             conversionData.out = out;
-            Type* pInputType = functionArguments[0]->getValueType();
+            Type* pInputType = functionArguments[0];
             if (pInputType->getTypeKind() == TypeKind::RValueReference &&
                 pOutput->getTypeKind() == TypeKind::LValueReference)
             {
                 pInputType->removeRValueReference()->addLValueReference()->visit(this, conversionData);
-                //                 if (pConversion)
-                //                 // add Class&& to Class& conversion reduction
-                //                 {
-                //                     static_cast<DefaultConversionSequence*>(pConversion)->addRValueToLValuePromotion();
-                //                 }
             }
             else if (pInputType->asClassType())
             {
@@ -6353,38 +6388,27 @@ void Semantic::visit(Method* a_pInput, VisitorData a_Data)
             out_conversions.push_back(pConversion);
 
             /// list implicit conversions of arguments
-            Expressions              arguments;
-            OwnersGuard<Expressions> defaultArguments;
+            Types argumentTypes;
 
             auto& params = a_pInput->getParameters();
             for (size_t i = 0; i < params.size(); ++i)
             {
                 if (i < (functionArguments.size() - 1))
                 {
-                    arguments.push_back(functionArguments[i + 1]);
+                    argumentTypes.push_back(functionArguments[i + 1]);
                 }
-                //                 else
-                //                 {
-                //                     Expression* pExp = params[i]->getDefaultArgumentExpression();
-                //                     CxxSemanticErrorReturnIf(pExp == nullptr, "failed to parse and resolve default
-                //                     argument '%.*s'",
-                //                                              PHANTOM_STRING_AS_PRINTF_ARG(params[i]->getNativeDefaultArgumentString()));
-                //                     pExp = pExp->clone(getSource());
-                //                     arguments.push_back(pExp);
-                //                     defaultArguments.push_back(pExp);
-                //                 }
             }
-            defaultArguments.cancel();
 
             if (auto pTSpec = a_pInput->getTemplateSpecialization())
             {
                 if (!_useExplicitTemplateArguments(a_pInput, pTSpec, templateArguments, out_deductions, "method"))
                     return;
-                newImplicitConversionsWithArgDeductions(a_pInput->getSignature(), arguments, out_conversions,
-                                                        out_deductions, pScope);
+                newImplicitConversionsWithArgDeductions(a_pInput->getSignature(), argumentTypes, out_conversions,
+                                                        out_deductions, pScope, convUserDefinedFunctions);
             }
             else
-                newImplicitConversions(a_pInput->getSignature(), arguments, out_conversions, pScope);
+                newImplicitConversions(a_pInput->getSignature(), argumentTypes, out_conversions, pScope,
+                                       convUserDefinedFunctions);
 
             if (!out_conversions.hasNull())
             {
@@ -6421,11 +6445,13 @@ void Semantic::visit(Method* a_pInput, VisitorData a_Data)
             // in_TemplateSubstitution.getInstantiation()->getInstantiationSpecialization() == a_pInput->getOwner());
             pInstanceClassType = static_cast<ClassType*>(pSpec->getNamingScope());
         }
-
-        if (a_pInput->testFlags(PHANTOM_R_FLAG_IMPLICIT) || a_pInput->getVisibility() == Visibility::Private)
+        else
         {
-            // not instanciating trivial members
-            return;
+            if (a_pInput->testFlags(PHANTOM_R_FLAG_IMPLICIT) || a_pInput->getVisibility() == Visibility::Private)
+            {
+                // not instanciating trivial members
+                return;
+            }
         }
         switch (in_eClassBuildState)
         {
@@ -6475,7 +6501,7 @@ void Semantic::visit(Method* a_pInput, VisitorData a_Data)
         {
             if (!a_pInput->buildBlock())
             {
-                CxxSemanticError("failed to instantiate block of method '%.*s'",
+                CxxSemanticError("failed to instantiate block of template method '%.*s'",
                                  PHANTOM_STRING_AS_PRINTF_ARG(a_pInput->getName()));
                 pInstanciated = nullptr;
                 return;
@@ -6698,12 +6724,13 @@ void Semantic::visit(Symbol* a_pInput, VisitorData a_Data)
         EClassBuildState            in_eClassBuildState = *(EClassBuildState*)a_Data.in[1];
         LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
         LanguageElement*&           pResolved = *(LanguageElement**)a_Data.out[0];
-        if (a_pInput->getTemplateSpecialization())
+        if (auto pSpec = a_pInput->getTemplateSpecialization())
         {
-            Template* pTemplate = a_pInput->getTemplateSpecialization()->getTemplate();
-            a_Data.id = e_VisitorFunction_InstanciateTemplateElement;
-            a_pInput->getTemplateSpecialization()->visit(this, a_Data);
-            a_Data.id = e_VisitorFunction_ResolveTemplateDependencies;
+            Template*        pTemplate = pSpec->getTemplate();
+            LanguageElements resolvedArguments;
+            _resolveTemplateSpecializationArguments(pSpec, in_TemplateSubstitution, in_eClassBuildState,
+                                                    in_pContextScope, resolvedArguments);
+            pResolved = instantiateTemplate(pTemplate, resolvedArguments, in_pContextScope);
             if (pResolved == nullptr)
             {
                 auto   errArgs = in_TemplateSubstitution.getArguments().data();
@@ -6712,7 +6739,6 @@ void Semantic::visit(Symbol* a_pInput, VisitorData a_Data)
                                  FormatElementList(in_TemplateSubstitution.getArguments().data(),
                                                    in_TemplateSubstitution.getArguments().size())
                                  .data());
-                pResolved = nullptr;
                 return;
             }
         }
@@ -7263,6 +7289,17 @@ void Semantic::visit(PlaceholderConstant* a_pInput, VisitorData a_Data)
             pResolved = a_pInput;
     }
         return;
+
+    case e_VisitorFunction_InstanciateTemplateElement:
+    {
+        TemplateSubstitution const& in_TemplateSubstitution = *(TemplateSubstitution const*)a_Data.in[0];
+        EClassBuildState            in_eClassBuildState = *(EClassBuildState*)a_Data.in[1];
+        LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
+        LanguageElement*&           pInstantiated = *(LanguageElement**)a_Data.out[0];
+        auto                        pResolvedType = o_resolveT(Type, a_pInput->getValueType());
+        pInstantiated = New<PlaceholderConstant>(pResolvedType, a_pInput->getName());
+    }
+        return;
     }
     visit(static_cast<Constant*>(a_pInput), a_Data);
 }
@@ -7375,7 +7412,16 @@ void Semantic::visit(PlaceholderType* a_pInput, VisitorData a_Data)
         LanguageElement*            pArgument = in_TemplateSubstitution.getArgument(a_pInput);
         if (!pArgument)
         {
-            CxxSemanticError("'%s' : template parameter cannot be deduced from arguments", FormatCStr(a_pInput));
+            if (in_TemplateSubstitution.getInstantiation() == nullptr)
+                return;
+            if (in_TemplateSubstitution.getInstantiation() == a_pInput->getEnclosingTemplateSpecialization())
+            {
+                CxxSemanticError("'%s' : template parameter cannot be deduced from arguments", FormatCStr(a_pInput));
+            }
+            else
+            {
+                pResolved = a_pInput;
+            }
             return;
         }
         if (pArgument)
@@ -7388,6 +7434,16 @@ void Semantic::visit(PlaceholderType* a_pInput, VisitorData a_Data)
         }
         else
             pResolved = a_pInput;
+    }
+        return;
+
+    case e_VisitorFunction_InstanciateTemplateElement:
+    {
+        TemplateSubstitution const& in_TemplateSubstitution = *(TemplateSubstitution const*)a_Data.in[0];
+        EClassBuildState            in_eClassBuildState = *(EClassBuildState*)a_Data.in[1];
+        LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
+        LanguageElement*&           pInstantiated = *(LanguageElement**)a_Data.out[0];
+        pInstantiated = New<PlaceholderType>(a_pInput->getName());
     }
         return;
     }
@@ -8113,9 +8169,35 @@ void Semantic::visit(Signature* a_pInput, VisitorData a_Data)
         LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
         LanguageElement*&           pInstanciated = *(LanguageElement**)a_Data.out[0];
         OwnersGuard<Parameters>     parameters;
-        for (auto& p : a_pInput->getParameters())
+        for (auto* pUnresolvedParam : a_pInput->getParameters())
         {
-            Parameter* pParam = o_instantiateT(Parameter, p);
+            if (pUnresolvedParam->isTemplateDependant())
+            {
+                // Parameter pack expansion
+                if (auto pPackExp = Object::Cast<TemplateParameterPackTypeExpansion>(pUnresolvedParam->getValueType()))
+                {
+                    auto             pPackArg = pPackExp->getPackArgument();
+                    LanguageElements variadicArguments;
+                    auto             variadicSubs =
+                    in_TemplateSubstitution.splitVariadics(pPackExp->getPackArgument(), variadicArguments);
+                    for (size_t i = 0; i < variadicArguments.size(); ++i)
+                    {
+                        variadicSubs.substituteVariadic(pPackArg, variadicArguments[i]);
+                        Parameter* pParam = SemanticPrivate::SemanticInstantiateTemplateElement<Parameter>(
+                        this, pUnresolvedParam, variadicSubs, in_eClassBuildState, in_pContextScope, a_Data.flags,
+                        &LanguageElement::asParameter);
+                        if (pParam == nullptr)
+                            return;
+                        char idxBuf[8];
+                        sprintf(idxBuf, "$%d", int(i));
+                        pParam->setName(pParam->getName() + StringView(idxBuf));
+                        PHANTOM_SEMANTIC_ASSERT(!pParam->isTemplateDependant());
+                        parameters.push_back(pParam);
+                    }
+                    continue;
+                }
+            }
+            Parameter* pParam = o_instantiateT(Parameter, pUnresolvedParam);
             if (pParam == nullptr)
                 return;
             parameters.push_back(pParam);
@@ -8400,6 +8482,27 @@ void Semantic::visit(Template* a_pInput, VisitorData a_Data)
         }
     }
     break;
+    case e_VisitorFunction_InstanciateTemplateElement:
+    {
+        TemplateSubstitution const& in_TemplateSubstitution = *(TemplateSubstitution const*)a_Data.in[0];
+        EClassBuildState            in_eClassBuildState = *(EClassBuildState*)a_Data.in[1];
+        LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
+        LanguageElement*&           pResolved = *(LanguageElement**)a_Data.out[0];
+
+        TemplateSignature* pInstanceSignature = o_instantiateT(TemplateSignature, a_pInput->getTemplateSignature());
+        if (!pInstanceSignature)
+            return;
+        Template* pInstanceTemplate = New<Template>(pInstanceSignature, a_pInput->getName());
+
+        auto pInstanceTemplated = o_instantiateT(Symbol, a_pInput->getEmptyTemplateSpecialization()->getTemplated());
+        if (!pInstanceTemplated)
+            return;
+        pInstanceTemplate->getEmptyTemplateSpecialization()->setTemplated(pInstanceTemplated);
+
+        in_pContextScope->asScope()->addTemplate(pInstanceTemplate);
+
+        return;
+    }
     }
     visit(static_cast<Symbol*>(a_pInput), a_Data);
 }
@@ -8469,6 +8572,7 @@ void Semantic::visit(TemplateDependantArray* a_pInput, VisitorData a_Data)
                 auto found = deductions.find(pDeductibleConstant);
                 if (found != deductions.end())
                 {
+                    // explicitly passed as argument or already deduced
                     Expression* pOldExpression = found->second->asExpression();
                     Expression* pNewExpression = a_pInput->getItemCountExpression();
                     if (pOldExpression && pOldExpression->isCompileTime() && pNewExpression &&
@@ -8608,6 +8712,51 @@ void Semantic::visit(TemplateDependantElement* a_pInput, VisitorData a_Data)
         {
             for (auto pArgument : *a_pInput->getFunctionArguments())
             {
+                if (pArgument->isTemplateDependant())
+                {
+                    if (auto pPackExp = Object::Cast<TemplateParameterPackExpressionExpansion>(pArgument))
+                    {
+                        auto   pExpParam = pPackExp->getExpandedParameter();
+                        auto&  templateDepParams = static_cast<Signature*>(pExpParam->getOwner())->getParameters();
+                        size_t templateDepParamsCount = templateDepParams.size();
+                        for (size_t i = 0; i < templateDepParamsCount; ++i)
+                        {
+                            if (templateDepParams[i] == pExpParam)
+                            {
+                                Subroutine* pInstanceSubroutine =
+                                o_resolveT(Subroutine, in_pContextScope->getEnclosingSubroutine());
+                                auto&  resolvedParams = pInstanceSubroutine->getParameters();
+                                size_t resolvedParamSize = resolvedParams.size();
+                                if (resolvedParamSize < templateDepParamsCount)
+                                {
+                                    // variadic expanded without arguments => we skip the function argument
+                                    pExpParam = nullptr;
+                                    break;
+                                }
+                                for (size_t p = i; p < i + (resolvedParamSize - templateDepParamsCount); ++p)
+                                {
+                                    templateInstantiations()[in_TemplateSubstitution.getInstantiation()][pExpParam] =
+                                    resolvedParams[p];
+                                    LanguageElement* pElement = o_instantiateT(LanguageElement, pArgument);
+                                    if (pElement->asExpression() && bExpressions)
+                                    {
+                                        bTypes = false;
+                                        functionArguments.push_back(pElement->asExpression());
+                                        pFunctionArguments = &functionArguments.elements();
+                                    }
+                                    else
+                                    {
+                                        CxxSemanticError("invalid template variadic argument expression");
+                                        return;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                        if (!pExpParam) // argument was skipped by variadic resolution
+                            continue;
+                    }
+                }
                 LanguageElement* pElement = o_resolveT(LanguageElement, pArgument);
                 PHANTOM_SEMANTIC_ASSERT(pElement == nullptr || !pElement->isTemplateDependant());
                 if (pElement == nullptr)
@@ -8884,18 +9033,20 @@ void Semantic::visit(TemplateDependantTemplateInstance* a_pInput, VisitorData a_
         LanguageElement*  pInputArgument = *(LanguageElement* const*)a_Data.in[0];
         LanguageElement*& pDeducedArgument = *(LanguageElement**)a_Data.out[0];
         PlaceholderMap&   deductions = *(PlaceholderMap*)a_Data.out[1];
-        auto&             templateParams = a_pInput->getTemplate()->getTemplateParameters();
-        size_t            templateParamCount = templateParams.size();
+        auto&             inputTemplateParams = a_pInput->getTemplate()->getTemplateParameters();
+        size_t            inputTemplateParamCount = inputTemplateParams.size();
         if (pInputArgument->isTemplateDependant() &&
             pInputArgument->getMetaClass() == PHANTOM_CLASSOF(TemplateDependantTemplateInstance))
         {
             TemplateDependantTemplateInstance* pTDTI = static_cast<TemplateDependantTemplateInstance*>(pInputArgument);
             /// Both template template parameter and template argument has same
             /// parameter/argument count
-            if (pTDTI->getTemplate()->getTemplateSignature()->getTemplateParameters().size() == templateParamCount)
+            ///
+            auto&& tdTplParams = pTDTI->getTemplate()->getTemplateSignature()->getTemplateParameters();
+            if (tdTplParams.size() == inputTemplateParamCount)
             {
                 size_t i = 0;
-                for (; i < templateParamCount; ++i)
+                for (; i < inputTemplateParamCount; ++i)
                 {
                     LanguageElement* pParameter = a_pInput->getArguments()[i];
                     LanguageElement* pArgument = pTDTI->getArguments()[i];
@@ -8914,21 +9065,22 @@ void Semantic::visit(TemplateDependantTemplateInstance* a_pInput, VisitorData a_
             if (pInputArgumentSpec)
             {
                 size_t requiredArgumentCount = 0;
-                for (requiredArgumentCount = 0; requiredArgumentCount < templateParams.size(); ++requiredArgumentCount)
+                for (requiredArgumentCount = 0; requiredArgumentCount < inputTemplateParams.size();
+                     ++requiredArgumentCount)
                 {
-                    if (templateParams[requiredArgumentCount]->getDefaultArgument())
+                    if (inputTemplateParams[requiredArgumentCount]->getDefaultArgument())
                         break;
                 }
                 /// Both template template parameter and template argument has same
                 /// parameter/argument count
-                if (pInputArgumentSpec->getArguments().size() == templateParamCount)
+                if (pInputArgumentSpec->getArguments().size() == inputTemplateParamCount)
                 {
                     size_t i = 0;
-                    for (; i < templateParamCount; ++i)
+                    for (; i < inputTemplateParamCount; ++i)
                     {
                         LanguageElement* pParameter = (i < a_pInput->getArguments().size())
                         ? a_pInput->getArguments()[i]
-                        : templateParams[i]->getDefaultArgument();
+                        : inputTemplateParams[i]->getDefaultArgument();
                         LanguageElement* pArgument = pInputArgumentSpec->getArguments()[i];
                         ;
                         if (!(templateArgumentDeduction(pParameter, pArgument, deductions)))
@@ -8961,13 +9113,33 @@ void Semantic::visit(TemplateDependantTemplateInstance* a_pInput, VisitorData a_
         size_t                        i = 0;
         for (auto pArg : a_pInput->getArguments())
         {
-            LanguageElement* pResolvedArg = o_resolveT(LanguageElement, pArg);
-            if (pResolvedArg == nullptr)
+            if (pArg->getMetaClass() == PHANTOM_CLASSOF(TemplateParameterPackTypeExpansion))
             {
-                // CxxSemanticError(e_Error_TemplateResolutionFailure, &pArg);
-                return;
+                auto             pPackTypeExp = static_cast<TemplateParameterPackTypeExpansion*>(pArg);
+                auto             pPackArg = pPackTypeExp->getPackArgument();
+                LanguageElements variadicArguments;
+                auto             variadicSubs = in_TemplateSubstitution.splitVariadics(pPackArg, variadicArguments);
+                for (size_t i = 0; i < variadicArguments.size(); ++i)
+                {
+                    variadicSubs.substituteVariadic(pPackArg, variadicArguments[i]);
+                    auto pExpandedType = SemanticPrivate::SemanticResolveTemplateDependency<Type>(
+                    this, pPackTypeExp->getExpansion()->getExpandedElement(), variadicSubs, in_eClassBuildState,
+                    in_pContextScope, a_Data.flags, &LanguageElement::asType);
+                    if (pExpandedType == nullptr)
+                        return;
+                    newArguments.push_back(pExpandedType);
+                }
             }
-            newArguments.push_back(pResolvedArg);
+            else
+            {
+                LanguageElement* pResolvedArg = o_resolveT(LanguageElement, pArg);
+                if (pResolvedArg == nullptr)
+                {
+                    // CxxSemanticError(e_Error_TemplateResolutionFailure, &pArg);
+                    return;
+                }
+                newArguments.push_back(pResolvedArg);
+            }
             ++i;
         }
         if ((pResolved = instantiateTemplate(a_pInput->getTemplate(), newArguments, in_pContextScope)))
@@ -8986,8 +9158,8 @@ void Semantic::visit(TemplateDependantTemplateInstance* a_pInput, VisitorData a_
         newArguments.cancel();
     }
         return;
-    } // namespace lang
-} // namespace lang
+    }
+}
 void Semantic::visit(TemplateDependantType* a_pInput, VisitorData a_Data)
 {
     switch (a_Data.id)
@@ -9050,6 +9222,92 @@ void Semantic::visit(TemplateDependantTypeOfExpression* a_pInput, VisitorData a_
 }
 void Semantic::visit(TemplateParameter* a_pInput, VisitorData a_Data)
 {
+    switch (a_Data.id)
+    {
+    case e_VisitorFunction_InstanciateTemplateElement:
+    {
+        TemplateSubstitution const& in_TemplateSubstitution = *(TemplateSubstitution const*)a_Data.in[0];
+        EClassBuildState            in_eClassBuildState = *(EClassBuildState*)a_Data.in[1];
+        LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
+        LanguageElement*&           pInstantiated = *(LanguageElement**)a_Data.out[0];
+
+        auto pInstancePH = o_instantiateT(Placeholder, a_pInput->getPlaceholder()->asSymbol());
+        if (!pInstancePH)
+            return;
+
+        LanguageElement* pInstanceDefaultArg = nullptr;
+        if (auto pDArg = a_pInput->getDefaultArgument())
+            pInstanceDefaultArg = o_instantiateT(LanguageElement, pDArg);
+
+        pInstantiated = New<TemplateParameter>(pInstancePH, pInstanceDefaultArg);
+
+        return;
+    }
+    }
+    visit(static_cast<LanguageElement*>(a_pInput), a_Data);
+}
+void Semantic::visit(TemplateParameterPackExpansion* a_pInput, VisitorData a_Data)
+{
+    switch (a_Data.id)
+    {
+    case e_VisitorFunction_ResolveTemplateDependencies:
+    case e_VisitorFunction_InstanciateTemplateElement:
+    {
+        return a_pInput->getPackArgument()->asSymbol()->visit(this, a_Data);
+    }
+    }
+    PHANTOM_UNREACHABLE();
+}
+void Semantic::visit(TemplateParameterPackTypeExpansion* a_pInput, VisitorData a_Data)
+{
+    return a_pInput->getExpansion()->visit(this, a_Data);
+}
+void Semantic::visit(TemplateParameterPackExpressionExpansion* a_pInput, VisitorData a_Data)
+{
+    switch (a_Data.id)
+    {
+    case e_VisitorFunction_ResolveTemplateDependencies:
+    case e_VisitorFunction_InstanciateTemplateElement:
+    {
+        TemplateSubstitution const& in_TemplateSubstitution = *(TemplateSubstitution const*)a_Data.in[0];
+        EClassBuildState            in_eClassBuildState = *(EClassBuildState*)a_Data.in[1];
+        LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
+        LanguageElement*&           pInstantiated = *(LanguageElement**)a_Data.out[0];
+        auto                        pExpParam = a_pInput->getExpandedParameter();
+        auto&                       templateDepParams = static_cast<Signature*>(pExpParam->getOwner())->getParameters();
+        size_t                      templateDepParamsCount = templateDepParams.size();
+        for (size_t i = 0; i < templateDepParamsCount; ++i)
+        {
+            if (templateDepParams[i] == pExpParam)
+            {
+                Subroutine* pInstanceSubroutine = o_resolveT(Subroutine, in_pContextScope->getEnclosingSubroutine());
+                auto&       resolvedParams = pInstanceSubroutine->getParameters();
+                size_t      resolvedParamSize = resolvedParams.size();
+                if (resolvedParamSize < templateDepParamsCount)
+                {
+                    // variadic expanded without arguments => skip
+                    pExpParam = nullptr;
+                    break;
+                }
+                Expression* pLeft = nullptr;
+                for (size_t p = i; p < i + (resolvedParamSize - templateDepParamsCount) + 1; ++p)
+                {
+                    templateInstantiations()[in_TemplateSubstitution.getInstantiation()][pExpParam] = resolvedParams[p];
+                    LanguageElement* pElement = o_instantiateT(LanguageElement, a_pInput->getExpandedExpression());
+                    CxxSemanticErrorReturnIf(pElement->asExpression() == nullptr,
+                                             "expected evaluable expression in function variadic parameter expansion");
+                    if (pLeft == nullptr)
+                        pLeft = static_cast<Expression*>(pElement);
+                    else
+                        pLeft = New<CommaExpression>(pLeft, static_cast<Expression*>(pElement));
+                }
+                pInstantiated = pLeft;
+                return;
+            }
+        }
+    }
+    }
+    PHANTOM_UNREACHABLE();
     visit(static_cast<LanguageElement*>(a_pInput), a_Data);
 }
 void Semantic::visit(TemplateSignature* a_pInput, VisitorData a_Data)
@@ -9067,6 +9325,27 @@ void Semantic::visit(TemplateSignature* a_pInput, VisitorData a_Data)
             return;
         }
     }
+    break;
+
+    case e_VisitorFunction_InstanciateTemplateElement:
+    {
+        TemplateSubstitution const& in_TemplateSubstitution = *(TemplateSubstitution const*)a_Data.in[0];
+        EClassBuildState            in_eClassBuildState = *(EClassBuildState*)a_Data.in[1];
+        LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
+        LanguageElement*&           pInstantiated = *(LanguageElement**)a_Data.out[0];
+
+        TemplateParameters tparams;
+        for (auto pTPararm : a_pInput->getTemplateParameters())
+        {
+            auto pInstantiatedTParam = o_instantiateT(TemplateParameter, pTPararm);
+            if (!pInstantiatedTParam)
+                continue;
+            tparams.push_back(pInstantiatedTParam);
+        }
+
+        pInstantiated = TemplateSignature::Create(getSource(), tparams);
+    }
+        return;
     }
     visit(static_cast<LanguageElement*>(a_pInput), a_Data);
 }
@@ -9199,12 +9478,18 @@ void Semantic::visit(TemplateSpecialization* a_pInput, VisitorData a_Data)
         EClassBuildState            in_eClassBuildState = *(EClassBuildState*)a_Data.in[1];
         LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
         LanguageElement*&           pInstanciated = *(LanguageElement**)a_Data.out[0];
-        LanguageElements            resolvedArguments;
-        for (auto& p : a_pInput->getArguments())
-        {
-            resolvedArguments.push_back(o_resolveT(LanguageElement, (p)));
-        }
-        pInstanciated = instantiateTemplate(a_pInput->getTemplate(), resolvedArguments, in_pContextScope);
+        PHANTOM_ASSERT(!a_pInput->isEmpty());
+
+        LanguageElements resolvedArguments;
+        _resolveTemplateSpecializationArguments(a_pInput, in_TemplateSubstitution, in_eClassBuildState,
+                                                in_pContextScope, resolvedArguments);
+
+        Template* pInstanceTemplate = o_resolveT(Template, a_pInput->getTemplate());
+        auto      pInstanceSignature = o_instantiateT(TemplateSignature, a_pInput->getTemplateSignature());
+        if (!pInstanceSignature)
+            return;
+        pInstanciated = in_pContextScope->asScope()->addTemplateSpecialization(pInstanceTemplate, pInstanceSignature,
+                                                                               resolvedArguments);
     }
         return;
     case e_VisitorFunction_ResolveTemplateDependencies:

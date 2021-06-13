@@ -14,16 +14,12 @@
 #pragma warning(pop)
 
 // Fundamental expressions
-#include "phantom/lang/BaseConstructorCallStatement.h"
-#include "phantom/lang/RValueReferenceExpression.h"
-#include "phantom/lang/SubroutinePointerExpression.h"
-#include "phantom/lang/SymbolReferenceExpression.h"
-
 #include <fstream>
 #include <phantom/lang/Alias.h>
 #include <phantom/lang/AllocateExpression.h>
 #include <phantom/lang/Application.h>
 #include <phantom/lang/ArrayExpression.h>
+#include <phantom/lang/BaseConstructorCallStatement.h>
 #include <phantom/lang/BinaryOperationExpression.h>
 #include <phantom/lang/Block.h>
 #include <phantom/lang/BranchIfNotStatement.h>
@@ -81,6 +77,7 @@
 #include <phantom/lang/PointerAdjustmentExpression.h>
 #include <phantom/lang/Property.h>
 #include <phantom/lang/PropertyExpression.h>
+#include <phantom/lang/RValueReferenceExpression.h>
 #include <phantom/lang/ReturnStatement.h>
 #include <phantom/lang/Semantic.h>
 #include <phantom/lang/Signature.h>
@@ -89,6 +86,8 @@
 #include <phantom/lang/Statement.h>
 #include <phantom/lang/StaticAssert.h>
 #include <phantom/lang/StringLiteralExpression.h>
+#include <phantom/lang/SubroutinePointerExpression.h>
+#include <phantom/lang/SymbolReferenceExpression.h>
 #include <phantom/lang/Template.h>
 #include <phantom/lang/TemplateDependantArray.h>
 #include <phantom/lang/TemplateDependantDeclType.h>
@@ -96,6 +95,7 @@
 #include <phantom/lang/TemplateDependantExpression.h>
 #include <phantom/lang/TemplateDependantTypeOfExpression.h>
 #include <phantom/lang/TemplateParameter.h>
+#include <phantom/lang/TemplateParameterPackExpressionExpansion.h>
 #include <phantom/lang/TemplateSignature.h>
 #include <phantom/lang/TemplateSpecialization.h>
 #include <phantom/lang/TypeTraitExpression.h>
@@ -124,10 +124,14 @@
 #include <phantom/utils/Generic.h>
 /* *********************************************** */
 #include "CppLiteMemory.h"
+#include "TemplateParameterPackExpansion.h"
+#include "TemplateParameterPackTypeExpansion.h"
 #include "phantom/lang/TemplateDependantTemplateInstance.h"
 
 #include <phantom/lang/FunctionType.h>
 #define DUMP_CODE_RANGES 0
+
+#pragma optimize("", off)
 
 namespace phantom
 {
@@ -867,6 +871,26 @@ struct CppLitePassData
     void popImplicitThisExpression() { m_ImplicitThisExpressionStack.pop_back(); }
     Expression* getImplicitThisExpression() const { return m_ImplicitThisExpressionStack.back(); }
 
+    void         pushPackArgument(Placeholder* a_pParam) { m_PackArguments.push_back(a_pParam); }
+    Placeholder* popPackArgument()
+    {
+        if (m_PackArguments.empty())
+            return nullptr;
+        auto pArg = m_PackArguments.back();
+        m_PackArguments.pop_back();
+        return pArg;
+    }
+
+    void       pushPackExpansionParameter(Parameter* a_pParam) { m_PackExpansionParameters.push_back(a_pParam); }
+    Parameter* popPackExpansionParameter()
+    {
+        if (m_PackExpansionParameters.empty())
+            return nullptr;
+        auto pParam = m_PackExpansionParameters.back();
+        m_PackExpansionParameters.pop_back();
+        return pParam;
+    }
+
     template<class T>
     T* mapElement(ast::_BaseRule* a_pRule, T* a_pElement)
     {
@@ -1287,6 +1311,8 @@ struct CppLitePassData
     phantom::SmallVector<LanguageElement*>   m_ScopeStack;
     phantom::SmallVector<Expression*>        m_LeftExpressionStack;
     phantom::SmallVector<Expression*>        m_ImplicitThisExpressionStack;
+    phantom::SmallVector<Placeholder*>       m_PackArguments;
+    phantom::SmallVector<Parameter*>         m_PackExpansionParameters;
     phantom::SmallVector<LanguageElements*>  m_TemplateArguments;
     phantom::SmallVector<LanguageElements*>  m_FunctionElements;
     phantom::SmallVector<TemplateSignature*> m_TemplateSignatures;
@@ -1767,6 +1793,9 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         Types templateArgTypes;
         for (auto templateArg : templateArgs)
         {
+            if (templateArg->isTemplateDependant())
+                return nullptr;
+
             if (Type* pType = templateArg->asType())
             {
                 templateArgTypes.push_back(pType);
@@ -2576,19 +2605,51 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             return true;
         }
         CppLiteGuard(pTemplateSignature);
-        for (auto pTP : *input->m_TemplateParameters)
+        size_t lasti = input->m_TemplateParameters->size() - 1;
+        for (size_t i = 0; i < input->m_TemplateParameters->size(); ++i)
         {
+            auto        pTP = (*input->m_TemplateParameters)[i];
+            bool        isLastParameter = (lasti == i);
             const char* name = pTP->m_TemplateTypeParameter ? pTP->m_TemplateTypeParameter->m_IDENTIFIER
                                                             : pTP->m_TemplateValueParameter->m_IDENTIFIER;
-            CppLiteErrorContinueIf(pTemplateSignature->isVariadic() && pTP->m_ELLIPSE.hasValue(),
-                                   "'%s' : template parameter pack already declared", name);
-            CppLiteErrorContinueIf(pTemplateSignature->isVariadic() && !pTP->m_ELLIPSE.hasValue(),
-                                   "'%s' : template parameter pack must be the last template "
-                                   "parameter in a variadic template signature",
-                                   name);
+
+            bool variadic = false;
+            auto handleEllipse = [=, &variadic](auto&& tparam) {
+                if (pTemplateSignature->isVariadic() && tparam->m_ELLIPSE.hasValue())
+                {
+                    CppLiteError("'%s' : template parameter pack already declared", name);
+                    return false;
+                }
+                if (pTemplateSignature->isVariadic() && !tparam->m_ELLIPSE.hasValue())
+                {
+                    CppLiteError("'%s' : template parameter pack must be the last template "
+                                 "parameter in a variadic template signature",
+                                 name);
+                    return false;
+                }
+
+                if (tparam->m_ELLIPSE.hasValue())
+                {
+                    if (!isLastParameter)
+                    {
+                        CppLiteError("parameter pack must be the last parameter");
+                        return false;
+                    }
+                    if (pTP->m_TemplateParameterDefault)
+                    {
+                        CppLiteError("parameter pack cannot have default argument");
+                        return false;
+                    }
+                    variadic = true;
+                }
+                return true;
+            };
 
             if (pTP->m_TemplateTypeParameter) // class ..
             {
+                if (!handleEllipse(pTP->m_TemplateTypeParameter))
+                    continue;
+
                 LanguageElement* pDefaultType = nullptr;
                 if (pTP->m_TemplateParameterDefault)
                 {
@@ -2606,6 +2667,9 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             }
             else // int ..
             {
+                if (!handleEllipse(pTP->m_TemplateValueParameter))
+                    continue;
+
                 pTemplateSignature->setOwner(CppLiteGetScope());
                 Type* pType = pTP->m_TemplateValueParameter->m_FundamentalType
                 ? CppLiteVisitType(pTP->m_TemplateValueParameter->m_FundamentalType)
@@ -2640,10 +2704,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                 pDefaultExpression));
                 PHANTOM_ASSERT(pDefaultExpression == nullptr || pDefaultExpression->getOwner());
             }
-            if (pTP->m_ELLIPSE.hasValue())
-            {
+            if (variadic)
                 pTemplateSignature->setVariadic(true);
-            }
         }
         CppLiteUnguard(pTemplateSignature);
         CppLiteMapAndReturn(pTemplateSignature);
@@ -2961,6 +3023,13 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             LanguageElement* pElement = CppLiteVisitElement(input->m_Type);
             if (pElement == nullptr)
                 return true;
+            if (pElement->isTemplateDependant())
+            {
+                if (pElement->getMetaClass() == PHANTOM_CLASSOF(TemplateParameterPackTypeExpansion))
+                {
+                    CppLiteMapAndReturn(pElement);
+                }
+            }
             if (Expression* pExpression = toExpression(pElement))
             {
                 CppLiteErrorReturnIf(
@@ -3085,6 +3154,35 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         }
         return true;
     }
+
+    void _checkForPackParameterExpansion(LanguageElement* a_pElem)
+    {
+        // Looking for any parameter pack used
+        // if (name->m_TemplateArgumentList == nullptr) // template parameter pack cannot have template arguments
+        if (auto pPH = a_pElem->asPlaceholder())
+        {
+            if (auto pTP = pPH->asSymbol()->getOwner()->asTemplateParameter())
+            {
+                if (pTP->isPack())
+                {
+                    m_Data.pushPackArgument(pPH);
+                }
+            }
+        }
+        else if (auto pNoExp = a_pElem->removeExpression())
+            if (auto pParam = pNoExp->asParameter())
+            {
+                auto pPrmType = pParam->getValueType();
+                if (pPrmType->isTemplateDependant())
+                {
+                    if (auto pExpa = Object::Cast<TemplateParameterPackTypeExpansion>(pPrmType))
+                    {
+                        m_Data.pushPackExpansionParameter(pParam);
+                    }
+                }
+            }
+    }
+
     bool traverseQualifiedScopedName(ast::QualifiedScopedName* input)
     {
         // CppLiteSourceByPasser();
@@ -3128,7 +3226,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                 pElement = CppLiteGetSemantic()->qualifiedLookup(pLHS, identifier, MakeOptionalArrayView(pTemplateArgs),
                                                                  phantom::NullOpt, CppLiteGetScope(),
                                                                  CppLiteGetInitializationType(), 0);
-                //                 CppLiteErrorReturnIf(pElement == nullptr, "'%s' : no member found with this name in
+                //                 CppLiteErrorReturnIf(pElement == nullptr, "'%s' : no member found with this name
+                //                 in
                 //                 '%.*s'",
                 //                                      identifier.data(),
                 //                                      PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pLHS)));
@@ -3138,13 +3237,20 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                 pElement = CppLiteGetSemantic()->unqualifiedLookup(identifier, MakeOptionalArrayView(pTemplateArgs),
                                                                    phantom::NullOpt, CppLiteGetScope(),
                                                                    CppLiteGetInitializationType(), 0);
-                //                 CppLiteErrorReturnIf(pElement == nullptr, "'%s' : no member found with this name in
+                //                 CppLiteErrorReturnIf(pElement == nullptr, "'%s' : no member found with this name
+                //                 in
                 //                 '%.*s'",
                 //                                      identifier.data(),
                 //                                      PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(CppLiteGetScope())));
             }
+
+            // Looking for any parameter pack used
+            // if (name->m_TemplateArgumentList == nullptr) // template parameter pack cannot have template
+            // arguments
+
             if (pElement == nullptr)
                 return true;
+            _checkForPackParameterExpansion(pElement);
             pLHS = pElement;
         }
         CppLiteMapAndReturn(pLHS);
@@ -3180,7 +3286,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                 pElement = CppLiteGetSemantic()->qualifiedLookup(pLHS, identifier, MakeOptionalArrayView(pTemplateArgs),
                                                                  MakeOptionalArrayView(pFuncArguments),
                                                                  CppLiteGetScope(), CppLiteGetInitializationType(), 0);
-                //                 CppLiteErrorReturnIf(pElement == nullptr, "'%s' : no member found with this name in
+                //                 CppLiteErrorReturnIf(pElement == nullptr, "'%s' : no member found with this name
+                //                 in
                 //                 '%.*s'",
                 //                                      identifier.data(),
                 //                                      PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pLHS)));
@@ -3190,13 +3297,20 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                 pElement = CppLiteGetSemantic()->unqualifiedLookup(
                 identifier, MakeOptionalArrayView(pTemplateArgs), MakeOptionalArrayView(pFuncArguments),
                 CppLiteGetScope(), CppLiteGetInitializationType(), 0);
-                //                 CppLiteErrorReturnIf(pElement == nullptr, "'%s' : no member found with this name in
+                //                 CppLiteErrorReturnIf(pElement == nullptr, "'%s' : no member found with this name
+                //                 in
                 //                 '%.*s'",
                 //                                      identifier.data(),
                 //                                      PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(CppLiteGetScope())));
             }
+
+            // Looking for any parameter pack used
+            // if (name->m_TemplateArgumentList == nullptr) // template parameter pack cannot have template
+            // arguments
+
             if (pElement == nullptr)
                 return true;
+            _checkForPackParameterExpansion(pElement);
             pLHS = pElement;
         }
         CppLiteMapAndReturn(pLHS);
@@ -3278,6 +3392,13 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                 if (pType == nullptr)
                     return true;
             }
+        }
+        if (input->m_ELLIPSE.hasValue())
+        {
+            auto pPackArg = m_Data.popPackArgument();
+            CppLiteErrorReturnIf(!pPackArg, "... : parameter pack expansion outside of variadic template");
+            auto* pExpa = New<TemplateParameterPackExpansion>(pType, pPackArg);
+            pType = New<TemplateParameterPackTypeExpansion>(pExpa);
         }
         CppLiteMapAndReturn(pType);
     }
@@ -3826,8 +3947,9 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                         if (pElement == nullptr)
                             return true;
                         //                         CppLiteErrorReturnIf(pElement == nullptr,
-                        //                                              "'%s' : list-initialization : unknown symbol,
-                        //                                              expects a class type", identifier.data());
+                        //                                              "'%s' : list-initialization : unknown
+                        //                                              symbol, expects a class type",
+                        //                                              identifier.data());
                         Type* pType = pElement->toType();
                         CppLiteErrorReturnIf(pType == nullptr,
                                              "'%s' : list-initialization : the symbol on the left "
@@ -3922,6 +4044,33 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                                          PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pLeft->getEvalType())));
                     pExpr->setCodeRange(CppLiteCodeRange(pCurrent->location()));
                     pLHS = pExpr;
+                }
+                else if (pCurrent->m_ELLIPSE.hasValue())
+                {
+                    if (auto pPackParam = m_Data.popPackExpansionParameter())
+                    {
+                        PHANTOM_ASSERT(pLHS);
+                        CppLiteErrorReturnIf(!pLHS->asExpression(),
+                                             "... : parameter pack expansion expects evaluable expression");
+                        pLHS =
+                        New<TemplateParameterPackExpressionExpansion>(static_cast<Expression*>(pLHS), pPackParam);
+                    }
+                    else if (auto pPackArg = m_Data.popPackArgument())
+                    {
+                        pLHS = New<TemplateParameterPackExpansion>(pLHS, pPackArg);
+                    }
+                    else
+                    {
+                        if (auto pSpec = m_Data.getScope()->getEnclosingTemplateSpecialization())
+                            if (pSpec->getTemplateSignature()->isVariadic())
+                            {
+                                CppLiteError(
+                                "... : pack expansion without related function argument or template argument pack");
+                                return true;
+                            }
+                        CppLiteError("... : parameter pack expansion outside of variadic template");
+                        return true;
+                    }
                 }
                 else if (pCurrent->m_DOT.hasValue())
                 {
@@ -4027,7 +4176,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                             //                                 pLHS, identifier,
                             //                                 MakeOptionalArrayView(pTemplateArguments),
                             //                                 MakeOptionalArrayView(pFunctionArguments),
-                            //                                 CppLiteGetScope(), CppLiteGetInitializationType(), 0);
+                            //                                 CppLiteGetScope(), CppLiteGetInitializationType(),
+                            //                                 0);
                             //                             }
                             //                             else
                             {
@@ -4351,28 +4501,16 @@ struct CppLitePass : public ast::visitor::Recursive<T>
 
                 pLHS = CppLiteGetSemantic()->qualifiedLookup(pLHS, identifier, MakeOptionalArrayView(pTemplateArgs),
                                                              phantom::NullOpt, CppLiteGetScope());
-
-                if (pLHS == nullptr)
-                    return true;
-                //                 CppLiteErrorReturnIf(pLHS == nullptr, "'%s' : no %s found with this name at global %s
-                //                 scope",
-                //                                      identifier.data(), input->m_Name->m_TemplateArgumentList ?
-                //                                      "template" : "symbol", input->m_DOT.as_string()[0] == '.' ?
-                //                                      "package" : "namespace");
-                CppLiteMapAndReturn(pLHS);
             }
             else
             {
-                LanguageElement* pElement = CppLiteGetSemantic()->unqualifiedLookup(
-                identifier, MakeOptionalArrayView(pTemplateArgs), phantom::NullOpt, CppLiteGetScope());
-                if (pElement == nullptr)
-                    return true;
-                //                 CppLiteErrorReturnIf(pElement == nullptr, "'%s' : no %s found with this name in
-                //                 current scope",
-                //                                      identifier.data(), input->m_Name->m_TemplateArgumentList ?
-                //                                      "template" : "symbol");
-                CppLiteMapAndReturn(pElement);
+                pLHS = CppLiteGetSemantic()->unqualifiedLookup(identifier, MakeOptionalArrayView(pTemplateArgs),
+                                                               phantom::NullOpt, CppLiteGetScope());
             }
+            if (pLHS == nullptr)
+                return true;
+            _checkForPackParameterExpansion(pLHS);
+            CppLiteMapAndReturn(pLHS);
         }
         else if (input->m_NullptrExpression)
         {
@@ -4726,6 +4864,44 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         return nullptr;
     }
 
+    bool resolveAlias(ast::Alias* input)
+    {
+        TemplateSpecialization* pTemplateSpec = nullptr;
+
+        if (!(resolveTemplateSpecialization(input, nullptr, pTemplateSpec)))
+            return true;
+
+        Scope* pScope = CppLiteGetScopeAs(Scope);
+        if (pTemplateSpec == nullptr)
+        {
+            CppLiteErrorReturnIfNameUsed(pScope->asLanguageElement(), input->m_IDENTIFIER);
+        }
+
+        Alias* pAlias = NewInScope<Alias>(input->m_IDENTIFIER);
+        pAlias->setAccess(CppLiteGetAccess());
+
+        CppLiteGuard(pAlias);
+
+        if (pTemplateSpec)
+        {
+            pTemplateSpec->setTemplated(pAlias);
+        }
+        else
+        {
+            pScope->addAlias(pAlias);
+        }
+        pAlias->setVisibility(Visibility::Public);
+
+        Symbol* pElement = CppLiteVisitSymbol(input->m_Type, pAlias);
+        CppLiteErrorReturnIf(pElement == nullptr, "alias : invalid aliased symbol");
+
+        pAlias->setAliasedSymbol(pElement);
+
+        CppLiteUnguard(pAlias);
+        CppLiteMapAndReturn(pAlias);
+        return true;
+    }
+
     bool _CheckTemplateParamReferenced(Placeholder* pPlaceHolder, LanguageElement* pArg)
     {
         if (Placeholder* pPH = pArg->asPlaceholder())
@@ -4850,7 +5026,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                     //                     for (LanguageElement* pReferencing :
                     //                     pPlaceHolder->asSymbol()->getReferencingElements())
                     //                     {
-                    //                         if (pReferencing->isSame(pArg) || pReferencing->hasOwnerCascade(pArg))
+                    //                         if (pReferencing->isSame(pArg) ||
+                    //                         pReferencing->hasOwnerCascade(pArg))
                     //                         {
                     //                             referenced = true;
                     //                             break;
@@ -4925,6 +5102,7 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             a_pTemplateSpec =
             pTemplate->createTemplateSpecialization(specializationArguments, nullptr, pTemplateSignature);
             pScope->addTemplateSpecialization(a_pTemplateSpec);
+            PHANTOM_ASSERT(!a_pTemplateSpec->isEmpty());
         }
         else
         {
@@ -4942,6 +5120,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                     if (pScope == pSource)
                         pSource->getPackage()->getCounterpartNamespace()->addTemplate(pTemplate);
                     pScope->addTemplateSpecialization(pTemplate->getEmptyTemplateSpecialization());
+                    // TODO : remove automatic Public assignmen to symbol visibility
+                    pTemplate->getEmptyTemplateSpecialization()->setVisibility(Visibility::Private);
                 }
                 a_pTemplateSpec = pTemplate->getEmptyTemplateSpecialization();
                 if (a_pTemplateSpec->isNative()) // if native, we need to build and extended version
@@ -4949,7 +5129,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                     auto ext = a_pTemplateSpec->clone(getSource(), 0);
                     a_pTemplateSpec->setExtendedSpecialization(ext);
                     pScope->addTemplateSpecialization(ext);
-                    // add an alias template in the cpplite source to be able to still solve qualified lookups from here
+                    // add an alias template in the cpplite source to be able to still solve qualified lookups from
+                    // here
                     {
                         Template* pAliasedTemplate =
                         NewInScope<Template>(pTemplateSignature->clone(CppLiteGetSource()), pTemplate->getName());
@@ -5237,6 +5418,7 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         Parameter* pParam = NewInScope<Parameter>(pType, name);
         if (pExpression)
             pParam->setDefaultArgumentExpression(pExpression);
+
         CppLiteMapAndReturn(pParam);
     }
 
@@ -5902,9 +6084,13 @@ struct CppLitePassGlobals : public CppLitePass<CppLitePassGlobals>
         {
             traverse(input->m_Alias);
         }
-        else if (templated = input->m_TemplateFunctionBody)
+        else if (templated = input->m_TemplateFunction)
         {
-            traverse(input->m_TemplateFunctionBody);
+            traverse(input->m_TemplateFunction);
+        }
+        else if (templated = input->m_Constructor)
+        {
+            traverse(input->m_Constructor);
         }
         else if (templated = input->m_TemplateSignature)
         {
@@ -5943,7 +6129,7 @@ struct CppLitePassGlobals : public CppLitePass<CppLitePassGlobals>
         CppLiteMapAndReturn(pClass);
     }
 
-    bool traverseTemplateFunctionBody(ast::TemplateFunctionBody* input)
+    bool traverseTemplateFunction(ast::TemplateFunction* input)
     {
         if (input->m_STATIC.hasValue())
         {
@@ -6107,42 +6293,7 @@ struct CppLitePassGlobals : public CppLitePass<CppLitePassGlobals>
         }
         CppLiteMapAndReturn(pUnion);
     }
-    bool traverseAlias(ast::Alias* input)
-    {
-        TemplateSpecialization* pTemplateSpec = nullptr;
-
-        if (!(resolveTemplateSpecialization(input, nullptr, pTemplateSpec)))
-            return true;
-
-        Scope* pScope = CppLiteGetScopeAs(Scope);
-        if (pTemplateSpec == nullptr)
-        {
-            CppLiteErrorReturnIfNameUsed(pScope->asLanguageElement(), input->m_IDENTIFIER);
-        }
-
-        Alias* pAlias = NewInScope<Alias>(input->m_IDENTIFIER);
-        pAlias->setAccess(CppLiteGetAccess());
-
-        CppLiteGuard(pAlias);
-
-        if (pTemplateSpec)
-        {
-            pTemplateSpec->setTemplated(pAlias);
-        }
-        else
-        {
-            pScope->addAlias(pAlias);
-        }
-
-        Symbol* pElement = CppLiteVisitSymbol(input->m_Type, pAlias);
-        CppLiteErrorReturnIf(pElement == nullptr, "alias : invalid aliased symbol");
-
-        pAlias->setAliasedSymbol(pElement);
-
-        CppLiteUnguard(pAlias);
-        CppLiteMapAndReturn(pAlias);
-        return true;
-    }
+    bool traverseAlias(ast::Alias* input) { return resolveAlias(input); }
 };
 
 // create members (register source dependencies and add some of them later in another pass when
@@ -6252,7 +6403,7 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
         {
             traverse(input->m_Alias);
         }
-        else if (input->m_TemplateFunctionBody)
+        else if (input->m_TemplateFunction)
         {
             LanguageElement* pElement = CppLiteVisitElement(input->m_TemplateSignature);
             if (pElement == nullptr)
@@ -6260,7 +6411,18 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
             PHANTOM_ASSERT(pElement->asTemplateSignature());
             TemplateSignature* pTemplateSignature = static_cast<TemplateSignature*>(pElement);
             m_Data.pushTemplateSignature(pTemplateSignature);
-            traverse(input->m_TemplateFunctionBody);
+            traverse(input->m_TemplateFunction);
+            m_Data.popTemplateSignature();
+        }
+        else if (input->m_Constructor)
+        {
+            LanguageElement* pElement = CppLiteVisitElement(input->m_TemplateSignature);
+            if (pElement == nullptr)
+                return true;
+            PHANTOM_ASSERT(pElement->asTemplateSignature());
+            TemplateSignature* pTemplateSignature = static_cast<TemplateSignature*>(pElement);
+            m_Data.pushTemplateSignature(pTemplateSignature);
+            traverse(input->m_Constructor);
             m_Data.popTemplateSignature();
         }
         else if (input->m_TemplateSignature)
@@ -6329,12 +6491,28 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
     bool traverseConstructor(ast::Constructor* input)
     {
         ClassType* pClassType = CppLiteGetScopeAs(ClassType);
+
+        TemplateSignature* pTSign = CppLiteGetTemplateSignature();
+
+        TemplateSpecialization* pTSpec{};
+        if (pTSign)
+        {
+            if (!resolveTemplateSpecialization(input, nullptr, pTSpec))
+                return true;
+        }
+
         PHANTOM_ASSERT(pClassType);
         CppLiteErrorReturnIf(pClassType->getName() != input->m_IDENTIFIER,
                              "'%s' : constructor name does not match class type name '%s'", input->m_IDENTIFIER,
                              pClassType->getName().data());
 
-        // signature
+        if (pTSpec)
+            m_Data.pushScope(pTSpec);
+
+        auto onScopeExit = makeScopeExit([&]() {
+            if (pTSpec)
+                m_Data.popScope();
+        });
 
         // signature
         Parameters params;
@@ -6369,6 +6547,8 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
         Constructor* pConstructor =
         NewInScope<Constructor>(pClassType->getName(), pSignature, mods, PHANTOM_R_FLAG_NONE);
         pConstructor->setAccess(CppLiteGetAccess());
+        if (pTSpec)
+            pTSpec->setTemplated(pConstructor);
         CppLiteMapAndReturn(pConstructor);
     }
 
@@ -6384,8 +6564,10 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
         CppLiteErrorReturnIf(pClassType->getDestructor(),
                              "'%.*s' : a destructor has already been defined for this class type",
                              PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pClassType)));
-        Method*   pDestructor = pClassType->addDestructor();
         Modifiers mods;
+        if (input->m_VIRTUAL.hasValue())
+            mods |= Modifier::Virtual;
+        Method* pDestructor = pClassType->addDestructor(mods);
         if (input->m_OVERRIDEs)
             resolveOverrideAndFinal(input, pDestructor->getName().data(), *input->m_OVERRIDEs, mods);
         pDestructor->addModifiers(mods);
@@ -6694,7 +6876,7 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
         CppLiteMapAndReturn(pSubroutine);
     }
 
-    bool traverseTemplateFunctionBody(ast::TemplateFunctionBody* input)
+    bool traverseTemplateFunction(ast::TemplateFunction* input)
     {
         if (Subroutine* pSubroutine = CppLiteGetElementAs(Subroutine)) // already compiled above
             return true;
@@ -6789,9 +6971,13 @@ struct CppLitePassMembersGlobal : public CppLitePass<CppLitePassMembersGlobal>
         {
             traverse(input->m_Alias);
         }
-        else if (input->m_TemplateFunctionBody)
+        else if (input->m_TemplateFunction)
         {
-            traverse(input->m_TemplateFunctionBody);
+            traverse(input->m_TemplateFunction);
+        }
+        else if (input->m_Constructor)
+        {
+            traverse(input->m_Constructor);
         }
         else if (input->m_TemplateSignature)
         {
@@ -6833,29 +7019,7 @@ struct CppLitePassMembersGlobal : public CppLitePass<CppLitePassMembersGlobal>
 
     bool traverseStaticAssert(ast::StaticAssert* input) { return true; }
 
-    bool traverseConstructor(ast::Constructor* input)
-    {
-        ClassType* pClassType = CppLiteGetScopeAs(ClassType);
-        if (pClassType == nullptr)
-            return true;
-        Constructor* pConstructor = CppLiteGetElementAs(Constructor);
-        if (pConstructor == nullptr)
-            return true;
-        Symbols symbols;
-        pClassType->getSymbolsWithName(input->m_IDENTIFIER, symbols);
-        for (auto pSymbol : symbols)
-        {
-            CppLiteErrorReturnIf(pSymbol->asConstructor() == nullptr,
-                                 "'%s' : symbol which is not a constructor already exists with this "
-                                 "name in the current scope",
-                                 input->m_IDENTIFIER);
-        }
-        CppLiteErrorReturnIf(pClassType->getConstructor(pConstructor->getParameterTypes()),
-                             "'%s' : a constructor already exists with this signature in the current scope",
-                             input->m_IDENTIFIER);
-        pClassType->addConstructor(pConstructor);
-        return true;
-    }
+    bool traverseConstructor(ast::Constructor* input);
 
     /// @property <type> Name { }
     //     bool traverseProperty(ast::Property* input)
@@ -6953,7 +7117,7 @@ struct CppLitePassMembersGlobal : public CppLitePass<CppLitePassMembersGlobal>
         return true;
     }
 
-    bool traverseTemplateFunctionBody(ast::TemplateFunctionBody* input);
+    bool traverseTemplateFunction(ast::TemplateFunction* input);
 
     bool traverseMethod(ast::Method* input)
     {
@@ -7082,7 +7246,11 @@ struct CppLitePassFieldDefaults : public CppLitePass<CppLitePassFieldDefaults>
         {
             traverse(input->m_Alias);
         }
-        else if (input->m_TemplateFunctionBody)
+        else if (input->m_TemplateFunction)
+        {
+            return true;
+        }
+        else if (input->m_Constructor)
         {
             return true;
         }
@@ -7247,7 +7415,9 @@ struct CppLitePassFieldDefaults : public CppLitePass<CppLitePassFieldDefaults>
 // blocks
 struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
 {
-    CppLitePassBlocks(CppLitePassData& a_Data) : CppLitePass<CppLitePassBlocks>(a_Data) {}
+    using BaseType = CppLitePass<CppLitePassBlocks>;
+
+    CppLitePassBlocks(CppLitePassData& a_Data) : BaseType(a_Data) {}
 
     template<class TT>
     Type* resolveType(TT* input)
@@ -7276,11 +7446,45 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         return nullptr;
     }
 
+    bool traverseStatement(ast::Statement* input)
+    {
+        BaseType::traverseStatement(input);
+
+        while (auto pA = m_Data.popPackArgument())
+            CppLiteError("'%.*s' : missing pack expansion", PHANTOM_STRING_AS_PRINTF_ARG(pA->asSymbol()->getName()));
+        while (auto pP = m_Data.popPackExpansionParameter())
+            CppLiteError("'%.*s' : missing pack expansion", PHANTOM_STRING_AS_PRINTF_ARG(pP->getName()));
+
+        return true;
+    }
+
     // skip useless members
-    bool traverseUsing(ast::Using* input) { return true; }
+    bool traverseUsing(ast::Using* input)
+    {
+        if (auto pScope = CppLiteGetScopeAs(Scope))
+        {
+            Symbol* pSymbol = CppLiteVisitSymbol(input->m_QualifiedName);
+            if (pSymbol)
+            {
+                CppLiteErrorReturnIfNameUsed(pScope->asLanguageElement(), pSymbol->getName().data());
+                Alias* pAlias = pScope->addAlias(pSymbol, pSymbol->getName());
+                CppLiteMapAndReturn(pAlias);
+            }
+        }
+        else
+        {
+            CppLiteError("using : declaration out of valid scope");
+        }
+        return true;
+    }
     bool traverseFriend(ast::Friend* input) { return true; }
     bool traverseTypedef(ast::Typedef* input) { return true; }
-    bool traverseAlias(ast::Alias* input) { return true; }
+    bool traverseAlias(ast::Alias* input)
+    {
+        if (CppLiteGetScopeAs(Block))
+            return resolveAlias(input);
+        return true;
+    }
 
     bool traverseTemplate(ast::Template* input)
     {
@@ -7296,9 +7500,13 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         {
             traverse(input->m_Alias);
         }
-        else if (input->m_TemplateFunctionBody)
+        else if (input->m_TemplateFunction)
         {
-            traverse(input->m_TemplateFunctionBody);
+            traverse(input->m_TemplateFunction);
+        }
+        else if (input->m_Constructor)
+        {
+            traverse(input->m_Constructor);
         }
         else if (input->m_TemplateSignature)
         {
@@ -7422,7 +7630,17 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         Constructor* pConstructor = CppLiteGetElementAs(Constructor);
         CppLiteCheckShouldWeContinueParsing(pConstructor);
 
-        if (!(pConstructor->testModifiers(Modifier::Deleted)) && !(pConstructor->testModifiers(Modifier::Defaulted)))
+        if (auto pSpec = pConstructor->getTemplateSpecialization())
+        {
+            if (pConstructor->getBlockBuilder().empty())
+                return true;
+            pConstructor->setBlockBuilder({});
+
+            CppLiteErrorReturnIf((pConstructor->testModifiers(Modifier::Defaulted)),
+                                 "template constructors cannot be defaulted");
+        }
+        else if (!(pConstructor->testModifiers(Modifier::Deleted)) &&
+                 !(pConstructor->testModifiers(Modifier::Defaulted)))
         {
             AddBlock(pConstructor);
         }
@@ -7758,7 +7976,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         CppLiteVisitElement(input->m_FunctionBlock, pDestructor);
         return true;
     }
-    bool traverseTemplateFunctionBody(ast::TemplateFunctionBody* input)
+    bool traverseTemplateFunction(ast::TemplateFunction* input)
     {
         Subroutine* pSubroutine = CppLiteGetElementAs(Subroutine);
         CppLiteCheckShouldWeContinueParsing(pSubroutine);
@@ -8743,7 +8961,43 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
     }
 };
 
-bool CppLitePassMembersGlobal::traverseTemplateFunctionBody(ast::TemplateFunctionBody* input)
+bool CppLitePassMembersGlobal::traverseConstructor(ast::Constructor* input)
+{
+    ClassType* pClassType = CppLiteGetScopeAs(ClassType);
+    if (pClassType == nullptr)
+        return true;
+    Constructor* pConstructor = CppLiteGetElementAs(Constructor);
+    if (pConstructor == nullptr)
+        return true;
+
+    CppLiteErrorReturnIf(input->m_IDENTIFIER != pClassType->getName(),
+                         "'%s' : symbol which looks like a constructor has an invalid constructor name",
+                         input->m_IDENTIFIER);
+
+    if (auto pSpec = pConstructor->getTemplateSpecialization())
+    {
+        if (!pConstructor->testModifiers(Modifier::Deleted))
+        {
+            pConstructor->createThis(pClassType);
+            AddBlock(pConstructor);
+            CppLitePassData* data = &m_Data;
+            pConstructor->setBlockBuilder([=](Block* a_pBlock) {
+                CppLitePassBlocks blocks(*data);
+                return blocks.traverse(input);
+            });
+        }
+    }
+    else
+    {
+        CppLiteErrorReturnIf(pClassType->getConstructor(pConstructor->getParameterTypes()),
+                             "'%s' : a constructor already exists with this signature in the current scope",
+                             input->m_IDENTIFIER);
+        pClassType->addConstructor(pConstructor);
+    }
+    return true;
+}
+
+bool CppLitePassMembersGlobal::traverseTemplateFunction(ast::TemplateFunction* input)
 {
     if (Subroutine* pSubroutine = CppLiteGetElementAs(Subroutine))
     {

@@ -20,59 +20,6 @@ namespace phantom
 {
 namespace lang
 {
-class TemplateSubstitution
-{
-public:
-    TemplateSubstitution() : m_pInstantiation(nullptr) {}
-    TemplateSubstitution(TemplateSpecialization* a_pInstantiation) : m_pInstantiation(a_pInstantiation)
-    {
-        for (auto& pair : a_pInstantiation->getPlaceholderSubstitutions())
-        {
-            insert(pair.first, pair.second);
-        }
-    }
-    void insert(Placeholder* a_pPlaceholder, LanguageElement* a_pArgument)
-    {
-        m_Placeholders.push_back(a_pPlaceholder);
-        m_Arguments.push_back(a_pArgument);
-    }
-    LanguageElement* getArgument(size_t i) const { return m_Arguments[i]; }
-
-    LanguageElements const& getArguments() const { return m_Arguments; }
-
-    LanguageElement* getArgument(Placeholder* a_pPlaceholder) const
-    {
-        // first check pure equality
-        for (size_t i = 0; i < m_Placeholders.size(); ++i)
-        {
-            if (a_pPlaceholder == m_Placeholders[i])
-                return m_Arguments[i];
-        }
-        // then check equivalence (can be runtime/native specializations having equivalent placeholders)
-        TemplateParameter* pTP1 = static_cast<TemplateParameter*>(a_pPlaceholder->asSymbol()->getOwner());
-        for (size_t i = 0; i < m_Placeholders.size(); ++i)
-        {
-            TemplateParameter* pTP2 = static_cast<TemplateParameter*>(m_Placeholders[i]->asSymbol()->getOwner());
-            if (pTP1->getTemplate() != pTP2->getTemplate())
-                return nullptr;
-            if (pTP1->getIndex() == pTP2->getIndex())
-                return m_Arguments[i];
-        }
-        return nullptr;
-    }
-
-    void setInstantiation(TemplateSpecialization* a_pSpec) { m_pInstantiation = a_pSpec; }
-
-    TemplateSpecialization* getInstantiation() const { return m_pInstantiation; }
-
-    size_t size() const { return m_Arguments.size(); }
-
-private:
-    TemplateSpecialization* m_pInstantiation;
-    Placeholders            m_Placeholders;
-    LanguageElements        m_Arguments;
-};
-
 static const char* _canBe = "can be";
 static const char* _or = "or";
 
@@ -210,10 +157,8 @@ inline StringView getAccessString(Access a_Access)
 //#   define o_findT(...) PHANTOM_PP_CAT(o_findT_, PHANTOM_PP_ARGCOUNT(__VA_ARGS__))(__VA_ARGS__)
 #endif
 
-#define o_findT(type, primary)                                                                                         \
-    (in_TemplateSubstitution.getInstantiation()                                                                        \
-     ? static_cast<type*>(templateInstantiations()[in_TemplateSubstitution.getInstantiation()][primary])               \
-     : nullptr)
+#define o_findT(type, primary) static_cast<type*>(_findInstantiation(in_TemplateSubstitution, primary));
+
 #define o_mapT(primary, instance)                                                                                      \
     templateInstantiations()[in_TemplateSubstitution.getInstantiation()][primary] = instance
 
@@ -270,6 +215,8 @@ public:
         }
         return pResT;
     }
+
+    /// @off
     inline static Expression*
     SemanticInstantiateTemplateElement(Semantic* a_pSemantic, Expression* a_pElement,
                                        const class TemplateSubstitution& a_TemplateSubstitution,

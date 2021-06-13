@@ -7,7 +7,9 @@
 #pragma once
 
 /* ****************** Includes ******************* */
-#include "LValueExpression.h"
+#include "LanguageElementVisitorEx.h"
+
+#include <phantom/lang/LanguageElement.h>
 /* **************** Declarations ***************** */
 /* *********************************************** */
 
@@ -15,41 +17,35 @@ namespace phantom
 {
 namespace lang
 {
-/// \brief  Represents a global variable access expression.
-class PHANTOM_EXPORT_PHANTOM_CODE VariableExpression : public LValueExpression
+class Placeholder;
+/// \brief  Generic representation of a binary operation expression, mostly used for placeholding in
+/// templates.
+class PHANTOM_EXPORT_PHANTOM_CODE TemplateParameterPackExpansion : public LanguageElement
 {
     PHANTOM_DECLARE_LANGUAGE_ELEMENT_VISIT_EX;
 
 public:
+    TemplateParameterPackExpansion(LanguageElement* a_pExpandedElement, Placeholder* a_pPackArgument);
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    /// \brief  Constructs a variable expression with given variable and optional adopted child
-    /// expression.
+    /// \brief  Gets the expanded expression.
     ///
-    /// \param  a_pVariable The variable.
-    /// \param  a_pAdoptedChildExpression  (optional) The adopted child expression.
+    /// \return The expanded expression.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    VariableExpression(Variable* a_pVariable);
-
-    void initialize();
-
-    virtual VariableExpression* cloneImpl(LanguageElement* a_pOwner) const override;
+    LanguageElement* getExpandedElement() const { return m_pExpandedElement; }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    /// \brief  Gets the variable associated with this variable expression.
+    /// \brief  Gets the pack parameter.
     ///
-    /// \return The variable associated with this variable expression.
+    /// \return The pack parameter.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    Variable* getVariable() const { return m_pVariable; }
-
-    LanguageElement* removeExpression() const override;
+    Placeholder* getPackArgument() const { return m_pPackArgument; }
 
 protected:
-    virtual void* internalEvalAddress(ExecutionContext& a_Context) const;
-
-protected:
-    Variable* m_pVariable;
+    LanguageElement* m_pExpandedElement{};
+    Placeholder*     m_pPackArgument{};
 };
 
 } // namespace lang

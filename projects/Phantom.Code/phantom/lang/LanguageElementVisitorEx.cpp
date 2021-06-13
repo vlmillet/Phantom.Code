@@ -59,6 +59,9 @@
 #include "TemplateDependantDeclType.h"
 #include "TemplateDependantExpression.h"
 #include "TemplateDependantTypeOfExpression.h"
+#include "TemplateParameterPackExpansion.h"
+#include "TemplateParameterPackExpressionExpansion.h"
+#include "TemplateParameterPackTypeExpansion.h"
 #include "TemporaryObjectDestructionExpression.h"
 #include "TypeTraitExpression.h"
 #include "UnaryPostOperationExpression.h"
@@ -283,6 +286,18 @@ void LanguageElementVisitorEx::visit(UnaryPostOperationExpression* a_pInput, Vis
 void LanguageElementVisitorEx::visit(UnaryPreOperationExpression* a_pInput, VisitorData a_Data)
 {
     return visit(static_cast<Expression*>(a_pInput), a_Data);
+}
+void LanguageElementVisitorEx::visit(TemplateParameterPackExpansion* a_pInput, VisitorData a_Data)
+{
+    visit(static_cast<LanguageElement*>(a_pInput), a_Data);
+}
+void LanguageElementVisitorEx::visit(TemplateParameterPackTypeExpansion* a_pInput, VisitorData a_Data)
+{
+    visit(static_cast<Type*>(a_pInput), a_Data);
+}
+void LanguageElementVisitorEx::visit(TemplateParameterPackExpressionExpansion* a_pInput, VisitorData a_Data)
+{
+    visit(static_cast<Expression*>(a_pInput), a_Data);
 }
 void LanguageElementVisitorEx::visit(TemplateDependantDeclType* a_pInput, VisitorData a_Data)
 {

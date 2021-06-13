@@ -40,6 +40,8 @@
 #include "PropertyExpression.h"
 #include "RValueReferenceExpression.h"
 #include "SemanticPrivate.h"
+#include "TemplateParameterPackExpansion.h"
+#include "TemplateParameterPackTypeExpansion.h"
 #include "UnaryPostOperationExpression.h"
 #include "UnaryPreOperationExpression.h"
 #include "phantom/lang/Module.h"
@@ -690,8 +692,8 @@ LanguageElement* Semantic::instantiateTemplateElement(LanguageElement*        a_
                                                       TemplateSpecialization* a_pInstantiation, EClassBuildState a_Pass,
                                                       LanguageElement* a_pScope, int a_Flags)
 {
-    TemplateSubstitution substitution(a_pInstantiation);
-    return instantiateTemplateElement(a_pPrimary, substitution, a_Pass, a_pScope, a_Flags);
+    return instantiateTemplateElement(a_pPrimary, a_pInstantiation->getArgumentSubstitution(), a_Pass, a_pScope,
+                                      a_Flags);
 }
 LanguageElement* Semantic::instantiateTemplateElement(LanguageElement*            a_pPrimary,
                                                       const TemplateSubstitution& a_TemplateSubstitution,
@@ -761,87 +763,96 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
     }
     if (full)
     {
-        LanguageElements     arguments = a_Arguments;
-        TemplateSubstitution substitution;
-        auto&                parms = a_pInput->getTemplateParameters();
-        for (size_t i = 0; i < a_Arguments.size(); ++i)
-        {
-            arguments[i] = arguments[i]->hatchExpression();
-            substitution.insert(parms[i]->getPlaceholder(), arguments[i]);
-        }
+        LanguageElements              arguments = a_Arguments;
         OwnersGuard<LanguageElements> defaultArgs;
 
         /// Full => start first by looking for full specializations
 
         /// if arguments are full, instantiate missing template default arguments
-        //                 if (!(a_pInput->isNative())
-        //                     ||(
-        //                         a_pInput->getEmptyTemplateSpecialization()
-        //                         &&
-        //                         a_pInput->getEmptyTemplateSpecialization()->getTemplated()->asClassType()
-        //                         == nullptr)
-        //                     ) /// native class templates do not have default arguments, they are
-        //                     stored in their full specializations
+        size_t argCount = a_Arguments.size();
+        auto&  params = a_pInput->getTemplateParameters();
+        size_t paramCount = params.size();
+        bool   variadic = a_pInput->getTemplateSignature()->isVariadic();
+        auto*  pVariadicPH =
+        variadic ? a_pInput->getTemplateSignature()->getTemplateParameters().back()->getPlaceholder() : nullptr;
+        if (paramCount < argCount)
         {
-            size_t i = substitution.size();
-            auto&  params = a_pInput->getTemplateParameters();
-            size_t count = params.size();
-            if (count < i)
+            if (!variadic)
             {
-                CxxSemanticError("'%s' too many template arguments, %zu given, %zu expected", FormatCStr(a_pInput), i,
-                                 count);
+                CxxSemanticError("'%s' too many template arguments, %zu given, %zu expected", FormatCStr(a_pInput),
+                                 argCount, paramCount);
                 return nullptr;
             }
-            if (a_pInput->getDefaultArgumentCount() < (count - i))
-            {
-                CxxSemanticError("'%s' not enough template arguments, %zu given, %zu required at minimum",
-                                 FormatCStr(a_pInput), i, count - a_pInput->getDefaultArgumentCount());
-                return nullptr;
-            }
-            if (count - i)
-            {
-                for (; i < count; ++i)
-                {
-                    LanguageElement* pSolvedArgument = resolveTemplateDependency(
-                    a_pInput->getDefaultArgument(i), substitution, e_ClassBuildState_None, in_pContextScope, 0);
-                    if (pSolvedArgument == nullptr)
-                    {
-                        return nullptr;
-                    }
-                    if (Expression* pExpression = pSolvedArgument->asExpression())
-                    {
-                        if (!(pExpression->isTemplateDependant()))
-                        {
-#pragma message(PHANTOM_TODO                                                                                           \
-                "create errors for 'not compile time' and 'not integral constant' + solve expression leaks here")
-                            if (!(pExpression->isCompileTime()))
-                            {
-                                CxxSemanticError("expected compile-time constant");
-                                Delete(pExpression);
-                                return nullptr;
-                            }
-                            if (pExpression->getValueType()->asIntegralType() == nullptr)
-                            {
-                                CxxSemanticError("expected integral constant");
-                                Delete(pExpression);
-                                return nullptr;
-                            }
-                            char               buffer[128];
-                            InterpreterContext ctx;
-                            pExpression->load(ctx, buffer);
-                            pSolvedArgument = pExpression->getValueType()->asIntegralType()->createConstant(buffer);
-                            Delete(pExpression);
-                        }
-                    }
-                    substitution.insert(params[i]->getPlaceholder(), pSolvedArgument);
-                    defaultArgs.push_back(pSolvedArgument);
-                }
-            }
-            PHANTOM_SEMANTIC_ASSERT(substitution.size() == params.size());
+        }
+        else if (a_pInput->getDefaultArgumentCount() < (paramCount - argCount))
+        {
+            CxxSemanticError("'%s' not enough template arguments, %zu given, %zu required at minimum",
+                             FormatCStr(a_pInput), argCount, paramCount - a_pInput->getDefaultArgumentCount());
+            return nullptr;
         }
 
+        // prepare for substitution
+        TemplateSubstitution explicitSubstitution;
+        auto&                parms = a_pInput->getTemplateParameters();
+        for (size_t i = 0; i < a_Arguments.size(); ++i)
+        {
+            arguments[i] = arguments[i]->hatchExpression();
+            explicitSubstitution.insert(parms[std::min(i, parms.size() - 1)]->getPlaceholder(), arguments[i]);
+        }
+
+        if (paramCount - argCount)
+        {
+            for (; argCount < paramCount; ++argCount)
+            {
+                LanguageElement* pSolvedArgument =
+                resolveTemplateDependency(a_pInput->getDefaultArgument(argCount), explicitSubstitution,
+                                          e_ClassBuildState_None, in_pContextScope, 0);
+                if (pSolvedArgument == nullptr)
+                {
+                    return nullptr;
+                }
+                if (Expression* pExpression = pSolvedArgument->asExpression())
+                {
+                    if (!(pExpression->isTemplateDependant()))
+                    {
+#pragma message(PHANTOM_TODO                                                                                           \
+                "create errors for 'not compile time' and 'not integral constant' + solve expression leaks here")
+                        if (!(pExpression->isCompileTime()))
+                        {
+                            CxxSemanticError("expected compile-time constant");
+                            Delete(pExpression);
+                            return nullptr;
+                        }
+                        if (pExpression->getValueType()->asIntegralType() == nullptr)
+                        {
+                            CxxSemanticError("expected integral constant");
+                            Delete(pExpression);
+                            return nullptr;
+                        }
+                        char               buffer[128];
+                        InterpreterContext ctx;
+                        pExpression->load(ctx, buffer);
+                        pSolvedArgument = pExpression->getValueType()->asIntegralType()->createConstant(buffer);
+                        Delete(pExpression);
+                    }
+                }
+                explicitSubstitution.insert(params[argCount]->getPlaceholder(), pSolvedArgument);
+                defaultArgs.push_back(pSolvedArgument);
+            }
+        }
+        //         if (pVariadicPH)
+        //         {
+        //             // variadic substitution
+        //             for (size_t i = paramCount; i < argCount; ++i)
+        //             {
+        //                 substitution.insert(pVariadicPH, a_Arguments[i]);
+        //             }
+        //         }
+        PHANTOM_SEMANTIC_ASSERT(!variadic || explicitSubstitution.size() == params.size());
+
         // already instantiated ?
-        if (TemplateSpecialization* pAlreadyThere = a_pInput->getTemplateSpecialization(substitution.getArguments()))
+        if (TemplateSpecialization* pAlreadyThere =
+            a_pInput->getTemplateSpecialization(explicitSubstitution.getArguments()))
         {
             if (pAlreadyThere->getVisibility() != Visibility::Private &&
                 pAlreadyThere->getSource()->getVisibility() != Visibility::Private)
@@ -866,8 +877,9 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
         Module* currModule = this->getSource()->getModule();
 
         /// Find viable specializations
-        TemplateSpecializations     viableSpecializations;
-        SmallVector<PlaceholderMap> viableDeductions;
+        TemplateSpecializations           viableSpecializations;
+        SmallVector<TemplateSubstitution> viableSubstitutions;
+        PlaceholderMap                    deductionMap;
         for (auto pT0 : a_pInput->getTemplateSpecializations())
         {
             if (pT0->getSource()->getVisibility() == Visibility::Private)
@@ -881,17 +893,45 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
                                                                    // specializations as valid specializations to use
                 continue;
 
-            bool           result = true;
-            size_t         argumentsCount = substitution.size();
-            PlaceholderMap deductionMap;
-            for (size_t i = 0; i < argumentsCount; ++i)
+            deductionMap.clear(); // reset template argument deductions for this spec treatment
+
+            bool   result = true;
+            size_t argumentsCount = explicitSubstitution.size();
+            size_t specArgCount = pT0->getArguments().size();
+
+            TemplateSubstitution specSubstitution;
+            for (size_t i = 0; i < specArgCount - variadic; ++i)
             {
                 LanguageElement* pParameter = pT0->getArgument(i);
-                LanguageElement* pArgument = substitution.getArgument(i);
+                LanguageElement* pArgument = explicitSubstitution.getArgument(i);
                 if (!(templateArgumentDeduction(pParameter, pArgument, deductionMap)))
                 {
                     result = false;
                     break;
+                }
+            }
+            for (auto& pair : deductionMap)
+            {
+                specSubstitution.insert(pair.first, pair.second);
+            }
+            if (result && variadic && pT0->isEmpty())
+            {
+                for (size_t i = specArgCount - 1; i < argumentsCount; ++i)
+                {
+                    PlaceholderMap   tempDeductionMap;
+                    LanguageElement* pParameter =
+                    pT0->getArgument(specArgCount - 1); // variadic argument stays the same for arg deduction
+                    LanguageElement* pArgument =
+                    explicitSubstitution.getArgument(i); // only the substitution varies with 'i'
+                    if (!(templateArgumentDeduction(pParameter, pArgument, tempDeductionMap)))
+                    {
+                        result = false;
+                        break;
+                    }
+                    for (auto& pair : tempDeductionMap)
+                    {
+                        specSubstitution.insert(pParameter->asPlaceholder(), pair.second);
+                    }
                 }
             }
             if (result && a_pInput->isNative())
@@ -911,12 +951,15 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
                     argumentsCount++;
                 }
             }
-            size_t expectedCount =
-            pT0->getTemplateSignature() ? pT0->getTemplateSignature()->getTemplateParameters().size() : 0;
-            result = result && (deductionMap.size() == expectedCount);
+            if (!variadic)
+            {
+                size_t expectedCount =
+                pT0->getTemplateSignature() ? pT0->getTemplateSignature()->getTemplateParameters().size() : 0;
+                result = result && (explicitSubstitution.size() == expectedCount);
+            }
             if (result)
             {
-                /// if any template specialization which has already found isSame this one, it means
+                /// if any template specialization which has already found is same to this one, it means
                 /// the same template has been instantiated with the same arguments in two different
                 /// modules, if it happens we keep the one matching the currentModule (if this last
                 /// doesn't exist, we keep the last registered template specialization)
@@ -931,7 +974,7 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
                         if (this->getSource()->getModule() == pT0->getModule())
                         {
                             pAlreadyFound = pT0;
-                            viableDeductions[i] = deductionMap;
+                            viableSubstitutions[i] = specSubstitution;
                         }
                         break;
                     }
@@ -939,20 +982,20 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
                 if (!(alreadyFound))
                 {
                     viableSpecializations.push_back(pT0);
-                    viableDeductions.push_back((PlaceholderMap &&) deductionMap);
+                    viableSubstitutions.push_back(std::move(specSubstitution));
                 }
             }
         }
         /// Find best specialization
         TemplateSpecialization* pBestTemplateSpecialization = nullptr;
-        PlaceholderMap*         pBestDeductions = nullptr;
+        TemplateSubstitution*   pBestSubstitutions = nullptr;
         size_t                  viableSpecializationsCount = viableSpecializations.size();
         if (viableSpecializationsCount)
         {
             if (viableSpecializationsCount == 1)
             {
                 pBestTemplateSpecialization = viableSpecializations.back();
-                pBestDeductions = &viableDeductions.back();
+                pBestSubstitutions = &viableSubstitutions.back();
             }
             else
             {
@@ -979,7 +1022,7 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
                         if (bestResult == 1)
                         {
                             pBestTemplateSpecialization = pT0;
-                            pBestDeductions = &viableDeductions[i];
+                            pBestSubstitutions = &viableSubstitutions[i];
                             break;
                         }
                     }
@@ -1021,14 +1064,14 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
             if (pUsedTemplateSpecialization->getTemplated()->asAlias())
             {
                 Symbol* pSymbol = static_cast<Symbol*>(
-                resolveTemplateDependency(pUsedTemplateSpecialization->getTemplated(), substitution,
+                resolveTemplateDependency(pUsedTemplateSpecialization->getTemplated(), explicitSubstitution,
                                           e_ClassBuildState_None, in_pContextScope, 0));
                 if (pSymbol == nullptr)
                     return nullptr;
 
-                pInstantiation =
-                (getSource() ? getSource() : in_pContextScope->getSource())
-                ->addTemplateInstantiation(pUsedTemplateSpecialization, substitution.getArguments(), *pBestDeductions);
+                pInstantiation = (getSource() ? getSource() : in_pContextScope->getSource())
+                                 ->addTemplateInstantiation(pUsedTemplateSpecialization,
+                                                            explicitSubstitution.getArguments(), *pBestSubstitutions);
 
                 size_t i = defaultArgs->size();
                 size_t j = pInstantiation->getArguments().size();
@@ -1042,9 +1085,9 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
             }
             else // class template
             {
-                pInstantiation =
-                (getSource() ? getSource() : in_pContextScope->getSource())
-                ->addTemplateInstantiation(pUsedTemplateSpecialization, substitution.getArguments(), *pBestDeductions);
+                pInstantiation = (getSource() ? getSource() : in_pContextScope->getSource())
+                                 ->addTemplateInstantiation(pUsedTemplateSpecialization,
+                                                            explicitSubstitution.getArguments(), *pBestSubstitutions);
                 pTemplated = instantiateTemplateElement(pUsedTemplateSpecialization->getTemplated(), pInstantiation,
                                                         e_ClassBuildState_None, pInstantiation, 0);
             }
@@ -1171,74 +1214,76 @@ Conversion* Semantic::userDefinedConversionByConstruction(Type* a_pInput, ClassT
 {
     Constructors      constructors;
     ConversionResults convs;
+    Symbols           candidates;
     if (a_bExplicits)
     {
         for (Constructor* pCtor : a_pOutput->getConstructors())
         {
             if (pCtor->getRequiredArgumentCount() == 1)
             {
-                Conversion* conv = nullptr;
-                if (a_pInput->isSame(pCtor->getParameterType(0)))
-                {
-                    conv = newConv<DefaultConversionSequence>(a_pInput); /// identity
-                }
-                else
-                {
-                    conv = newConversion(
-                    a_pInput, pCtor->getParameterType(0), CastKind::Implicit,
-                    a_bInitialize
-                    ? UserDefinedFunctions::ImplicitsOnly // in case of variable initialization (local, field, etc), we
-                                                          // accept one more implicit conversion to the parameter type
-                    : UserDefinedFunctions::None,
-                    a_pContextScope, false);
-                }
-                if (conv)
-                {
-                    constructors.push_back(pCtor);
-                    convs.push_back(conv);
-                }
+                candidates.push_back(pCtor);
+            }
+        }
+        for (Template* pTpl : a_pOutput->getTemplates())
+        {
+            if (pTpl->getName() == a_pOutput->getName()) // template constructors
+            {
+                if (auto pES = pTpl->getEmptyTemplateSpecialization())
+                    if (auto pTpled = pES->getTemplated())
+                        candidates.push_back(pTpled);
             }
         }
     }
-    else /// implicits
+    else
     {
         for (Constructor* pCtor : a_pOutput->getConstructors())
         {
-            if (pCtor->getRequiredArgumentCount() == 1 && !(pCtor->testModifiers(PHANTOM_R_EXPLICIT)))
+            if (pCtor->getRequiredArgumentCount() == 1 && !pCtor->testModifiers(PHANTOM_R_EXPLICIT))
             {
-                Conversion* conv = nullptr;
-                if (a_pInput->isSame(pCtor->getParameterType(0)))
-                {
-                    conv = newConv<DefaultConversionSequence>(a_pInput); /// identity
-                }
-                else
-                {
-                    conv = newConversion(
-                    a_pInput, pCtor->getParameterType(0), CastKind::Implicit,
-                    a_bInitialize
-                    ? UserDefinedFunctions::ImplicitsOnly // in case of variable initialization (local, field, etc), we
-                                                          // accept one more implicit conversion to the parameter type
-                    : UserDefinedFunctions::None,
-                    a_pContextScope, false);
-                }
-                if (conv)
-                {
-                    constructors.push_back(pCtor);
-                    convs.push_back(conv);
-                }
+                candidates.push_back(pCtor);
             }
         }
+
+        for (Template* pTpl : a_pOutput->getTemplates())
+        {
+            if (auto pES = pTpl->getEmptyTemplateSpecialization())
+                if (auto pTpled = pES->getTemplated())
+                    if (pTpled->getName() == a_pOutput->getName() &&
+                        !pTpled->testModifiers(PHANTOM_R_EXPLICIT)) // template non explicit constructors
+                    {
+                        candidates.push_back(pTpled);
+                    }
+        }
     }
-    size_t                     index = 0;
-    DefaultConversionSequence* pBest = static_cast<DefaultConversionSequence*>(convs.takeBest(&index));
-    if (pBest)
+
+    Types types;
+    types.push_back(a_pInput);
+
+    SelectedOverloadInfos viableOverloads;
+    findCallOverloads(viableOverloads, candidates, NullOpt, types, a_pContextScope,
+                      a_bInitialize ? UserDefinedFunctions::ImplicitsOnly : UserDefinedFunctions::None, Modifiers{}, 0);
+
+    applyOverloadsSFINAE(viableOverloads, a_pContextScope);
+
+    if (auto pBestOverload = selectBestOverload(viableOverloads))
     {
-        if (pBest->semantic)
-            pBest = pBest->clone(getSource());
-        pBest->addUserDefinedByConstruction(constructors[index]);
+        Symbol* pBestCandidateAccessibleSymbol = pBestOverload->subroutine->getTemplateSpecialization();
+        if (!pBestCandidateAccessibleSymbol)
+            pBestCandidateAccessibleSymbol = pBestOverload->subroutine;
+        else
+            static_cast<TemplateSpecialization*>(pBestCandidateAccessibleSymbol)->getTemplate();
+
+        if (m_bAccessModifiersEnabled && m_pSource)
+        {
+            CxxSemanticErrorIfInaccessible(pBestCandidateAccessibleSymbol, a_pContextScope, nullptr);
+        }
+        PHANTOM_SEMANTIC_ASSERT(pBestOverload->subroutine->asConstructor());
+        DefaultConversionSequence* pBest =
+        static_cast<DefaultConversionSequence*>(pBestOverload->conversions[0]->clone(getSource()));
+        pBest->addUserDefinedByConstruction(static_cast<Constructor*>(pBestOverload->subroutine));
+        return pBest;
     }
-    convs.destroy(getSource());
-    return pBest;
+    return nullptr;
 }
 
 Conversion* Semantic::userDefinedConversionByConversionFunction(Class* a_pInput, Type* a_pOutput, bool a_bExplicit,
@@ -1438,7 +1483,8 @@ Block* Semantic::AddBlock(Subroutine* a_pSubroutine)
 }
 
 void Semantic::newImplicitConversions(Signature* a_pSignature, TypesView a_ArgTypes, ConversionResults& a_Out,
-                                      LanguageElement* a_pContextScope)
+                                      LanguageElement*     a_pContextScope,
+                                      UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions)
 {
     size_t paramCount = a_pSignature->getParameters().size();
     size_t argCount = a_ArgTypes.size();
@@ -1451,23 +1497,26 @@ void Semantic::newImplicitConversions(Signature* a_pSignature, TypesView a_ArgTy
         Type* pParamType = a_pSignature->getParameters()[i]->getValueType();
         Type* pInputType =
         (i < a_ArgTypes.size()) ? a_ArgTypes[i] : a_pSignature->getParameterDefaultValueExpression(i)->getValueType();
-        a_Out.push_back(newConversion(pInputType, pParamType, a_pContextScope, false));
+        a_Out.push_back(
+        newConversion(pInputType, pParamType, a_pContextScope, a_ConversionAllowedUserDefinedFunctions, false));
     }
 }
 
 void Semantic::newImplicitConversions(Signature* a_pSignature, ExpressionsView a_Args, ConversionResults& a_Out,
-                                      LanguageElement* a_pContextScope)
+                                      LanguageElement*     a_pContextScope,
+                                      UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions)
 {
     Types types;
     for (auto& arg : a_Args)
     {
         types.push_back(arg->getValueType());
     }
-    newImplicitConversions(a_pSignature, types, a_Out, a_pContextScope);
+    newImplicitConversions(a_pSignature, types, a_Out, a_pContextScope, a_ConversionAllowedUserDefinedFunctions);
 }
 
 void Semantic::newImplicitConversions(FunctionType* a_pFuncType, TypesView a_ArgTypes, ConversionResults& a_Out,
-                                      LanguageElement* a_pContextScope)
+                                      LanguageElement*     a_pContextScope,
+                                      UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions)
 {
     size_t paramCount = a_pFuncType->getParameterTypes().size();
     size_t argCount = a_ArgTypes.size();
@@ -1477,24 +1526,27 @@ void Semantic::newImplicitConversions(FunctionType* a_pFuncType, TypesView a_Arg
     for (; i < argCount; ++i)
     {
         Type* pParamType = a_pFuncType->getParameterTypes()[i];
-        a_Out.push_back(newConversion(a_ArgTypes[i], pParamType, a_pContextScope, false));
+        a_Out.push_back(
+        newConversion(a_ArgTypes[i], pParamType, a_pContextScope, a_ConversionAllowedUserDefinedFunctions, false));
     }
 }
 
 void Semantic::newImplicitConversions(FunctionType* a_pFuncType, ExpressionsView a_Args, ConversionResults& a_Out,
-                                      LanguageElement* a_pContextScope)
+                                      LanguageElement*     a_pContextScope,
+                                      UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions)
 {
     Types types;
     for (auto& arg : a_Args)
     {
         types.push_back(arg->getValueType());
     }
-    newImplicitConversions(a_pFuncType, types, a_Out, a_pContextScope);
+    newImplicitConversions(a_pFuncType, types, a_Out, a_pContextScope, a_ConversionAllowedUserDefinedFunctions);
 }
 void Semantic::newImplicitConversionsWithArgDeductions(Signature* a_pSignature, TypesView a_ArgTypes,
-                                                       ConversionResults& a_Out,
-                                                       PlaceholderMap&    a_TemplateArgDeductions,
-                                                       LanguageElement*   a_pContextScope)
+                                                       ConversionResults&   a_Out,
+                                                       PlaceholderMap&      a_TemplateArgDeductions,
+                                                       LanguageElement*     a_pContextScope,
+                                                       UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions)
 {
     size_t paramCount = a_pSignature->getParameters().size();
     size_t argCount = a_ArgTypes.size();
@@ -1530,36 +1582,42 @@ void Semantic::newImplicitConversionsWithArgDeductions(Signature* a_pSignature, 
                 }
                 else
                 {
-                    a_Out.push_back(newConversion(pInputType, pParamTypeResolvedOrDeduced, a_pContextScope, false));
+                    a_Out.push_back(newConversion(pInputType, pParamTypeResolvedOrDeduced, a_pContextScope,
+                                                  a_ConversionAllowedUserDefinedFunctions, false));
                 }
             }
             else
-                a_Out.push_back(newConversion(pInputType, pParamTypeResolvedOrDeduced, a_pContextScope, false));
+                a_Out.push_back(newConversion(pInputType, pParamTypeResolvedOrDeduced, a_pContextScope,
+                                              a_ConversionAllowedUserDefinedFunctions, false));
         }
         else
         {
-            a_Out.push_back(newConversion(pInputType, pParamType, a_pContextScope, false));
+            a_Out.push_back(
+            newConversion(pInputType, pParamType, a_pContextScope, a_ConversionAllowedUserDefinedFunctions, false));
         }
     }
 }
 
 void Semantic::newImplicitConversionsWithArgDeductions(Signature* a_pSignature, ExpressionsView a_Args,
-                                                       ConversionResults& a_Out,
-                                                       PlaceholderMap&    a_TemplateArgDeductions,
-                                                       LanguageElement*   a_pContextScope)
+                                                       ConversionResults&   a_Out,
+                                                       PlaceholderMap&      a_TemplateArgDeductions,
+                                                       LanguageElement*     a_pContextScope,
+                                                       UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions)
 {
     Types types;
     for (auto& arg : a_Args)
     {
         types.push_back(arg->getValueType());
     }
-    newImplicitConversionsWithArgDeductions(a_pSignature, types, a_Out, a_TemplateArgDeductions, a_pContextScope);
+    newImplicitConversionsWithArgDeductions(a_pSignature, types, a_Out, a_TemplateArgDeductions, a_pContextScope,
+                                            a_ConversionAllowedUserDefinedFunctions);
 }
 
 void Semantic::newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType, TypesView a_ArgTypes,
-                                                       ConversionResults& a_Out,
-                                                       PlaceholderMap&    a_TemplateArgDeductions,
-                                                       LanguageElement*   a_pContextScope)
+                                                       ConversionResults&   a_Out,
+                                                       PlaceholderMap&      a_TemplateArgDeductions,
+                                                       LanguageElement*     a_pContextScope,
+                                                       UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions)
 {
     size_t paramCount = a_pFuncType->getParameterTypes().size();
     size_t argCount = a_ArgTypes.size();
@@ -1578,25 +1636,29 @@ void Semantic::newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType
             }
             else
             {
-                a_Out.push_back(newConversion(a_ArgTypes[i], a_ArgTypes[i], a_pContextScope, false));
+                a_Out.push_back(newConversion(a_ArgTypes[i], a_ArgTypes[i], a_pContextScope,
+                                              a_ConversionAllowedUserDefinedFunctions, false));
             }
         }
         else
-            a_Out.push_back(newConversion(a_ArgTypes[i], pParamType, a_pContextScope, false));
+            a_Out.push_back(
+            newConversion(a_ArgTypes[i], pParamType, a_pContextScope, a_ConversionAllowedUserDefinedFunctions, false));
     }
 }
 
 void Semantic::newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType, ExpressionsView a_Args,
-                                                       ConversionResults& a_Out,
-                                                       PlaceholderMap&    a_TemplateArgDeductions,
-                                                       LanguageElement*   a_pContextScope)
+                                                       ConversionResults&   a_Out,
+                                                       PlaceholderMap&      a_TemplateArgDeductions,
+                                                       LanguageElement*     a_pContextScope,
+                                                       UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions)
 {
     Types types;
     for (auto& arg : a_Args)
     {
         types.push_back(arg->getValueType());
     }
-    newImplicitConversionsWithArgDeductions(a_pFuncType, types, a_Out, a_TemplateArgDeductions, a_pContextScope);
+    newImplicitConversionsWithArgDeductions(a_pFuncType, types, a_Out, a_TemplateArgDeductions, a_pContextScope,
+                                            a_ConversionAllowedUserDefinedFunctions);
 }
 
 Expression* Semantic::_createFieldCopyConstruction(Class* a_pThis, Class* a_pClass, Expression* a_pWhere)
@@ -2147,15 +2209,112 @@ void Semantic::generateImplicitDestructorCode(Class* a_pClass)
     }
 }
 
+void Semantic::findCallOverloads(SelectedOverloadInfos& a_OutOverloads, Symbols& a_Candidates,
+                                 OptionalArrayView<LanguageElement*> in_pTemplateArguments, TypesView a_ArgTypes,
+                                 LanguageElement*     in_pContextScope,
+                                 UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions,
+                                 Modifiers a_Modifiers /*= 0*/, uint a_uiFlags /*= 0*/)
+{
+    /// Filter viable calls
+    for (auto it = a_Candidates.begin(); it != a_Candidates.end(); ++it)
+    {
+        SelectedOverloadInfo overload;
+        VisitorData          data;
+        const void*          in[5] = {&in_pTemplateArguments, &a_ArgTypes, &a_Modifiers, &in_pContextScope,
+                             &a_ConversionAllowedUserDefinedFunctions};
+        void*                out[3] = {&overload.conversions, &overload.subroutine, &overload.deductions};
+        data.id = e_VisitorFunction_IsViableCallCandidate;
+        data.in = in;
+        data.out = out;
+        (*it)->visit(this, data);
+        if (overload.subroutine) /// viable
+        {
+            a_OutOverloads.push_back(std::move(overload));
+        }
+    }
+}
+
+void Semantic::applyOverloadsSFINAE(SelectedOverloadInfos& a_InOverloads, LanguageElement* a_pInstantiationScope)
+{
+    for (auto it = a_InOverloads.begin(); it != a_InOverloads.end();)
+    {
+        if (auto pTSpec = it->subroutine->getTemplateSpecialization())
+        {
+            LanguageElements tplArguments;
+            tplArguments.resize(it->deductions.size());
+            for (auto& ph_arg : it->deductions)
+            {
+                tplArguments[pTSpec->getTemplateSignature()->getTemplateParameterIndex(ph_arg.first)] = ph_arg.second;
+            }
+            it->subroutine =
+            static_cast<Subroutine*>(instantiateTemplate(pTSpec->getTemplate(), tplArguments, a_pInstantiationScope));
+            if (it->subroutine == nullptr) // SFINAE
+            {
+                it = a_InOverloads.erase(it);
+                continue;
+            }
+        }
+        ++it;
+    }
+}
+
+Semantic::SelectedOverloadInfo const* Semantic::selectBestOverload(SelectedOverloadInfos const& a_InOverloads)
+{
+    if (a_InOverloads.size())
+    {
+        /// Find best viable call or display ambiguity error
+        if (a_InOverloads.size() == 1)
+        {
+            return &a_InOverloads.back();
+        }
+        else
+        {
+            size_t bestIndex = 0;
+            for (size_t i = 0; i < a_InOverloads.size(); ++i)
+            {
+                int    bestResult = -1;
+                size_t j = 0;
+                for (; j < a_InOverloads.size(); ++j)
+                {
+                    if (i == j)
+                        continue;
+                    if (a_InOverloads[i].deductions.size() == a_InOverloads[j].deductions.size())
+                    {
+                        int result = a_InOverloads[i].conversions.compare(a_InOverloads[j].conversions);
+                        PHANTOM_SEMANTIC_ASSERT(a_InOverloads[j].conversions.compare(a_InOverloads[i].conversions) ==
+                                                -result); /// compare() coherence test
+                        if (result == -1)
+                            break;
+                        bestResult = std::max(bestResult, result);
+                    }
+                    else
+                    {
+                        if (a_InOverloads[i].deductions.size() > a_InOverloads[i].deductions.size())
+                            break;
+                        bestResult = 1;
+                    }
+                }
+                if (j == a_InOverloads.size()) /// superior or equal to every one (not worst to any)
+                {
+                    if (bestResult == 1)
+                    {
+                        /// found a best match (superior to at least one other signature and equal
+                        /// to the others)
+                        return &a_InOverloads[i];
+                    }
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
 void Semantic::selectCallCandidate(Subroutines& inoutViableCandidates, Symbols& candidates,
                                    OptionalArrayView<LanguageElement*> in_pTemplateArguments, Expressions& arguments,
                                    LanguageElement*& out_pResult, StringView in_name, LanguageElement* in_pContextScope,
                                    Type* in_pInitializationType, Modifiers a_Modifiers /*= 0*/, uint a_uiFlags /*= 0*/)
 {
     Source* pSource = getSource();
-
-    SmallVector<ConversionResults*> viableImplicitConversions;
-    SmallVector<PlaceholderMap>     viableArgDeductions;
 
     if (in_pTemplateArguments)
     {
@@ -2169,6 +2328,9 @@ void Semantic::selectCallCandidate(Subroutines& inoutViableCandidates, Symbols& 
         Types templateArgTypes;
         for (auto templateArg : *in_pTemplateArguments)
         {
+            if (templateArg->isTemplateDependant())
+                goto skipGenericCall;
+
             if (Type* pType = templateArg->asType())
             {
                 templateArgTypes.push_back(pType);
@@ -2194,164 +2356,68 @@ void Semantic::selectCallCandidate(Subroutines& inoutViableCandidates, Symbols& 
 
 skipGenericCall:
 
-    /// Filter viable calls
-    for (auto it = candidates.begin(); it != candidates.end(); ++it)
-    {
-        ConversionResults* convs = new_<ConversionResults>();
-        VisitorData        data;
-        Subroutine*        out_pSubroutine = nullptr;
-        PlaceholderMap     argDeductions;
-        const void*        in[4] = {&in_pTemplateArguments, &arguments, &a_Modifiers, &in_pContextScope};
-        void*              out[3] = {convs, &out_pSubroutine, &argDeductions};
-        data.id = e_VisitorFunction_IsViableCallCandidate;
-        data.in = in;
-        data.out = out;
-        (*it)->visit(this, data);
-        if (out_pSubroutine) /// viable
-        {
-            inoutViableCandidates.push_back(out_pSubroutine);
-            viableImplicitConversions.push_back(convs);
-            viableArgDeductions.push_back(std::move(argDeductions));
-        }
-        else
-        {
-            delete_<ConversionResults>(convs);
-        }
-    }
-    if (viableImplicitConversions.size())
-    {
-        /// Find best viable call or display ambiguity error
-        ConversionResults* pBest = nullptr;
-        Subroutine*        pBestCandidate = nullptr;
-        PlaceholderMap*    pBestDeductions = nullptr;
-        if (viableImplicitConversions.size() == 1)
-        {
-            pBest = viableImplicitConversions.back();
-            pBestCandidate = inoutViableCandidates.back();
-            pBestDeductions = &viableArgDeductions.back();
-        }
-        else
-        {
-            // check ambiguous calls with default arguments
-            //             for (size_t i = 0; i < viableImplicitConversions.size(); ++i)
-            //             {
-            //                 int    bestResult = -1;
-            //                 size_t j = i + 1;
-            //                 for (; j < viableImplicitConversions.size(); ++j)
-            //                 {
-            //                     CxxSemanticErrorReturnIf(viableImplicitConversions[i]->size() !=
-            //                                              viableImplicitConversions[j]->size(),
-            //                                              "ambiguous call between multiple overloads taking different
-            //                                              number of " "arguments with some default ones");
-            //                 }
-            //             }
-            size_t bestIndex = 0;
-            for (size_t i = 0; i < viableImplicitConversions.size(); ++i)
-            {
-                int    bestResult = -1;
-                size_t j = 0;
-                for (; j < viableImplicitConversions.size(); ++j)
-                {
-                    if (i == j)
-                        continue;
-                    if (viableArgDeductions[i].size() == viableArgDeductions[j].size())
-                    {
-                        int result = viableImplicitConversions[i]->compare(*viableImplicitConversions[j]);
-                        PHANTOM_SEMANTIC_ASSERT(viableImplicitConversions[j]->compare(*viableImplicitConversions[i]) ==
-                                                -result); /// compare() coherence test
-                        if (result == -1)
-                            break;
-                        bestResult = std::max(bestResult, result);
-                    }
-                    else
-                    {
-                        if (viableArgDeductions[i].size() > viableArgDeductions[j].size())
-                            break;
-                        bestResult = 1;
-                    }
-                }
-                if (j == viableImplicitConversions.size()) /// superior or equal to every one (not worst to any)
-                {
-                    if (bestResult == 1)
-                    {
-                        /// found a best match (superior to at least one other signature and equal
-                        /// to the others)
-                        pBest = viableImplicitConversions[i];
-                        pBestCandidate = inoutViableCandidates[i];
-                        pBestDeductions = &viableArgDeductions[i];
-                        goto end_of_selection;
-                    }
-                }
-            }
-        }
-    end_of_selection:
-        if (pBest)
-        {
-            Symbol* pBestCandidateAccessibleSymbol = pBestCandidate->asSymbol();
-            if (auto pTSpec = pBestCandidate->getTemplateSpecialization())
-            {
-                LanguageElements tplArguments;
-                tplArguments.resize(pBestDeductions->size());
-                for (auto& ph_arg : *pBestDeductions)
-                {
-                    tplArguments[pTSpec->getTemplateSignature()->getTemplateParameterIndex(ph_arg.first)] =
-                    ph_arg.second;
-                }
-                // TODO : add "instantiation scope" along "context scope"
-                pBestCandidate =
-                static_cast<Subroutine*>(instantiateTemplate(pTSpec->getTemplate(), tplArguments, in_pContextScope));
-                if (pBestCandidate == nullptr)
-                    return;
-                pBestCandidateAccessibleSymbol = pTSpec->getTemplate();
-            }
+    Types types;
+    types.reserve(arguments.size());
 
-            PHANTOM_SEMANTIC_ASSERT(pBestCandidate);
-            bool thisCall = static_cast<Subroutine*>(pBestCandidate)->asMethod() != nullptr &&
-            static_cast<Subroutine*>(pBestCandidate)->asConstructor() == nullptr;
-            if (pBest->size() == arguments.size() - 1)
-            {
-                PHANTOM_SEMANTIC_ASSERT((a_Modifiers & PHANTOM_R_STATIC) == 0);
-                Delete(arguments.front());          // destroy useless 'this' expression
-                arguments.erase(arguments.begin()); // remove 'this' expression
-            }
-            auto& parms = static_cast<Subroutine*>(pBestCandidate)->getParameters();
-            for (size_t k = 0; k < parms.size() + thisCall; ++k)
-            {
-                if (k < arguments.size())
-                {
-                    // convert arguments
-                    Expression* newArgK = (*pBest)[k]->convert(this, arguments[k]);
-                    if (thisCall && k == 0)
-                        arguments[k] = newArgK->address(pSource);
-                    else
-                        arguments[k] = newArgK;
-                }
-                else
-                {
-                    Expression* pExp = parms[k - thisCall]->getDefaultArgumentExpression();
-                    CxxSemanticErrorReturnIf(
-                    pExp == nullptr, "cannot parse or resolve native default argument expression : '%.*s'",
-                    PHANTOM_STRING_AS_PRINTF_ARG(parms[k - thisCall]->getNativeDefaultArgumentString()));
-                    auto pConv = CxxSemanticConversionNE(pExp->clone(pSource), parms[k - thisCall]->getValueType());
-                    if (!pConv)
-                        return;
-                    arguments.push_back(pConv);
-                }
-            }
-            if (m_bAccessModifiersEnabled && m_pSource)
-            {
-                CxxSemanticErrorIfInaccessible(pBestCandidateAccessibleSymbol, in_pContextScope);
-            }
-            out_pResult = createCallExpression(pBestCandidate, arguments, in_pContextScope);
-        }
+    for (auto* pArg : arguments)
+        types.push_back(pArg->getValueType());
+
+    SelectedOverloadInfos viableOverloads;
+    findCallOverloads(viableOverloads, candidates, in_pTemplateArguments, types, in_pContextScope,
+                      UserDefinedFunctions::ImplicitsOnly, a_Modifiers, a_uiFlags);
+
+    applyOverloadsSFINAE(viableOverloads, in_pContextScope);
+
+    if (auto pBestOverload = selectBestOverload(viableOverloads))
+    {
+        Symbol* pBestCandidateAccessibleSymbol = pBestOverload->subroutine->getTemplateSpecialization();
+        if (!pBestCandidateAccessibleSymbol)
+            pBestCandidateAccessibleSymbol = pBestOverload->subroutine;
         else
+            static_cast<TemplateSpecialization*>(pBestCandidateAccessibleSymbol)->getTemplate();
+
+        if (m_bAccessModifiersEnabled && m_pSource)
         {
-            out_pResult = nullptr;
+            CxxSemanticErrorIfInaccessible(pBestCandidateAccessibleSymbol, in_pContextScope);
         }
-        for (auto pRes : viableImplicitConversions)
+
+        bool thisCall = static_cast<Subroutine*>(pBestOverload->subroutine)->asMethod() != nullptr &&
+        static_cast<Subroutine*>(pBestOverload->subroutine)->asConstructor() == nullptr;
+        if (pBestOverload->conversions.size() == arguments.size() - 1)
         {
-            delete_<ConversionResults>(pRes);
+            PHANTOM_SEMANTIC_ASSERT((a_Modifiers & PHANTOM_R_STATIC) == 0);
+            Delete(arguments.front());          // destroy useless 'this' expression
+            arguments.erase(arguments.begin()); // remove 'this' expression
         }
+        auto& parms = pBestOverload->subroutine->getParameters();
+        for (size_t k = 0; k < parms.size() + thisCall; ++k)
+        {
+            if (k < arguments.size())
+            {
+                // convert arguments
+                Expression* newArgK = pBestOverload->conversions[k]->convert(this, arguments[k]);
+                if (thisCall && k == 0)
+                    arguments[k] = newArgK->address(pSource);
+                else
+                    arguments[k] = newArgK;
+            }
+            else
+            {
+                Expression* pExp = parms[k - thisCall]->getDefaultArgumentExpression();
+                CxxSemanticErrorReturnIf(
+                pExp == nullptr, "cannot parse or resolve native default argument expression : '%.*s'",
+                PHANTOM_STRING_AS_PRINTF_ARG(parms[k - thisCall]->getNativeDefaultArgumentString()));
+                auto pConv = CxxSemanticConversionNE(pExp->clone(pSource), parms[k - thisCall]->getValueType());
+                if (!pConv)
+                    return;
+                arguments.push_back(pConv);
+            }
+        }
+        out_pResult = createCallExpression(pBestOverload->subroutine, arguments, in_pContextScope);
+    }
+    else
+    {
+        out_pResult = nullptr;
     }
 }
 
@@ -2520,8 +2586,8 @@ LanguageElement* Semantic::unqualifiedLookup(StringView                         
                                                          in_pContextScope, a_pInitializationType, flags);
     if (pResult == nullptr)
     {
-        // TODO : replace this error interpretation by a new qualified/unqualified merged with collected symbols inside
-        // which triggers itself the right errors
+        // TODO : replace this error interpretation by a new qualified/unqualified merged with collected symbols
+        // inside which triggers itself the right errors
         if (m_pMessage->getChildren().empty())
         {
             if (a_pFunctionArguments)
@@ -3728,6 +3794,43 @@ void Semantic::_selectCallCandidateError(StringView name, Symbols const& candida
         for (size_t i = 0; i < candidates.size(); ++i)
         {
             CxxSemanticSubError("%s", FormatCStr(candidates[i]));
+        }
+    }
+}
+
+void Semantic::_resolveTemplateSpecializationArguments(TemplateSpecialization*     a_pInput,
+                                                       TemplateSubstitution const& in_TemplateSubstitution,
+                                                       EClassBuildState            in_eClassBuildState,
+                                                       LanguageElement*            in_pContextScope,
+                                                       LanguageElements&           resolvedArguments)
+{
+    for (auto* pArg : a_pInput->getArguments())
+    {
+        if (pArg->getMetaClass() == PHANTOM_CLASSOF(TemplateParameterPackTypeExpansion))
+        {
+            auto             pPackTypeExp = static_cast<TemplateParameterPackTypeExpansion*>(pArg);
+            auto             pPackArg = pPackTypeExp->getPackArgument();
+            LanguageElements variadicArguments;
+            auto             variadicSubs = in_TemplateSubstitution.splitVariadics(pPackArg, variadicArguments);
+            for (size_t i = 0; i < variadicArguments.size(); ++i)
+            {
+                variadicSubs.substituteVariadic(pPackArg, variadicArguments[i]);
+                auto pExpandedType = SemanticPrivate::SemanticResolveTemplateDependency<Type>(
+                this, pPackTypeExp->getExpansion()->getExpandedElement(), variadicSubs, in_eClassBuildState,
+                in_pContextScope, 0, &LanguageElement::asType);
+                if (pExpandedType == nullptr)
+                    continue;
+                resolvedArguments.push_back(pExpandedType);
+            }
+        }
+        else
+        {
+            auto pResolved = SemanticPrivate::SemanticResolveTemplateDependency<LanguageElement>(
+            this, pArg, in_TemplateSubstitution, in_eClassBuildState, in_pContextScope, 0,
+            &LanguageElement::asLanguageElement);
+            if (!pResolved)
+                continue;
+            resolvedArguments.push_back(pResolved);
         }
     }
 }
