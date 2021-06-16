@@ -397,12 +397,18 @@ ConstructorInitializer
 	}
 }
 
+ArrowReturn 
+{
+	ARROW Type
+}
+
 FunctionEnd
 {
 	PAREN_START
 	@opt @list Parameter % COMMA 
 	PAREN_END
 	@opt @list CONST|VOLATILE|LOG_AND|BIN_AND
+	@opt ArrowReturn
 	@lookahead BLOCK_START|OVERRIDE|FINAL
 	{
 		@opt @list OVERRIDE|FINAL
@@ -745,6 +751,7 @@ ExplicitTypeNoFunctionType : Type
 	@opt @list CONST|VOLATILE
 	BasicType
 	@opt @list TypeExtentNoFunction
+	@opt ELLIPSE
 }
 
 ExpressionType : Type 
@@ -1939,6 +1946,42 @@ FundamentalTypeFunctionCast : Expression
 	FundamentalType PAREN_START Expression PAREN_END
 }
 
+LambdaCapture
+{
+	@switch
+	{
+		IDENTIFIER 
+		{
+			IDENTIFIER "m_IDENTIFIER"
+		}
+		ASSIGN 
+		{
+			ASSIGN 
+		}
+		BIN_AND 
+		{
+			BIN_AND
+			@opt IDENTIFIER "m_IDENTIFIER"
+		}
+		THIS 
+		{
+			THIS
+		}
+	}
+}
+
+LambdaExpression
+{
+	BRACKET_START 
+	@opt @list LambdaCapture % COMMA
+	BRACKET_END
+	@opt ArrowReturn
+	PAREN_START
+	@opt @list Parameter % COMMA 
+	PAREN_END
+	FunctionBlock
+}
+
 PrimaryExpression : Expression
 {
 	@switch 
@@ -1986,6 +2029,10 @@ PrimaryExpression : Expression
 		UNSIGNED | SIGNED | BOOL | SHORT | INT | LONG | CHAR | FLOATING_POINT_TYPE | VOID
 		{
 			FundamentalTypeFunctionCast
+		}
+		BRACKET_START 
+		{
+			LambdaExpression
 		}
 		@default 
 		{

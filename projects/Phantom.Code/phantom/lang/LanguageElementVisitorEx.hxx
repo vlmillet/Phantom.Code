@@ -89,12 +89,9 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void(TemplateDependantDeclType*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(TemplateDependantExpression*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(TemplateDependantTypeOfExpression*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
-            /// invalid declaration, some symbols have not been parsed correctly probably due to missing include path or missing #include in the .h
-            // .method<void(TemplateParameterPackExpansion*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
-            /// invalid declaration, some symbols have not been parsed correctly probably due to missing include path or missing #include in the .h
-            // .method<void(TemplateParameterPackTypeExpansion*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
-            /// invalid declaration, some symbols have not been parsed correctly probably due to missing include path or missing #include in the .h
-            // .method<void(TemplateParameterPackExpressionExpansion*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
+            .method<void(TemplateParameterPackExpansion*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
+            .method<void(TemplateParameterPackTypeExpansion*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
+            .method<void(TemplateParameterPackExpressionExpansion*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(TemporaryObjectDestructionExpression*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(TypeTraitExpression*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(VarArgCallExpression*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})

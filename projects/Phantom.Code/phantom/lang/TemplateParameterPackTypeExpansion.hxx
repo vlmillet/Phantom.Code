@@ -37,15 +37,12 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
-            /// missing symbol(s) reflection (phantom::lang::TemplateParameterPackExpansion) -> use the 'haunt.bind' to bind symbols with your custom haunt files
-            // .constructor<void(TemplateParameterPackExpansion*)>()({"a_pExpansion"})
-            /// missing symbol(s) reflection (phantom::lang::TemplateParameterPackExpansion) -> use the 'haunt.bind' to bind symbols with your custom haunt files
-            // .method<TemplateParameterPackExpansion*() const>("getExpansion", &_::getExpansion)
+            .constructor<void(TemplateParameterPackExpansion*)>()({"a_pExpansion"})
+            .method<TemplateParameterPackExpansion*() const>("getExpansion", &_::getExpansion)
             .method<PlaceholderType*() const>("getPackArgument", &_::getPackArgument)
         
         .protected_()
-            /// missing symbol(s) reflection (phantom::lang::TemplateParameterPackExpansion) -> use the 'haunt.bind' to bind symbols with your custom haunt files
-            // .field("m_pExpansion", &_::m_pExpansion)
+            .field("m_pExpansion", &_::m_pExpansion)
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE

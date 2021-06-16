@@ -175,6 +175,7 @@ namespace phantom
                 e_RuleType_Constructor,
                 e_RuleType_Destructor,
                 e_RuleType_ConstructorInitializer,
+                e_RuleType_ArrowReturn,
                 e_RuleType_FunctionEnd,
                 e_RuleType_Operator,
                 e_RuleType_OperatorEnd,
@@ -319,6 +320,8 @@ namespace phantom
                 e_RuleType_TypeofExpression,
                 e_RuleType_StringLiteralChain,
                 e_RuleType_FundamentalTypeFunctionCast,
+                e_RuleType_LambdaCapture,
+                e_RuleType_LambdaExpression,
                 e_RuleType_PrimaryExpression,
             };
             struct _BaseRule;
@@ -340,6 +343,7 @@ namespace phantom
             struct Constructor;
             struct Destructor;
             struct ConstructorInitializer;
+            struct ArrowReturn;
             struct FunctionEnd;
             struct Operator;
             struct OperatorEnd;
@@ -484,6 +488,8 @@ namespace phantom
             struct TypeofExpression;
             struct StringLiteralChain;
             struct FundamentalTypeFunctionCast;
+            struct LambdaCapture;
+            struct LambdaExpression;
             struct PrimaryExpression;
             typedef phantom::SmallVector<Source*> Sources;
             typedef phantom::SmallVector<ModuleDeclaration*> ModuleDeclarations;
@@ -503,6 +509,7 @@ namespace phantom
             typedef phantom::SmallVector<Constructor*> Constructors;
             typedef phantom::SmallVector<Destructor*> Destructors;
             typedef phantom::SmallVector<ConstructorInitializer*> ConstructorInitializers;
+            typedef phantom::SmallVector<ArrowReturn*> ArrowReturns;
             typedef phantom::SmallVector<FunctionEnd*> FunctionEnds;
             typedef phantom::SmallVector<Operator*> Operators;
             typedef phantom::SmallVector<OperatorEnd*> OperatorEnds;
@@ -647,6 +654,8 @@ namespace phantom
             typedef phantom::SmallVector<TypeofExpression*> TypeofExpressions;
             typedef phantom::SmallVector<StringLiteralChain*> StringLiteralChains;
             typedef phantom::SmallVector<FundamentalTypeFunctionCast*> FundamentalTypeFunctionCasts;
+            typedef phantom::SmallVector<LambdaCapture*> LambdaCaptures;
+            typedef phantom::SmallVector<LambdaExpression*> LambdaExpressions;
             typedef phantom::SmallVector<PrimaryExpression*> PrimaryExpressions;
             struct _BaseRule
             {
@@ -821,9 +830,9 @@ namespace phantom
                 phantom::SmallVector<spell::any,4ull>* m_IDENTIFIERs;
                 phantom::SmallVector<phantom::lang::ast::Statement*,4ull>* m_Statements;
             };
-            struct IfOrWhileLocalVariableDecl : public _BaseRule
+            struct ForeachSignature : public _BaseRule
             {
-                IfOrWhileLocalVariableDecl(ERuleType t = e_RuleType_IfOrWhileLocalVariableDecl)
+                ForeachSignature(ERuleType t = e_RuleType_ForeachSignature)
                 : _BaseRule(t)
                 , m_TypeOrAuto(nullptr)
                 , m_IDENTIFIER(nullptr)
@@ -900,6 +909,17 @@ namespace phantom
                 phantom::lang::ast::CallList* m_CallList;
                 phantom::lang::ast::Expression* m_InitializerList;
             };
+            struct ArrowReturn : public _BaseRule
+            {
+                ArrowReturn(ERuleType t = e_RuleType_ArrowReturn)
+                : _BaseRule(t)
+                , m_ARROW(nullptr)
+                , m_Type(nullptr)
+                {
+                }
+                char const* m_ARROW;
+                phantom::lang::ast::Type* m_Type;
+            };
             struct FunctionEnd : public _BaseRule
             {
                 FunctionEnd(ERuleType t = e_RuleType_FunctionEnd)
@@ -907,6 +927,7 @@ namespace phantom
                 , m_PAREN_START(nullptr)
                 , m_Parameters(nullptr)
                 , m_CONSTs(nullptr)
+                , m_ArrowReturn(nullptr)
                 , m_OVERRIDEs(nullptr)
                 , m_FunctionBlock(nullptr)
                 {
@@ -914,6 +935,7 @@ namespace phantom
                 char const* m_PAREN_START;
                 phantom::SmallVector<phantom::lang::ast::Parameter*,4ull>* m_Parameters;
                 phantom::SmallVector<spell::any,4ull>* m_CONSTs;
+                phantom::lang::ast::ArrowReturn* m_ArrowReturn;
                 phantom::SmallVector<spell::any,4ull>* m_OVERRIDEs;
                 phantom::lang::ast::FunctionBlock* m_FunctionBlock;
                 spell::any m_Suffix;
@@ -1022,28 +1044,15 @@ namespace phantom
                 {
                 }
             };
-            struct IfOrWhileCondition : public _BaseRule
+            struct ForInit : public _BaseRule
             {
-                IfOrWhileCondition(ERuleType t = e_RuleType_IfOrWhileCondition)
+                ForInit(ERuleType t = e_RuleType_ForInit)
                 : _BaseRule(t)
-                , m_IfOrWhileLocalVariableDecl(nullptr)
+                , m_LocalVariableDecl(nullptr)
                 , m_Expression(nullptr)
                 {
                 }
-                phantom::lang::ast::IfOrWhileLocalVariableDecl* m_IfOrWhileLocalVariableDecl;
-                phantom::lang::ast::Expression* m_Expression;
-            };
-            struct ForeachSignature : public _BaseRule
-            {
-                ForeachSignature(ERuleType t = e_RuleType_ForeachSignature)
-                : _BaseRule(t)
-                , m_TypeOrAuto(nullptr)
-                , m_IDENTIFIER(nullptr)
-                , m_Expression(nullptr)
-                {
-                }
-                phantom::lang::ast::Type* m_TypeOrAuto;
-                char const* m_IDENTIFIER;
+                phantom::lang::ast::LocalVariableDecl* m_LocalVariableDecl;
                 phantom::lang::ast::Expression* m_Expression;
             };
             struct Statement : public _BaseRule
@@ -1118,6 +1127,25 @@ namespace phantom
                 }
                 char const* m_IDENTIFIER;
             };
+            struct Declarator : public _BaseRule
+            {
+                Declarator(ERuleType t = e_RuleType_Declarator)
+                : _BaseRule(t)
+                , m_TypeExtents(nullptr)
+                , m_IDENTIFIER(nullptr)
+                , m_ArrayExtents(nullptr)
+                , m_AssignExpressionOrInitializerList(nullptr)
+                , m_CallList(nullptr)
+                , m_InitializerList(nullptr)
+                {
+                }
+                phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>* m_TypeExtents;
+                char const* m_IDENTIFIER;
+                phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>* m_ArrayExtents;
+                phantom::lang::ast::Expression* m_AssignExpressionOrInitializerList;
+                phantom::lang::ast::CallList* m_CallList;
+                phantom::lang::ast::Expression* m_InitializerList;
+            };
             struct TemplateArgumentListSplit : public _BaseRule
             {
                 TemplateArgumentListSplit(ERuleType t = e_RuleType_TemplateArgumentListSplit)
@@ -1179,25 +1207,6 @@ namespace phantom
                 {
                 }
                 char const* m_Typename;
-            };
-            struct Declarator : public _BaseRule
-            {
-                Declarator(ERuleType t = e_RuleType_Declarator)
-                : _BaseRule(t)
-                , m_TypeExtents(nullptr)
-                , m_IDENTIFIER(nullptr)
-                , m_ArrayExtents(nullptr)
-                , m_AssignExpressionOrInitializerList(nullptr)
-                , m_CallList(nullptr)
-                , m_InitializerList(nullptr)
-                {
-                }
-                phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>* m_TypeExtents;
-                char const* m_IDENTIFIER;
-                phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>* m_ArrayExtents;
-                phantom::lang::ast::Expression* m_AssignExpressionOrInitializerList;
-                phantom::lang::ast::CallList* m_CallList;
-                phantom::lang::ast::Expression* m_InitializerList;
             };
             struct AutoDeclarator : public _BaseRule
             {
@@ -1306,17 +1315,6 @@ namespace phantom
                 char const* m_Op;
                 phantom::lang::ast::Expression* m_RightExpression;
             };
-            struct Type : public _BaseRule
-            {
-                Type(ERuleType t = e_RuleType_Type)
-                : _BaseRule(t)
-                , m_ExplicitType(nullptr)
-                , m_ExpressionType(nullptr)
-                {
-                }
-                phantom::lang::ast::Type* m_ExplicitType;
-                phantom::lang::ast::Type* m_ExpressionType;
-            };
             struct RelationalExpressionRight : public _BaseRule
             {
                 RelationalExpressionRight(ERuleType t = e_RuleType_RelationalExpressionRight)
@@ -1328,6 +1326,17 @@ namespace phantom
                 phantom::SmallVector<spell::any,4ull>* m_OpMul;
                 phantom::lang::ast::Expression* m_RightExpression;
                 spell::any m_Op;
+            };
+            struct Type : public _BaseRule
+            {
+                Type(ERuleType t = e_RuleType_Type)
+                : _BaseRule(t)
+                , m_ExplicitType(nullptr)
+                , m_ExpressionType(nullptr)
+                {
+                }
+                phantom::lang::ast::Type* m_ExplicitType;
+                phantom::lang::ast::Type* m_ExpressionType;
             };
             struct ShiftExpressionRight : public _BaseRule
             {
@@ -1398,17 +1407,6 @@ namespace phantom
                 char const* m_PAREN_START;
                 phantom::SmallVector<phantom::lang::ast::Expression*,4ull>* m_AssignExpressionOrInitializerLists;
             };
-            struct ArrayExtentExpression : public _BaseRule
-            {
-                ArrayExtentExpression(ERuleType t = e_RuleType_ArrayExtentExpression)
-                : _BaseRule(t)
-                , m_IntegralConstant(nullptr)
-                , m_AssignExpression(nullptr)
-                {
-                }
-                phantom::lang::ast::Expression* m_IntegralConstant;
-                phantom::lang::ast::Expression* m_AssignExpression;
-            };
             struct PostFixEnd : public _BaseRule
             {
                 PostFixEnd(ERuleType t = e_RuleType_PostFixEnd)
@@ -1426,6 +1424,17 @@ namespace phantom
                 phantom::lang::ast::Name* m_Name;
                 spell::any m_ELLIPSE;
                 spell::any m_INC;
+            };
+            struct ArrayExtentExpression : public _BaseRule
+            {
+                ArrayExtentExpression(ERuleType t = e_RuleType_ArrayExtentExpression)
+                : _BaseRule(t)
+                , m_IntegralConstant(nullptr)
+                , m_AssignExpression(nullptr)
+                {
+                }
+                phantom::lang::ast::Expression* m_IntegralConstant;
+                phantom::lang::ast::Expression* m_AssignExpression;
             };
             struct StaticAssert : public _BaseRule
             {
@@ -1450,18 +1459,33 @@ namespace phantom
                 char const* m_STRING_LIT;
                 phantom::SmallVector<spell::any,4ull>* m_STRING_LITs;
             };
-            struct Union : public _BaseRule
+            struct LambdaCapture : public _BaseRule
             {
-                Union(ERuleType t = e_RuleType_Union)
+                LambdaCapture(ERuleType t = e_RuleType_LambdaCapture)
                 : _BaseRule(t)
-                , m_IDENTIFIER(nullptr)
-                , m_TemplateArgumentList(nullptr)
-                , m_BasicMembers(nullptr)
                 {
                 }
-                char const* m_IDENTIFIER;
-                phantom::lang::ast::TemplateArgumentList* m_TemplateArgumentList;
-                phantom::SmallVector<phantom::lang::ast::Member*,4ull>* m_BasicMembers;
+                spell::any m_IDENTIFIER;
+                spell::any m_ASSIGN;
+                spell::any m_BIN_AND;
+                spell::any m_THIS;
+            };
+            struct LambdaExpression : public _BaseRule
+            {
+                LambdaExpression(ERuleType t = e_RuleType_LambdaExpression)
+                : _BaseRule(t)
+                , m_LambdaCaptures(nullptr)
+                , m_ArrowReturn(nullptr)
+                , m_PAREN_START(nullptr)
+                , m_Parameters(nullptr)
+                , m_FunctionBlock(nullptr)
+                {
+                }
+                phantom::SmallVector<phantom::lang::ast::LambdaCapture*,4ull>* m_LambdaCaptures;
+                phantom::lang::ast::ArrowReturn* m_ArrowReturn;
+                char const* m_PAREN_START;
+                phantom::SmallVector<phantom::lang::ast::Parameter*,4ull>* m_Parameters;
+                phantom::lang::ast::FunctionBlock* m_FunctionBlock;
             };
             struct TypeExtent : public _BaseRule
             {
@@ -1697,16 +1721,18 @@ namespace phantom
                 phantom::SmallVector<phantom::lang::ast::BaseClass*,4ull>* m_BaseClasses;
                 phantom::SmallVector<phantom::lang::ast::Member*,4ull>* m_Members;
             };
-            struct ForInit : public _BaseRule
+            struct Union : public _BaseRule
             {
-                ForInit(ERuleType t = e_RuleType_ForInit)
+                Union(ERuleType t = e_RuleType_Union)
                 : _BaseRule(t)
-                , m_LocalVariableDecl(nullptr)
-                , m_Expression(nullptr)
+                , m_IDENTIFIER(nullptr)
+                , m_TemplateArgumentList(nullptr)
+                , m_BasicMembers(nullptr)
                 {
                 }
-                phantom::lang::ast::LocalVariableDecl* m_LocalVariableDecl;
-                phantom::lang::ast::Expression* m_Expression;
+                char const* m_IDENTIFIER;
+                phantom::lang::ast::TemplateArgumentList* m_TemplateArgumentList;
+                phantom::SmallVector<phantom::lang::ast::Member*,4ull>* m_BasicMembers;
             };
             struct Method : public _BaseRule
             {
@@ -1784,6 +1810,30 @@ namespace phantom
                 phantom::lang::ast::Member* m_MemberWithMetaOrAnnotation;
                 phantom::lang::ast::Member* m_BasicMember;
             };
+            struct IfOrWhileLocalVariableDecl : public _BaseRule
+            {
+                IfOrWhileLocalVariableDecl(ERuleType t = e_RuleType_IfOrWhileLocalVariableDecl)
+                : _BaseRule(t)
+                , m_TypeOrAuto(nullptr)
+                , m_IDENTIFIER(nullptr)
+                , m_Expression(nullptr)
+                {
+                }
+                phantom::lang::ast::Type* m_TypeOrAuto;
+                char const* m_IDENTIFIER;
+                phantom::lang::ast::Expression* m_Expression;
+            };
+            struct IfOrWhileCondition : public _BaseRule
+            {
+                IfOrWhileCondition(ERuleType t = e_RuleType_IfOrWhileCondition)
+                : _BaseRule(t)
+                , m_IfOrWhileLocalVariableDecl(nullptr)
+                , m_Expression(nullptr)
+                {
+                }
+                phantom::lang::ast::IfOrWhileLocalVariableDecl* m_IfOrWhileLocalVariableDecl;
+                phantom::lang::ast::Expression* m_Expression;
+            };
             struct BlockDeclaration : public Statement
             {
                 BlockDeclaration(ERuleType t = e_RuleType_BlockDeclaration)
@@ -1805,37 +1855,6 @@ namespace phantom
                 phantom::lang::ast::StaticAssert* m_StaticAssert;
                 phantom::lang::ast::Alias* m_Alias0;
             };
-            struct TypeofExpression : public Expression
-            {
-                TypeofExpression(ERuleType t = e_RuleType_TypeofExpression)
-                : Expression(t)
-                , m_TYPEOF(nullptr)
-                , m_PAREN_START(nullptr)
-                , m_Type(nullptr)
-                {
-                }
-                char const* m_TYPEOF;
-                char const* m_PAREN_START;
-                phantom::lang::ast::Type* m_Type;
-            };
-            struct DefaultStatement : public Statement
-            {
-                DefaultStatement(ERuleType t = e_RuleType_DefaultStatement)
-                : Statement(t)
-                {
-                }
-            };
-            struct LastTemplateArgument : public TemplateArgument
-            {
-                LastTemplateArgument(ERuleType t = e_RuleType_LastTemplateArgument)
-                : TemplateArgument(t)
-                , m_LastTemplateArgumentAssign(nullptr)
-                , m_LastTemplateArgumentNoAssign(nullptr)
-                {
-                }
-                phantom::lang::ast::LastTemplateArgument* m_LastTemplateArgumentAssign;
-                phantom::lang::ast::LastTemplateArgument* m_LastTemplateArgumentNoAssign;
-            };
             struct FundamentalTypeFunctionCast : public Expression
             {
                 FundamentalTypeFunctionCast(ERuleType t = e_RuleType_FundamentalTypeFunctionCast)
@@ -1848,6 +1867,39 @@ namespace phantom
                 phantom::lang::ast::Type* m_FundamentalType;
                 char const* m_PAREN_START;
                 phantom::lang::ast::Expression* m_Expression;
+            };
+            struct ExpressionStatement : public Statement
+            {
+                ExpressionStatement(ERuleType t = e_RuleType_ExpressionStatement)
+                : Statement(t)
+                , m_Expression(nullptr)
+                {
+                }
+                phantom::lang::ast::Expression* m_Expression;
+            };
+            struct LastTemplateArgument : public TemplateArgument
+            {
+                LastTemplateArgument(ERuleType t = e_RuleType_LastTemplateArgument)
+                : TemplateArgument(t)
+                , m_LastTemplateArgumentAssign(nullptr)
+                , m_LastTemplateArgumentNoAssign(nullptr)
+                {
+                }
+                phantom::lang::ast::LastTemplateArgument* m_LastTemplateArgumentAssign;
+                phantom::lang::ast::LastTemplateArgument* m_LastTemplateArgumentNoAssign;
+            };
+            struct SwitchStatement : public Statement
+            {
+                SwitchStatement(ERuleType t = e_RuleType_SwitchStatement)
+                : Statement(t)
+                , m_PAREN_START(nullptr)
+                , m_Expression(nullptr)
+                , m_StatementOrCases(nullptr)
+                {
+                }
+                char const* m_PAREN_START;
+                phantom::lang::ast::Expression* m_Expression;
+                phantom::SmallVector<phantom::lang::ast::Statement*,4ull>* m_StatementOrCases;
             };
             struct PrimaryExpression : public Expression
             {
@@ -1864,6 +1916,7 @@ namespace phantom
                 , m_SpecialCastExpression(nullptr)
                 , m_FunctionPtrExpression(nullptr)
                 , m_FundamentalTypeFunctionCast(nullptr)
+                , m_LambdaExpression(nullptr)
                 {
                 }
                 phantom::lang::ast::Expression* m_KeywordExpression;
@@ -1878,6 +1931,7 @@ namespace phantom
                 phantom::lang::ast::SpecialCastExpression* m_SpecialCastExpression;
                 phantom::lang::ast::FunctionPtrExpression* m_FunctionPtrExpression;
                 phantom::lang::ast::Expression* m_FundamentalTypeFunctionCast;
+                phantom::lang::ast::LambdaExpression* m_LambdaExpression;
                 spell::any m_INT_VALUE;
             };
             struct NotLastTemplateArgument : public TemplateArgument
@@ -1996,6 +2050,7 @@ namespace phantom
                 phantom::SmallVector<spell::any,4ull>* m_CONSTs;
                 phantom::lang::ast::Type* m_BasicType;
                 phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>* m_TypeExtentNoFunctions;
+                spell::any m_ELLIPSE;
             };
             struct ExpressionType : public Type
             {
@@ -2117,32 +2172,16 @@ namespace phantom
                 }
                 char const* m_BIN_AND;
             };
-            struct LocalVariableStatement : public Statement
+            struct TypeExtentNoFunction : public TypeExtent
             {
-                LocalVariableStatement(ERuleType t = e_RuleType_LocalVariableStatement)
-                : Statement(t)
-                , m_LocalVariableDecl(nullptr)
+                TypeExtentNoFunction(ERuleType t = e_RuleType_TypeExtentNoFunction)
+                : TypeExtent(t)
+                , m_ArrayExtent(nullptr)
+                , m_DerivedExtent(nullptr)
                 {
                 }
-                phantom::lang::ast::LocalVariableDecl* m_LocalVariableDecl;
-            };
-            struct ExpressionStatement : public Statement
-            {
-                ExpressionStatement(ERuleType t = e_RuleType_ExpressionStatement)
-                : Statement(t)
-                , m_Expression(nullptr)
-                {
-                }
-                phantom::lang::ast::Expression* m_Expression;
-            };
-            struct LabelStatement : public Statement
-            {
-                LabelStatement(ERuleType t = e_RuleType_LabelStatement)
-                : Statement(t)
-                , m_IDENTIFIER(nullptr)
-                {
-                }
-                char const* m_IDENTIFIER;
+                phantom::lang::ast::TypeExtent* m_ArrayExtent;
+                phantom::lang::ast::TypeExtent* m_DerivedExtent;
             };
             struct AssignExpression : public Expression
             {
@@ -2180,18 +2219,15 @@ namespace phantom
                 phantom::lang::ast::Expression* m_Then;
                 phantom::lang::ast::Expression* m_Else;
             };
-            struct SwitchStatement : public Statement
+            struct Friend : public Member
             {
-                SwitchStatement(ERuleType t = e_RuleType_SwitchStatement)
-                : Statement(t)
-                , m_PAREN_START(nullptr)
-                , m_Expression(nullptr)
-                , m_StatementOrCases(nullptr)
+                Friend(ERuleType t = e_RuleType_Friend)
+                : Member(t)
+                , m_QualifiedName(nullptr)
                 {
                 }
-                char const* m_PAREN_START;
-                phantom::lang::ast::Expression* m_Expression;
-                phantom::SmallVector<phantom::lang::ast::Statement*,4ull>* m_StatementOrCases;
+                spell::any m_CLASS;
+                phantom::lang::ast::QualifiedName* m_QualifiedName;
             };
             struct LogicalOrExpression : public Expression
             {
@@ -2203,147 +2239,6 @@ namespace phantom
                 }
                 phantom::lang::ast::Expression* m_LeftExpression;
                 phantom::SmallVector<phantom::lang::ast::LogicalOrExpressionRight*,4ull>* m_LogicalOrExpressionRights;
-            };
-            struct Friend : public Member
-            {
-                Friend(ERuleType t = e_RuleType_Friend)
-                : Member(t)
-                , m_QualifiedName(nullptr)
-                {
-                }
-                spell::any m_CLASS;
-                phantom::lang::ast::QualifiedName* m_QualifiedName;
-            };
-            struct LogicalAndExpression : public Expression
-            {
-                LogicalAndExpression(ERuleType t = e_RuleType_LogicalAndExpression)
-                : Expression(t)
-                , m_LeftExpression(nullptr)
-                , m_LogicalAndExpressionRights(nullptr)
-                {
-                }
-                phantom::lang::ast::Expression* m_LeftExpression;
-                phantom::SmallVector<phantom::lang::ast::LogicalAndExpressionRight*,4ull>* m_LogicalAndExpressionRights;
-            };
-            struct TypeExtentNoFunction : public TypeExtent
-            {
-                TypeExtentNoFunction(ERuleType t = e_RuleType_TypeExtentNoFunction)
-                : TypeExtent(t)
-                , m_ArrayExtent(nullptr)
-                , m_DerivedExtent(nullptr)
-                {
-                }
-                phantom::lang::ast::TypeExtent* m_ArrayExtent;
-                phantom::lang::ast::TypeExtent* m_DerivedExtent;
-            };
-            struct BinOrExpression : public Expression
-            {
-                BinOrExpression(ERuleType t = e_RuleType_BinOrExpression)
-                : Expression(t)
-                , m_LeftExpression(nullptr)
-                , m_BinOrExpressionRights(nullptr)
-                {
-                }
-                phantom::lang::ast::Expression* m_LeftExpression;
-                phantom::SmallVector<phantom::lang::ast::BinOrExpressionRight*,4ull>* m_BinOrExpressionRights;
-            };
-            struct ForStatement : public Statement
-            {
-                ForStatement(ERuleType t = e_RuleType_ForStatement)
-                : Statement(t)
-                , m_PAREN_START(nullptr)
-                , m_ForeachSignature(nullptr)
-                , m_Init(nullptr)
-                , m_Test(nullptr)
-                , m_Update(nullptr)
-                , m_Statement(nullptr)
-                {
-                }
-                char const* m_PAREN_START;
-                phantom::lang::ast::ForeachSignature* m_ForeachSignature;
-                phantom::lang::ast::ForInit* m_Init;
-                phantom::lang::ast::Expression* m_Test;
-                phantom::lang::ast::Expression* m_Update;
-                phantom::lang::ast::Statement* m_Statement;
-            };
-            struct XOrExpression : public Expression
-            {
-                XOrExpression(ERuleType t = e_RuleType_XOrExpression)
-                : Expression(t)
-                , m_LeftExpression(nullptr)
-                , m_XOrExpressionRights(nullptr)
-                {
-                }
-                phantom::lang::ast::Expression* m_LeftExpression;
-                phantom::SmallVector<phantom::lang::ast::XOrExpressionRight*,4ull>* m_XOrExpressionRights;
-            };
-            struct WhileStatement : public Statement
-            {
-                WhileStatement(ERuleType t = e_RuleType_WhileStatement)
-                : Statement(t)
-                , m_PAREN_START(nullptr)
-                , m_Condition(nullptr)
-                , m_Statement(nullptr)
-                {
-                }
-                char const* m_PAREN_START;
-                phantom::lang::ast::IfOrWhileCondition* m_Condition;
-                phantom::lang::ast::Statement* m_Statement;
-            };
-            struct BinAndExpression : public Expression
-            {
-                BinAndExpression(ERuleType t = e_RuleType_BinAndExpression)
-                : Expression(t)
-                , m_LeftExpression(nullptr)
-                , m_BinAndExpressionRights(nullptr)
-                {
-                }
-                phantom::lang::ast::Expression* m_LeftExpression;
-                phantom::SmallVector<phantom::lang::ast::BinAndExpressionRight*,4ull>* m_BinAndExpressionRights;
-            };
-            struct BlockStatement : public Statement
-            {
-                BlockStatement(ERuleType t = e_RuleType_BlockStatement)
-                : Statement(t)
-                , m_Statements(nullptr)
-                {
-                }
-                phantom::SmallVector<phantom::lang::ast::Statement*,4ull>* m_Statements;
-            };
-            struct EqualityExpression : public Expression
-            {
-                EqualityExpression(ERuleType t = e_RuleType_EqualityExpression)
-                : Expression(t)
-                , m_LeftExpression(nullptr)
-                , m_EqualityExpressionRights(nullptr)
-                {
-                }
-                phantom::lang::ast::Expression* m_LeftExpression;
-                phantom::SmallVector<phantom::lang::ast::EqualityExpressionRight*,4ull>* m_EqualityExpressionRights;
-            };
-            struct DoWhileStatement : public Statement
-            {
-                DoWhileStatement(ERuleType t = e_RuleType_DoWhileStatement)
-                : Statement(t)
-                , m_BlockStatement(nullptr)
-                , m_PAREN_START(nullptr)
-                , m_Expression(nullptr)
-                {
-                }
-                phantom::lang::ast::Statement* m_BlockStatement;
-                char const* m_PAREN_START;
-                phantom::lang::ast::Expression* m_Expression;
-            };
-            struct RelationalExpression : public Expression
-            {
-                RelationalExpression(ERuleType t = e_RuleType_RelationalExpression)
-                : Expression(t)
-                , m_LeftExpression(nullptr)
-                , m_RelationalExpressionRights(nullptr)
-                {
-                }
-                phantom::lang::ast::Expression* m_LeftExpression;
-                phantom::SmallVector<phantom::lang::ast::RelationalExpressionRight*,4ull>* m_RelationalExpressionRights;
             };
             struct BasicMember : public Member
             {
@@ -2374,16 +2269,114 @@ namespace phantom
                 phantom::lang::ast::Member* m_BasicMemberWithMetaOrAnnotation;
                 phantom::lang::ast::Declaration* m_Declaration;
             };
-            struct ShiftExpression : public Expression
+            struct LogicalAndExpression : public Expression
             {
-                ShiftExpression(ERuleType t = e_RuleType_ShiftExpression)
+                LogicalAndExpression(ERuleType t = e_RuleType_LogicalAndExpression)
                 : Expression(t)
                 , m_LeftExpression(nullptr)
-                , m_ShiftExpressionRights(nullptr)
+                , m_LogicalAndExpressionRights(nullptr)
                 {
                 }
                 phantom::lang::ast::Expression* m_LeftExpression;
-                phantom::SmallVector<phantom::lang::ast::ShiftExpressionRight*,4ull>* m_ShiftExpressionRights;
+                phantom::SmallVector<phantom::lang::ast::LogicalAndExpressionRight*,4ull>* m_LogicalAndExpressionRights;
+            };
+            struct ForStatement : public Statement
+            {
+                ForStatement(ERuleType t = e_RuleType_ForStatement)
+                : Statement(t)
+                , m_PAREN_START(nullptr)
+                , m_ForeachSignature(nullptr)
+                , m_Init(nullptr)
+                , m_Test(nullptr)
+                , m_Update(nullptr)
+                , m_Statement(nullptr)
+                {
+                }
+                char const* m_PAREN_START;
+                phantom::lang::ast::ForeachSignature* m_ForeachSignature;
+                phantom::lang::ast::ForInit* m_Init;
+                phantom::lang::ast::Expression* m_Test;
+                phantom::lang::ast::Expression* m_Update;
+                phantom::lang::ast::Statement* m_Statement;
+            };
+            struct BinOrExpression : public Expression
+            {
+                BinOrExpression(ERuleType t = e_RuleType_BinOrExpression)
+                : Expression(t)
+                , m_LeftExpression(nullptr)
+                , m_BinOrExpressionRights(nullptr)
+                {
+                }
+                phantom::lang::ast::Expression* m_LeftExpression;
+                phantom::SmallVector<phantom::lang::ast::BinOrExpressionRight*,4ull>* m_BinOrExpressionRights;
+            };
+            struct WhileStatement : public Statement
+            {
+                WhileStatement(ERuleType t = e_RuleType_WhileStatement)
+                : Statement(t)
+                , m_PAREN_START(nullptr)
+                , m_Condition(nullptr)
+                , m_Statement(nullptr)
+                {
+                }
+                char const* m_PAREN_START;
+                phantom::lang::ast::IfOrWhileCondition* m_Condition;
+                phantom::lang::ast::Statement* m_Statement;
+            };
+            struct XOrExpression : public Expression
+            {
+                XOrExpression(ERuleType t = e_RuleType_XOrExpression)
+                : Expression(t)
+                , m_LeftExpression(nullptr)
+                , m_XOrExpressionRights(nullptr)
+                {
+                }
+                phantom::lang::ast::Expression* m_LeftExpression;
+                phantom::SmallVector<phantom::lang::ast::XOrExpressionRight*,4ull>* m_XOrExpressionRights;
+            };
+            struct BlockStatement : public Statement
+            {
+                BlockStatement(ERuleType t = e_RuleType_BlockStatement)
+                : Statement(t)
+                , m_Statements(nullptr)
+                {
+                }
+                phantom::SmallVector<phantom::lang::ast::Statement*,4ull>* m_Statements;
+            };
+            struct BinAndExpression : public Expression
+            {
+                BinAndExpression(ERuleType t = e_RuleType_BinAndExpression)
+                : Expression(t)
+                , m_LeftExpression(nullptr)
+                , m_BinAndExpressionRights(nullptr)
+                {
+                }
+                phantom::lang::ast::Expression* m_LeftExpression;
+                phantom::SmallVector<phantom::lang::ast::BinAndExpressionRight*,4ull>* m_BinAndExpressionRights;
+            };
+            struct DoWhileStatement : public Statement
+            {
+                DoWhileStatement(ERuleType t = e_RuleType_DoWhileStatement)
+                : Statement(t)
+                , m_BlockStatement(nullptr)
+                , m_PAREN_START(nullptr)
+                , m_Expression(nullptr)
+                {
+                }
+                phantom::lang::ast::Statement* m_BlockStatement;
+                char const* m_PAREN_START;
+                phantom::lang::ast::Expression* m_Expression;
+            };
+            struct EqualityExpression : public Expression
+            {
+                EqualityExpression(ERuleType t = e_RuleType_EqualityExpression)
+                : Expression(t)
+                , m_LeftExpression(nullptr)
+                , m_EqualityExpressionRights(nullptr)
+                {
+                }
+                phantom::lang::ast::Expression* m_LeftExpression;
+                phantom::SmallVector<phantom::lang::ast::EqualityExpressionRight*,4ull>* m_EqualityExpressionRights;
             };
             struct StatementOrCase : public Statement
             {
@@ -2398,16 +2391,16 @@ namespace phantom
                 phantom::lang::ast::Statement* m_DefaultStatement;
                 phantom::lang::ast::Statement* m_Statement;
             };
-            struct AddExpression : public Expression
+            struct RelationalExpression : public Expression
             {
-                AddExpression(ERuleType t = e_RuleType_AddExpression)
+                RelationalExpression(ERuleType t = e_RuleType_RelationalExpression)
                 : Expression(t)
                 , m_LeftExpression(nullptr)
-                , m_AddExpressionRights(nullptr)
+                , m_RelationalExpressionRights(nullptr)
                 {
                 }
                 phantom::lang::ast::Expression* m_LeftExpression;
-                phantom::SmallVector<phantom::lang::ast::AddExpressionRight*,4ull>* m_AddExpressionRights;
+                phantom::SmallVector<phantom::lang::ast::RelationalExpressionRight*,4ull>* m_RelationalExpressionRights;
             };
             struct MemberWithMetaOrAnnotation : public Member
             {
@@ -2420,16 +2413,16 @@ namespace phantom
                 phantom::SmallVector<phantom::lang::ast::MetaOrAnnotation*,4ull>* m_MetaOrAnnotations;
                 phantom::lang::ast::Member* m_Member;
             };
-            struct MulExpression : public Expression
+            struct ShiftExpression : public Expression
             {
-                MulExpression(ERuleType t = e_RuleType_MulExpression)
+                ShiftExpression(ERuleType t = e_RuleType_ShiftExpression)
                 : Expression(t)
                 , m_LeftExpression(nullptr)
-                , m_MulExpressionRights(nullptr)
+                , m_ShiftExpressionRights(nullptr)
                 {
                 }
                 phantom::lang::ast::Expression* m_LeftExpression;
-                phantom::SmallVector<phantom::lang::ast::MulExpressionRight*,4ull>* m_MulExpressionRights;
+                phantom::SmallVector<phantom::lang::ast::ShiftExpressionRight*,4ull>* m_ShiftExpressionRights;
             };
             struct BasicMemberWithMetaOrAnnotation : public Member
             {
@@ -2441,6 +2434,17 @@ namespace phantom
                 }
                 phantom::SmallVector<phantom::lang::ast::MetaOrAnnotation*,4ull>* m_MetaOrAnnotations;
                 phantom::lang::ast::Member* m_BasicMember;
+            };
+            struct AddExpression : public Expression
+            {
+                AddExpression(ERuleType t = e_RuleType_AddExpression)
+                : Expression(t)
+                , m_LeftExpression(nullptr)
+                , m_AddExpressionRights(nullptr)
+                {
+                }
+                phantom::lang::ast::Expression* m_LeftExpression;
+                phantom::SmallVector<phantom::lang::ast::AddExpressionRight*,4ull>* m_AddExpressionRights;
             };
             struct IfStatement : public Statement
             {
@@ -2456,6 +2460,39 @@ namespace phantom
                 phantom::lang::ast::IfOrWhileCondition* m_Condition;
                 phantom::lang::ast::Statement* m_Then;
                 phantom::lang::ast::Statement* m_Else;
+            };
+            struct MulExpression : public Expression
+            {
+                MulExpression(ERuleType t = e_RuleType_MulExpression)
+                : Expression(t)
+                , m_LeftExpression(nullptr)
+                , m_MulExpressionRights(nullptr)
+                {
+                }
+                phantom::lang::ast::Expression* m_LeftExpression;
+                phantom::SmallVector<phantom::lang::ast::MulExpressionRight*,4ull>* m_MulExpressionRights;
+            };
+            struct CaseStatement : public Statement
+            {
+                CaseStatement(ERuleType t = e_RuleType_CaseStatement)
+                : Statement(t)
+                , m_Expression(nullptr)
+                {
+                }
+                phantom::lang::ast::Expression* m_Expression;
+            };
+            struct ExplicitLocalVariableDecl : public LocalVariableDecl
+            {
+                ExplicitLocalVariableDecl(ERuleType t = e_RuleType_ExplicitLocalVariableDecl)
+                : LocalVariableDecl(t)
+                , m_CONSTs(nullptr)
+                , m_BasicType(nullptr)
+                , m_Declarators(nullptr)
+                {
+                }
+                phantom::SmallVector<spell::any,4ull>* m_CONSTs;
+                phantom::lang::ast::Type* m_BasicType;
+                phantom::SmallVector<phantom::lang::ast::Declarator*,4ull>* m_Declarators;
             };
             struct UnaryExpression : public Expression
             {
@@ -2500,18 +2537,12 @@ namespace phantom
                 }
                 phantom::SmallVector<phantom::lang::ast::Expression*,4ull>* m_AssignExpressionOrInitializerLists;
             };
-            struct ExplicitLocalVariableDecl : public LocalVariableDecl
+            struct DefaultStatement : public Statement
             {
-                ExplicitLocalVariableDecl(ERuleType t = e_RuleType_ExplicitLocalVariableDecl)
-                : LocalVariableDecl(t)
-                , m_CONSTs(nullptr)
-                , m_BasicType(nullptr)
-                , m_Declarators(nullptr)
+                DefaultStatement(ERuleType t = e_RuleType_DefaultStatement)
+                : Statement(t)
                 {
                 }
-                phantom::SmallVector<spell::any,4ull>* m_CONSTs;
-                phantom::lang::ast::Type* m_BasicType;
-                phantom::SmallVector<phantom::lang::ast::Declarator*,4ull>* m_Declarators;
             };
             struct ArrayAccess : public Expression
             {
@@ -2549,14 +2580,18 @@ namespace phantom
                 phantom::lang::ast::Expression* m_Expression;
                 phantom::SmallVector<phantom::lang::ast::PostFixEnd*,4ull>* m_PostFixEnds;
             };
-            struct CaseStatement : public Statement
+            struct AutoLocalVariableDecl : public LocalVariableDecl
             {
-                CaseStatement(ERuleType t = e_RuleType_CaseStatement)
-                : Statement(t)
-                , m_Expression(nullptr)
+                AutoLocalVariableDecl(ERuleType t = e_RuleType_AutoLocalVariableDecl)
+                : LocalVariableDecl(t)
+                , m_CONSTs(nullptr)
+                , m_Auto(nullptr)
+                , m_AutoDeclarators(nullptr)
                 {
                 }
-                phantom::lang::ast::Expression* m_Expression;
+                phantom::SmallVector<spell::any,4ull>* m_CONSTs;
+                phantom::lang::ast::Type* m_Auto;
+                phantom::SmallVector<phantom::lang::ast::AutoDeclarator*,4ull>* m_AutoDeclarators;
             };
             struct CStyleCastExpression : public Expression
             {
@@ -2588,18 +2623,14 @@ namespace phantom
                 phantom::lang::ast::Type* m_Type;
                 phantom::lang::ast::Type* m_Type0;
             };
-            struct AutoLocalVariableDecl : public LocalVariableDecl
+            struct LabelStatement : public Statement
             {
-                AutoLocalVariableDecl(ERuleType t = e_RuleType_AutoLocalVariableDecl)
-                : LocalVariableDecl(t)
-                , m_CONSTs(nullptr)
-                , m_Auto(nullptr)
-                , m_AutoDeclarators(nullptr)
+                LabelStatement(ERuleType t = e_RuleType_LabelStatement)
+                : Statement(t)
+                , m_IDENTIFIER(nullptr)
                 {
                 }
-                phantom::SmallVector<spell::any,4ull>* m_CONSTs;
-                phantom::lang::ast::Type* m_Auto;
-                phantom::SmallVector<phantom::lang::ast::AutoDeclarator*,4ull>* m_AutoDeclarators;
+                char const* m_IDENTIFIER;
             };
             struct AssertStatement : public Statement
             {
@@ -2645,6 +2676,28 @@ namespace phantom
                 char const* m_SIZEOF;
                 char const* m_PAREN_START;
                 phantom::lang::ast::Type* m_Type;
+            };
+            struct TypeofExpression : public Expression
+            {
+                TypeofExpression(ERuleType t = e_RuleType_TypeofExpression)
+                : Expression(t)
+                , m_TYPEOF(nullptr)
+                , m_PAREN_START(nullptr)
+                , m_Type(nullptr)
+                {
+                }
+                char const* m_TYPEOF;
+                char const* m_PAREN_START;
+                phantom::lang::ast::Type* m_Type;
+            };
+            struct LocalVariableStatement : public Statement
+            {
+                LocalVariableStatement(ERuleType t = e_RuleType_LocalVariableStatement)
+                : Statement(t)
+                , m_LocalVariableDecl(nullptr)
+                {
+                }
+                phantom::lang::ast::LocalVariableDecl* m_LocalVariableDecl;
             };
             struct LastTemplateArgumentAssign : public LastTemplateArgument
             {
@@ -2996,23 +3049,23 @@ namespace phantom
                         if (input->m_Statements) if(!traverse(input->m_Statements)) return false;
                         return end(input);
                     }
-                    inline bool visit(IfOrWhileLocalVariableDecls* input) { return static_cast<T*>(this)->visitIfOrWhileLocalVariableDecls(input); }
-                    inline bool end(IfOrWhileLocalVariableDecls* input) { return static_cast<T*>(this)->endIfOrWhileLocalVariableDecls(input); }
-                    inline bool traverse(IfOrWhileLocalVariableDecls* input) { return static_cast<T*>(this)->traverseIfOrWhileLocalVariableDecls(input); }
-                    inline bool visitIfOrWhileLocalVariableDecls(IfOrWhileLocalVariableDecls* input) { return true; }
-                    inline bool endIfOrWhileLocalVariableDecls(IfOrWhileLocalVariableDecls* input) { return true; }
-                    inline bool visit(IfOrWhileLocalVariableDecl* input) { return static_cast<T*>(this)->visitIfOrWhileLocalVariableDecl(input); }
-                    inline bool end(IfOrWhileLocalVariableDecl* input) { return static_cast<T*>(this)->endIfOrWhileLocalVariableDecl(input); }
-                    inline bool traverse(IfOrWhileLocalVariableDecl* input) { return static_cast<T*>(this)->traverseIfOrWhileLocalVariableDecl(input); }
-                    inline bool visitIfOrWhileLocalVariableDecl(IfOrWhileLocalVariableDecl* input) { return true; }
-                    inline bool endIfOrWhileLocalVariableDecl(IfOrWhileLocalVariableDecl* input) { return true; }
-                    bool traverseIfOrWhileLocalVariableDecls(IfOrWhileLocalVariableDecls* input)
+                    inline bool visit(ForeachSignatures* input) { return static_cast<T*>(this)->visitForeachSignatures(input); }
+                    inline bool end(ForeachSignatures* input) { return static_cast<T*>(this)->endForeachSignatures(input); }
+                    inline bool traverse(ForeachSignatures* input) { return static_cast<T*>(this)->traverseForeachSignatures(input); }
+                    inline bool visitForeachSignatures(ForeachSignatures* input) { return true; }
+                    inline bool endForeachSignatures(ForeachSignatures* input) { return true; }
+                    inline bool visit(ForeachSignature* input) { return static_cast<T*>(this)->visitForeachSignature(input); }
+                    inline bool end(ForeachSignature* input) { return static_cast<T*>(this)->endForeachSignature(input); }
+                    inline bool traverse(ForeachSignature* input) { return static_cast<T*>(this)->traverseForeachSignature(input); }
+                    inline bool visitForeachSignature(ForeachSignature* input) { return true; }
+                    inline bool endForeachSignature(ForeachSignature* input) { return true; }
+                    bool traverseForeachSignatures(ForeachSignatures* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseIfOrWhileLocalVariableDecl(IfOrWhileLocalVariableDecl* input)
+                    bool traverseForeachSignature(ForeachSignature* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
@@ -3118,6 +3171,29 @@ namespace phantom
                         if (input->m_InitializerList) if(!traverse(input->m_InitializerList)) return false;
                         return end(input);
                     }
+                    inline bool visit(ArrowReturns* input) { return static_cast<T*>(this)->visitArrowReturns(input); }
+                    inline bool end(ArrowReturns* input) { return static_cast<T*>(this)->endArrowReturns(input); }
+                    inline bool traverse(ArrowReturns* input) { return static_cast<T*>(this)->traverseArrowReturns(input); }
+                    inline bool visitArrowReturns(ArrowReturns* input) { return true; }
+                    inline bool endArrowReturns(ArrowReturns* input) { return true; }
+                    inline bool visit(ArrowReturn* input) { return static_cast<T*>(this)->visitArrowReturn(input); }
+                    inline bool end(ArrowReturn* input) { return static_cast<T*>(this)->endArrowReturn(input); }
+                    inline bool traverse(ArrowReturn* input) { return static_cast<T*>(this)->traverseArrowReturn(input); }
+                    inline bool visitArrowReturn(ArrowReturn* input) { return true; }
+                    inline bool endArrowReturn(ArrowReturn* input) { return true; }
+                    bool traverseArrowReturns(ArrowReturns* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseArrowReturn(ArrowReturn* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_Type) if(!traverse(input->m_Type)) return false;
+                        return end(input);
+                    }
                     inline bool visit(FunctionEnds* input) { return static_cast<T*>(this)->visitFunctionEnds(input); }
                     inline bool end(FunctionEnds* input) { return static_cast<T*>(this)->endFunctionEnds(input); }
                     inline bool traverse(FunctionEnds* input) { return static_cast<T*>(this)->traverseFunctionEnds(input); }
@@ -3139,6 +3215,7 @@ namespace phantom
                         assert(input); 
                         if (!visit(input)) return false;
                         if (input->m_Parameters) if(!traverse(input->m_Parameters)) return false;
+                        if (input->m_ArrowReturn) if(!traverse(input->m_ArrowReturn)) return false;
                         if (input->m_FunctionBlock) if(!traverse(input->m_FunctionBlock)) return false;
                         return end(input);
                     }
@@ -3340,51 +3417,27 @@ namespace phantom
                             }
                         }
                     }
-                    inline bool visit(IfOrWhileConditions* input) { return static_cast<T*>(this)->visitIfOrWhileConditions(input); }
-                    inline bool end(IfOrWhileConditions* input) { return static_cast<T*>(this)->endIfOrWhileConditions(input); }
-                    inline bool traverse(IfOrWhileConditions* input) { return static_cast<T*>(this)->traverseIfOrWhileConditions(input); }
-                    inline bool visitIfOrWhileConditions(IfOrWhileConditions* input) { return true; }
-                    inline bool endIfOrWhileConditions(IfOrWhileConditions* input) { return true; }
-                    inline bool visit(IfOrWhileCondition* input) { return static_cast<T*>(this)->visitIfOrWhileCondition(input); }
-                    inline bool end(IfOrWhileCondition* input) { return static_cast<T*>(this)->endIfOrWhileCondition(input); }
-                    inline bool traverse(IfOrWhileCondition* input) { return static_cast<T*>(this)->traverseIfOrWhileCondition(input); }
-                    inline bool visitIfOrWhileCondition(IfOrWhileCondition* input) { return true; }
-                    inline bool endIfOrWhileCondition(IfOrWhileCondition* input) { return true; }
-                    bool traverseIfOrWhileConditions(IfOrWhileConditions* input)
+                    inline bool visit(ForInits* input) { return static_cast<T*>(this)->visitForInits(input); }
+                    inline bool end(ForInits* input) { return static_cast<T*>(this)->endForInits(input); }
+                    inline bool traverse(ForInits* input) { return static_cast<T*>(this)->traverseForInits(input); }
+                    inline bool visitForInits(ForInits* input) { return true; }
+                    inline bool endForInits(ForInits* input) { return true; }
+                    inline bool visit(ForInit* input) { return static_cast<T*>(this)->visitForInit(input); }
+                    inline bool end(ForInit* input) { return static_cast<T*>(this)->endForInit(input); }
+                    inline bool traverse(ForInit* input) { return static_cast<T*>(this)->traverseForInit(input); }
+                    inline bool visitForInit(ForInit* input) { return true; }
+                    inline bool endForInit(ForInit* input) { return true; }
+                    bool traverseForInits(ForInits* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseIfOrWhileCondition(IfOrWhileCondition* input)
+                    bool traverseForInit(ForInit* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_IfOrWhileLocalVariableDecl) if(!traverse(input->m_IfOrWhileLocalVariableDecl)) return false;
-                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(ForeachSignatures* input) { return static_cast<T*>(this)->visitForeachSignatures(input); }
-                    inline bool end(ForeachSignatures* input) { return static_cast<T*>(this)->endForeachSignatures(input); }
-                    inline bool traverse(ForeachSignatures* input) { return static_cast<T*>(this)->traverseForeachSignatures(input); }
-                    inline bool visitForeachSignatures(ForeachSignatures* input) { return true; }
-                    inline bool endForeachSignatures(ForeachSignatures* input) { return true; }
-                    inline bool visit(ForeachSignature* input) { return static_cast<T*>(this)->visitForeachSignature(input); }
-                    inline bool end(ForeachSignature* input) { return static_cast<T*>(this)->endForeachSignature(input); }
-                    inline bool traverse(ForeachSignature* input) { return static_cast<T*>(this)->traverseForeachSignature(input); }
-                    inline bool visitForeachSignature(ForeachSignature* input) { return true; }
-                    inline bool endForeachSignature(ForeachSignature* input) { return true; }
-                    bool traverseForeachSignatures(ForeachSignatures* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseForeachSignature(ForeachSignature* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_TypeOrAuto) if(!traverse(input->m_TypeOrAuto)) return false;
+                        if (input->m_LocalVariableDecl) if(!traverse(input->m_LocalVariableDecl)) return false;
                         if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
                         return end(input);
                     }
@@ -3514,6 +3567,33 @@ namespace phantom
                     {
                         assert(input); 
                         if (!visit(input)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(Declarators* input) { return static_cast<T*>(this)->visitDeclarators(input); }
+                    inline bool end(Declarators* input) { return static_cast<T*>(this)->endDeclarators(input); }
+                    inline bool traverse(Declarators* input) { return static_cast<T*>(this)->traverseDeclarators(input); }
+                    inline bool visitDeclarators(Declarators* input) { return true; }
+                    inline bool endDeclarators(Declarators* input) { return true; }
+                    inline bool visit(Declarator* input) { return static_cast<T*>(this)->visitDeclarator(input); }
+                    inline bool end(Declarator* input) { return static_cast<T*>(this)->endDeclarator(input); }
+                    inline bool traverse(Declarator* input) { return static_cast<T*>(this)->traverseDeclarator(input); }
+                    inline bool visitDeclarator(Declarator* input) { return true; }
+                    inline bool endDeclarator(Declarator* input) { return true; }
+                    bool traverseDeclarators(Declarators* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseDeclarator(Declarator* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_TypeExtents) if(!traverse(input->m_TypeExtents)) return false;
+                        if (input->m_ArrayExtents) if(!traverse(input->m_ArrayExtents)) return false;
+                        if (input->m_AssignExpressionOrInitializerList) if(!traverse(input->m_AssignExpressionOrInitializerList)) return false;
+                        if (input->m_CallList) if(!traverse(input->m_CallList)) return false;
+                        if (input->m_InitializerList) if(!traverse(input->m_InitializerList)) return false;
                         return end(input);
                     }
                     inline bool visit(TemplateArgumentListSplits* input) { return static_cast<T*>(this)->visitTemplateArgumentListSplits(input); }
@@ -3653,33 +3733,6 @@ namespace phantom
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(Declarators* input) { return static_cast<T*>(this)->visitDeclarators(input); }
-                    inline bool end(Declarators* input) { return static_cast<T*>(this)->endDeclarators(input); }
-                    inline bool traverse(Declarators* input) { return static_cast<T*>(this)->traverseDeclarators(input); }
-                    inline bool visitDeclarators(Declarators* input) { return true; }
-                    inline bool endDeclarators(Declarators* input) { return true; }
-                    inline bool visit(Declarator* input) { return static_cast<T*>(this)->visitDeclarator(input); }
-                    inline bool end(Declarator* input) { return static_cast<T*>(this)->endDeclarator(input); }
-                    inline bool traverse(Declarator* input) { return static_cast<T*>(this)->traverseDeclarator(input); }
-                    inline bool visitDeclarator(Declarator* input) { return true; }
-                    inline bool endDeclarator(Declarator* input) { return true; }
-                    bool traverseDeclarators(Declarators* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseDeclarator(Declarator* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_TypeExtents) if(!traverse(input->m_TypeExtents)) return false;
-                        if (input->m_ArrayExtents) if(!traverse(input->m_ArrayExtents)) return false;
-                        if (input->m_AssignExpressionOrInitializerList) if(!traverse(input->m_AssignExpressionOrInitializerList)) return false;
-                        if (input->m_CallList) if(!traverse(input->m_CallList)) return false;
-                        if (input->m_InitializerList) if(!traverse(input->m_InitializerList)) return false;
                         return end(input);
                     }
                     inline bool visit(AutoDeclarators* input) { return static_cast<T*>(this)->visitAutoDeclarators(input); }
@@ -3936,6 +3989,29 @@ namespace phantom
                         if (input->m_RightExpression) if(!traverse(input->m_RightExpression)) return false;
                         return end(input);
                     }
+                    inline bool visit(RelationalExpressionRights* input) { return static_cast<T*>(this)->visitRelationalExpressionRights(input); }
+                    inline bool end(RelationalExpressionRights* input) { return static_cast<T*>(this)->endRelationalExpressionRights(input); }
+                    inline bool traverse(RelationalExpressionRights* input) { return static_cast<T*>(this)->traverseRelationalExpressionRights(input); }
+                    inline bool visitRelationalExpressionRights(RelationalExpressionRights* input) { return true; }
+                    inline bool endRelationalExpressionRights(RelationalExpressionRights* input) { return true; }
+                    inline bool visit(RelationalExpressionRight* input) { return static_cast<T*>(this)->visitRelationalExpressionRight(input); }
+                    inline bool end(RelationalExpressionRight* input) { return static_cast<T*>(this)->endRelationalExpressionRight(input); }
+                    inline bool traverse(RelationalExpressionRight* input) { return static_cast<T*>(this)->traverseRelationalExpressionRight(input); }
+                    inline bool visitRelationalExpressionRight(RelationalExpressionRight* input) { return true; }
+                    inline bool endRelationalExpressionRight(RelationalExpressionRight* input) { return true; }
+                    bool traverseRelationalExpressionRights(RelationalExpressionRights* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseRelationalExpressionRight(RelationalExpressionRight* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_RightExpression) if(!traverse(input->m_RightExpression)) return false;
+                        return end(input);
+                    }
                     inline bool visit(Types* input) { return static_cast<T*>(this)->visitTypes(input); }
                     inline bool end(Types* input) { return static_cast<T*>(this)->endTypes(input); }
                     inline bool traverse(Types* input) { return static_cast<T*>(this)->traverseTypes(input); }
@@ -3981,29 +4057,6 @@ namespace phantom
                                 return end(input);
                             }
                         }
-                    }
-                    inline bool visit(RelationalExpressionRights* input) { return static_cast<T*>(this)->visitRelationalExpressionRights(input); }
-                    inline bool end(RelationalExpressionRights* input) { return static_cast<T*>(this)->endRelationalExpressionRights(input); }
-                    inline bool traverse(RelationalExpressionRights* input) { return static_cast<T*>(this)->traverseRelationalExpressionRights(input); }
-                    inline bool visitRelationalExpressionRights(RelationalExpressionRights* input) { return true; }
-                    inline bool endRelationalExpressionRights(RelationalExpressionRights* input) { return true; }
-                    inline bool visit(RelationalExpressionRight* input) { return static_cast<T*>(this)->visitRelationalExpressionRight(input); }
-                    inline bool end(RelationalExpressionRight* input) { return static_cast<T*>(this)->endRelationalExpressionRight(input); }
-                    inline bool traverse(RelationalExpressionRight* input) { return static_cast<T*>(this)->traverseRelationalExpressionRight(input); }
-                    inline bool visitRelationalExpressionRight(RelationalExpressionRight* input) { return true; }
-                    inline bool endRelationalExpressionRight(RelationalExpressionRight* input) { return true; }
-                    bool traverseRelationalExpressionRights(RelationalExpressionRights* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseRelationalExpressionRight(RelationalExpressionRight* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_RightExpression) if(!traverse(input->m_RightExpression)) return false;
-                        return end(input);
                     }
                     inline bool visit(ShiftExpressionRights* input) { return static_cast<T*>(this)->visitShiftExpressionRights(input); }
                     inline bool end(ShiftExpressionRights* input) { return static_cast<T*>(this)->endShiftExpressionRights(input); }
@@ -4144,30 +4197,6 @@ namespace phantom
                         if (input->m_AssignExpressionOrInitializerLists) if(!traverse(input->m_AssignExpressionOrInitializerLists)) return false;
                         return end(input);
                     }
-                    inline bool visit(ArrayExtentExpressions* input) { return static_cast<T*>(this)->visitArrayExtentExpressions(input); }
-                    inline bool end(ArrayExtentExpressions* input) { return static_cast<T*>(this)->endArrayExtentExpressions(input); }
-                    inline bool traverse(ArrayExtentExpressions* input) { return static_cast<T*>(this)->traverseArrayExtentExpressions(input); }
-                    inline bool visitArrayExtentExpressions(ArrayExtentExpressions* input) { return true; }
-                    inline bool endArrayExtentExpressions(ArrayExtentExpressions* input) { return true; }
-                    inline bool visit(ArrayExtentExpression* input) { return static_cast<T*>(this)->visitArrayExtentExpression(input); }
-                    inline bool end(ArrayExtentExpression* input) { return static_cast<T*>(this)->endArrayExtentExpression(input); }
-                    inline bool traverse(ArrayExtentExpression* input) { return static_cast<T*>(this)->traverseArrayExtentExpression(input); }
-                    inline bool visitArrayExtentExpression(ArrayExtentExpression* input) { return true; }
-                    inline bool endArrayExtentExpression(ArrayExtentExpression* input) { return true; }
-                    bool traverseArrayExtentExpressions(ArrayExtentExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseArrayExtentExpression(ArrayExtentExpression* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_IntegralConstant) if(!traverse(input->m_IntegralConstant)) return false;
-                        if (input->m_AssignExpression) if(!traverse(input->m_AssignExpression)) return false;
-                        return end(input);
-                    }
                     inline bool visit(PostFixEnds* input) { return static_cast<T*>(this)->visitPostFixEnds(input); }
                     inline bool end(PostFixEnds* input) { return static_cast<T*>(this)->endPostFixEnds(input); }
                     inline bool traverse(PostFixEnds* input) { return static_cast<T*>(this)->traversePostFixEnds(input); }
@@ -4192,6 +4221,30 @@ namespace phantom
                         if (input->m_ArrayAccess) if(!traverse(input->m_ArrayAccess)) return false;
                         if (input->m_InitializerList) if(!traverse(input->m_InitializerList)) return false;
                         if (input->m_Name) if(!traverse(input->m_Name)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(ArrayExtentExpressions* input) { return static_cast<T*>(this)->visitArrayExtentExpressions(input); }
+                    inline bool end(ArrayExtentExpressions* input) { return static_cast<T*>(this)->endArrayExtentExpressions(input); }
+                    inline bool traverse(ArrayExtentExpressions* input) { return static_cast<T*>(this)->traverseArrayExtentExpressions(input); }
+                    inline bool visitArrayExtentExpressions(ArrayExtentExpressions* input) { return true; }
+                    inline bool endArrayExtentExpressions(ArrayExtentExpressions* input) { return true; }
+                    inline bool visit(ArrayExtentExpression* input) { return static_cast<T*>(this)->visitArrayExtentExpression(input); }
+                    inline bool end(ArrayExtentExpression* input) { return static_cast<T*>(this)->endArrayExtentExpression(input); }
+                    inline bool traverse(ArrayExtentExpression* input) { return static_cast<T*>(this)->traverseArrayExtentExpression(input); }
+                    inline bool visitArrayExtentExpression(ArrayExtentExpression* input) { return true; }
+                    inline bool endArrayExtentExpression(ArrayExtentExpression* input) { return true; }
+                    bool traverseArrayExtentExpressions(ArrayExtentExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseArrayExtentExpression(ArrayExtentExpression* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_IntegralConstant) if(!traverse(input->m_IntegralConstant)) return false;
+                        if (input->m_AssignExpression) if(!traverse(input->m_AssignExpression)) return false;
                         return end(input);
                     }
                     inline bool visit(StaticAsserts* input) { return static_cast<T*>(this)->visitStaticAsserts(input); }
@@ -4239,28 +4292,52 @@ namespace phantom
                         if (!visit(input)) return false;
                         return end(input);
                     }
-                    inline bool visit(Unions* input) { return static_cast<T*>(this)->visitUnions(input); }
-                    inline bool end(Unions* input) { return static_cast<T*>(this)->endUnions(input); }
-                    inline bool traverse(Unions* input) { return static_cast<T*>(this)->traverseUnions(input); }
-                    inline bool visitUnions(Unions* input) { return true; }
-                    inline bool endUnions(Unions* input) { return true; }
-                    inline bool visit(Union* input) { return static_cast<T*>(this)->visitUnion(input); }
-                    inline bool end(Union* input) { return static_cast<T*>(this)->endUnion(input); }
-                    inline bool traverse(Union* input) { return static_cast<T*>(this)->traverseUnion(input); }
-                    inline bool visitUnion(Union* input) { return true; }
-                    inline bool endUnion(Union* input) { return true; }
-                    bool traverseUnions(Unions* input)
+                    inline bool visit(LambdaCaptures* input) { return static_cast<T*>(this)->visitLambdaCaptures(input); }
+                    inline bool end(LambdaCaptures* input) { return static_cast<T*>(this)->endLambdaCaptures(input); }
+                    inline bool traverse(LambdaCaptures* input) { return static_cast<T*>(this)->traverseLambdaCaptures(input); }
+                    inline bool visitLambdaCaptures(LambdaCaptures* input) { return true; }
+                    inline bool endLambdaCaptures(LambdaCaptures* input) { return true; }
+                    inline bool visit(LambdaCapture* input) { return static_cast<T*>(this)->visitLambdaCapture(input); }
+                    inline bool end(LambdaCapture* input) { return static_cast<T*>(this)->endLambdaCapture(input); }
+                    inline bool traverse(LambdaCapture* input) { return static_cast<T*>(this)->traverseLambdaCapture(input); }
+                    inline bool visitLambdaCapture(LambdaCapture* input) { return true; }
+                    inline bool endLambdaCapture(LambdaCapture* input) { return true; }
+                    bool traverseLambdaCaptures(LambdaCaptures* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseUnion(Union* input)
+                    bool traverseLambdaCapture(LambdaCapture* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_TemplateArgumentList) if(!traverse(input->m_TemplateArgumentList)) return false;
-                        if (input->m_BasicMembers) if(!traverse(input->m_BasicMembers)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(LambdaExpressions* input) { return static_cast<T*>(this)->visitLambdaExpressions(input); }
+                    inline bool end(LambdaExpressions* input) { return static_cast<T*>(this)->endLambdaExpressions(input); }
+                    inline bool traverse(LambdaExpressions* input) { return static_cast<T*>(this)->traverseLambdaExpressions(input); }
+                    inline bool visitLambdaExpressions(LambdaExpressions* input) { return true; }
+                    inline bool endLambdaExpressions(LambdaExpressions* input) { return true; }
+                    inline bool visit(LambdaExpression* input) { return static_cast<T*>(this)->visitLambdaExpression(input); }
+                    inline bool end(LambdaExpression* input) { return static_cast<T*>(this)->endLambdaExpression(input); }
+                    inline bool traverse(LambdaExpression* input) { return static_cast<T*>(this)->traverseLambdaExpression(input); }
+                    inline bool visitLambdaExpression(LambdaExpression* input) { return true; }
+                    inline bool endLambdaExpression(LambdaExpression* input) { return true; }
+                    bool traverseLambdaExpressions(LambdaExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseLambdaExpression(LambdaExpression* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_LambdaCaptures) if(!traverse(input->m_LambdaCaptures)) return false;
+                        if (input->m_ArrowReturn) if(!traverse(input->m_ArrowReturn)) return false;
+                        if (input->m_Parameters) if(!traverse(input->m_Parameters)) return false;
+                        if (input->m_FunctionBlock) if(!traverse(input->m_FunctionBlock)) return false;
                         return end(input);
                     }
                     inline bool visit(TypeExtents* input) { return static_cast<T*>(this)->visitTypeExtents(input); }
@@ -4726,28 +4803,28 @@ namespace phantom
                         if (input->m_Members) if(!traverse(input->m_Members)) return false;
                         return end(input);
                     }
-                    inline bool visit(ForInits* input) { return static_cast<T*>(this)->visitForInits(input); }
-                    inline bool end(ForInits* input) { return static_cast<T*>(this)->endForInits(input); }
-                    inline bool traverse(ForInits* input) { return static_cast<T*>(this)->traverseForInits(input); }
-                    inline bool visitForInits(ForInits* input) { return true; }
-                    inline bool endForInits(ForInits* input) { return true; }
-                    inline bool visit(ForInit* input) { return static_cast<T*>(this)->visitForInit(input); }
-                    inline bool end(ForInit* input) { return static_cast<T*>(this)->endForInit(input); }
-                    inline bool traverse(ForInit* input) { return static_cast<T*>(this)->traverseForInit(input); }
-                    inline bool visitForInit(ForInit* input) { return true; }
-                    inline bool endForInit(ForInit* input) { return true; }
-                    bool traverseForInits(ForInits* input)
+                    inline bool visit(Unions* input) { return static_cast<T*>(this)->visitUnions(input); }
+                    inline bool end(Unions* input) { return static_cast<T*>(this)->endUnions(input); }
+                    inline bool traverse(Unions* input) { return static_cast<T*>(this)->traverseUnions(input); }
+                    inline bool visitUnions(Unions* input) { return true; }
+                    inline bool endUnions(Unions* input) { return true; }
+                    inline bool visit(Union* input) { return static_cast<T*>(this)->visitUnion(input); }
+                    inline bool end(Union* input) { return static_cast<T*>(this)->endUnion(input); }
+                    inline bool traverse(Union* input) { return static_cast<T*>(this)->traverseUnion(input); }
+                    inline bool visitUnion(Union* input) { return true; }
+                    inline bool endUnion(Union* input) { return true; }
+                    bool traverseUnions(Unions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseForInit(ForInit* input)
+                    bool traverseUnion(Union* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_LocalVariableDecl) if(!traverse(input->m_LocalVariableDecl)) return false;
-                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
+                        if (input->m_TemplateArgumentList) if(!traverse(input->m_TemplateArgumentList)) return false;
+                        if (input->m_BasicMembers) if(!traverse(input->m_BasicMembers)) return false;
                         return end(input);
                     }
                     inline bool visit(Methods* input) { return static_cast<T*>(this)->visitMethods(input); }
@@ -4903,6 +4980,54 @@ namespace phantom
                             }
                         }
                     }
+                    inline bool visit(IfOrWhileLocalVariableDecls* input) { return static_cast<T*>(this)->visitIfOrWhileLocalVariableDecls(input); }
+                    inline bool end(IfOrWhileLocalVariableDecls* input) { return static_cast<T*>(this)->endIfOrWhileLocalVariableDecls(input); }
+                    inline bool traverse(IfOrWhileLocalVariableDecls* input) { return static_cast<T*>(this)->traverseIfOrWhileLocalVariableDecls(input); }
+                    inline bool visitIfOrWhileLocalVariableDecls(IfOrWhileLocalVariableDecls* input) { return true; }
+                    inline bool endIfOrWhileLocalVariableDecls(IfOrWhileLocalVariableDecls* input) { return true; }
+                    inline bool visit(IfOrWhileLocalVariableDecl* input) { return static_cast<T*>(this)->visitIfOrWhileLocalVariableDecl(input); }
+                    inline bool end(IfOrWhileLocalVariableDecl* input) { return static_cast<T*>(this)->endIfOrWhileLocalVariableDecl(input); }
+                    inline bool traverse(IfOrWhileLocalVariableDecl* input) { return static_cast<T*>(this)->traverseIfOrWhileLocalVariableDecl(input); }
+                    inline bool visitIfOrWhileLocalVariableDecl(IfOrWhileLocalVariableDecl* input) { return true; }
+                    inline bool endIfOrWhileLocalVariableDecl(IfOrWhileLocalVariableDecl* input) { return true; }
+                    bool traverseIfOrWhileLocalVariableDecls(IfOrWhileLocalVariableDecls* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseIfOrWhileLocalVariableDecl(IfOrWhileLocalVariableDecl* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_TypeOrAuto) if(!traverse(input->m_TypeOrAuto)) return false;
+                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(IfOrWhileConditions* input) { return static_cast<T*>(this)->visitIfOrWhileConditions(input); }
+                    inline bool end(IfOrWhileConditions* input) { return static_cast<T*>(this)->endIfOrWhileConditions(input); }
+                    inline bool traverse(IfOrWhileConditions* input) { return static_cast<T*>(this)->traverseIfOrWhileConditions(input); }
+                    inline bool visitIfOrWhileConditions(IfOrWhileConditions* input) { return true; }
+                    inline bool endIfOrWhileConditions(IfOrWhileConditions* input) { return true; }
+                    inline bool visit(IfOrWhileCondition* input) { return static_cast<T*>(this)->visitIfOrWhileCondition(input); }
+                    inline bool end(IfOrWhileCondition* input) { return static_cast<T*>(this)->endIfOrWhileCondition(input); }
+                    inline bool traverse(IfOrWhileCondition* input) { return static_cast<T*>(this)->traverseIfOrWhileCondition(input); }
+                    inline bool visitIfOrWhileCondition(IfOrWhileCondition* input) { return true; }
+                    inline bool endIfOrWhileCondition(IfOrWhileCondition* input) { return true; }
+                    bool traverseIfOrWhileConditions(IfOrWhileConditions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseIfOrWhileCondition(IfOrWhileCondition* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_IfOrWhileLocalVariableDecl) if(!traverse(input->m_IfOrWhileLocalVariableDecl)) return false;
+                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
+                        return end(input);
+                    }
                     inline bool visit(BlockDeclarations* input) { return static_cast<T*>(this)->visitBlockDeclarations(input); }
                     inline bool end(BlockDeclarations* input) { return static_cast<T*>(this)->endBlockDeclarations(input); }
                     inline bool traverse(BlockDeclarations* input) { return static_cast<T*>(this)->traverseBlockDeclarations(input); }
@@ -4932,49 +5057,52 @@ namespace phantom
                         if (input->m_Alias0) if(!traverse(input->m_Alias0)) return false;
                         return end(input);
                     }
-                    inline bool visit(TypeofExpressions* input) { return static_cast<T*>(this)->visitTypeofExpressions(input); }
-                    inline bool end(TypeofExpressions* input) { return static_cast<T*>(this)->endTypeofExpressions(input); }
-                    inline bool traverse(TypeofExpressions* input) { return static_cast<T*>(this)->traverseTypeofExpressions(input); }
-                    inline bool visitTypeofExpressions(TypeofExpressions* input) { return true; }
-                    inline bool endTypeofExpressions(TypeofExpressions* input) { return true; }
-                    inline bool visit(TypeofExpression* input) { return static_cast<T*>(this)->visitTypeofExpression(input); }
-                    inline bool end(TypeofExpression* input) { return static_cast<T*>(this)->endTypeofExpression(input); }
-                    inline bool traverse(TypeofExpression* input) { return static_cast<T*>(this)->traverseTypeofExpression(input); }
-                    inline bool visitTypeofExpression(TypeofExpression* input) { return true; }
-                    inline bool endTypeofExpression(TypeofExpression* input) { return true; }
-                    bool traverseTypeofExpressions(TypeofExpressions* input)
+                    inline bool visit(FundamentalTypeFunctionCasts* input) { return static_cast<T*>(this)->visitFundamentalTypeFunctionCasts(input); }
+                    inline bool end(FundamentalTypeFunctionCasts* input) { return static_cast<T*>(this)->endFundamentalTypeFunctionCasts(input); }
+                    inline bool traverse(FundamentalTypeFunctionCasts* input) { return static_cast<T*>(this)->traverseFundamentalTypeFunctionCasts(input); }
+                    inline bool visitFundamentalTypeFunctionCasts(FundamentalTypeFunctionCasts* input) { return true; }
+                    inline bool endFundamentalTypeFunctionCasts(FundamentalTypeFunctionCasts* input) { return true; }
+                    inline bool visit(FundamentalTypeFunctionCast* input) { return static_cast<T*>(this)->visitFundamentalTypeFunctionCast(input); }
+                    inline bool end(FundamentalTypeFunctionCast* input) { return static_cast<T*>(this)->endFundamentalTypeFunctionCast(input); }
+                    inline bool traverse(FundamentalTypeFunctionCast* input) { return static_cast<T*>(this)->traverseFundamentalTypeFunctionCast(input); }
+                    inline bool visitFundamentalTypeFunctionCast(FundamentalTypeFunctionCast* input) { return true; }
+                    inline bool endFundamentalTypeFunctionCast(FundamentalTypeFunctionCast* input) { return true; }
+                    bool traverseFundamentalTypeFunctionCasts(FundamentalTypeFunctionCasts* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseTypeofExpression(TypeofExpression* input)
+                    bool traverseFundamentalTypeFunctionCast(FundamentalTypeFunctionCast* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_Type) if(!traverse(input->m_Type)) return false;
+                        if (input->m_FundamentalType) if(!traverse(input->m_FundamentalType)) return false;
+                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
                         return end(input);
                     }
-                    inline bool visit(DefaultStatements* input) { return static_cast<T*>(this)->visitDefaultStatements(input); }
-                    inline bool end(DefaultStatements* input) { return static_cast<T*>(this)->endDefaultStatements(input); }
-                    inline bool traverse(DefaultStatements* input) { return static_cast<T*>(this)->traverseDefaultStatements(input); }
-                    inline bool visitDefaultStatements(DefaultStatements* input) { return true; }
-                    inline bool endDefaultStatements(DefaultStatements* input) { return true; }
-                    inline bool visit(DefaultStatement* input) { return static_cast<T*>(this)->visitDefaultStatement(input); }
-                    inline bool end(DefaultStatement* input) { return static_cast<T*>(this)->endDefaultStatement(input); }
-                    inline bool traverse(DefaultStatement* input) { return static_cast<T*>(this)->traverseDefaultStatement(input); }
-                    inline bool visitDefaultStatement(DefaultStatement* input) { return true; }
-                    inline bool endDefaultStatement(DefaultStatement* input) { return true; }
-                    bool traverseDefaultStatements(DefaultStatements* input)
+                    inline bool visit(ExpressionStatements* input) { return static_cast<T*>(this)->visitExpressionStatements(input); }
+                    inline bool end(ExpressionStatements* input) { return static_cast<T*>(this)->endExpressionStatements(input); }
+                    inline bool traverse(ExpressionStatements* input) { return static_cast<T*>(this)->traverseExpressionStatements(input); }
+                    inline bool visitExpressionStatements(ExpressionStatements* input) { return true; }
+                    inline bool endExpressionStatements(ExpressionStatements* input) { return true; }
+                    inline bool visit(ExpressionStatement* input) { return static_cast<T*>(this)->visitExpressionStatement(input); }
+                    inline bool end(ExpressionStatement* input) { return static_cast<T*>(this)->endExpressionStatement(input); }
+                    inline bool traverse(ExpressionStatement* input) { return static_cast<T*>(this)->traverseExpressionStatement(input); }
+                    inline bool visitExpressionStatement(ExpressionStatement* input) { return true; }
+                    inline bool endExpressionStatement(ExpressionStatement* input) { return true; }
+                    bool traverseExpressionStatements(ExpressionStatements* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseDefaultStatement(DefaultStatement* input)
+                    bool traverseExpressionStatement(ExpressionStatement* input)
                     {
                         assert(input); 
-                        return visit(input) && end(input);
+                        if (!visit(input)) return false;
+                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
+                        return end(input);
                     }
                     inline bool visit(LastTemplateArguments* input) { return static_cast<T*>(this)->visitLastTemplateArguments(input); }
                     inline bool end(LastTemplateArguments* input) { return static_cast<T*>(this)->endLastTemplateArguments(input); }
@@ -5008,28 +5136,28 @@ namespace phantom
                             }
                         }
                     }
-                    inline bool visit(FundamentalTypeFunctionCasts* input) { return static_cast<T*>(this)->visitFundamentalTypeFunctionCasts(input); }
-                    inline bool end(FundamentalTypeFunctionCasts* input) { return static_cast<T*>(this)->endFundamentalTypeFunctionCasts(input); }
-                    inline bool traverse(FundamentalTypeFunctionCasts* input) { return static_cast<T*>(this)->traverseFundamentalTypeFunctionCasts(input); }
-                    inline bool visitFundamentalTypeFunctionCasts(FundamentalTypeFunctionCasts* input) { return true; }
-                    inline bool endFundamentalTypeFunctionCasts(FundamentalTypeFunctionCasts* input) { return true; }
-                    inline bool visit(FundamentalTypeFunctionCast* input) { return static_cast<T*>(this)->visitFundamentalTypeFunctionCast(input); }
-                    inline bool end(FundamentalTypeFunctionCast* input) { return static_cast<T*>(this)->endFundamentalTypeFunctionCast(input); }
-                    inline bool traverse(FundamentalTypeFunctionCast* input) { return static_cast<T*>(this)->traverseFundamentalTypeFunctionCast(input); }
-                    inline bool visitFundamentalTypeFunctionCast(FundamentalTypeFunctionCast* input) { return true; }
-                    inline bool endFundamentalTypeFunctionCast(FundamentalTypeFunctionCast* input) { return true; }
-                    bool traverseFundamentalTypeFunctionCasts(FundamentalTypeFunctionCasts* input)
+                    inline bool visit(SwitchStatements* input) { return static_cast<T*>(this)->visitSwitchStatements(input); }
+                    inline bool end(SwitchStatements* input) { return static_cast<T*>(this)->endSwitchStatements(input); }
+                    inline bool traverse(SwitchStatements* input) { return static_cast<T*>(this)->traverseSwitchStatements(input); }
+                    inline bool visitSwitchStatements(SwitchStatements* input) { return true; }
+                    inline bool endSwitchStatements(SwitchStatements* input) { return true; }
+                    inline bool visit(SwitchStatement* input) { return static_cast<T*>(this)->visitSwitchStatement(input); }
+                    inline bool end(SwitchStatement* input) { return static_cast<T*>(this)->endSwitchStatement(input); }
+                    inline bool traverse(SwitchStatement* input) { return static_cast<T*>(this)->traverseSwitchStatement(input); }
+                    inline bool visitSwitchStatement(SwitchStatement* input) { return true; }
+                    inline bool endSwitchStatement(SwitchStatement* input) { return true; }
+                    bool traverseSwitchStatements(SwitchStatements* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseFundamentalTypeFunctionCast(FundamentalTypeFunctionCast* input)
+                    bool traverseSwitchStatement(SwitchStatement* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_FundamentalType) if(!traverse(input->m_FundamentalType)) return false;
                         if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
+                        if (input->m_StatementOrCases) if(!traverse(input->m_StatementOrCases)) return false;
                         return end(input);
                     }
                     inline bool visit(PrimaryExpressions* input) { return static_cast<T*>(this)->visitPrimaryExpressions(input); }
@@ -5063,6 +5191,7 @@ namespace phantom
                         if (input->m_SpecialCastExpression) if(!traverse(input->m_SpecialCastExpression)) return false;
                         if (input->m_FunctionPtrExpression) if(!traverse(input->m_FunctionPtrExpression)) return false;
                         if (input->m_FundamentalTypeFunctionCast) if(!traverse(input->m_FundamentalTypeFunctionCast)) return false;
+                        if (input->m_LambdaExpression) if(!traverse(input->m_LambdaExpression)) return false;
                         return end(input);
                     }
                     inline bool visit(NotLastTemplateArguments* input) { return static_cast<T*>(this)->visitNotLastTemplateArguments(input); }
@@ -5568,72 +5697,28 @@ namespace phantom
                         if (!visit(input)) return false;
                         return end(input);
                     }
-                    inline bool visit(LocalVariableStatements* input) { return static_cast<T*>(this)->visitLocalVariableStatements(input); }
-                    inline bool end(LocalVariableStatements* input) { return static_cast<T*>(this)->endLocalVariableStatements(input); }
-                    inline bool traverse(LocalVariableStatements* input) { return static_cast<T*>(this)->traverseLocalVariableStatements(input); }
-                    inline bool visitLocalVariableStatements(LocalVariableStatements* input) { return true; }
-                    inline bool endLocalVariableStatements(LocalVariableStatements* input) { return true; }
-                    inline bool visit(LocalVariableStatement* input) { return static_cast<T*>(this)->visitLocalVariableStatement(input); }
-                    inline bool end(LocalVariableStatement* input) { return static_cast<T*>(this)->endLocalVariableStatement(input); }
-                    inline bool traverse(LocalVariableStatement* input) { return static_cast<T*>(this)->traverseLocalVariableStatement(input); }
-                    inline bool visitLocalVariableStatement(LocalVariableStatement* input) { return true; }
-                    inline bool endLocalVariableStatement(LocalVariableStatement* input) { return true; }
-                    bool traverseLocalVariableStatements(LocalVariableStatements* input)
+                    inline bool visit(TypeExtentNoFunctions* input) { return static_cast<T*>(this)->visitTypeExtentNoFunctions(input); }
+                    inline bool end(TypeExtentNoFunctions* input) { return static_cast<T*>(this)->endTypeExtentNoFunctions(input); }
+                    inline bool traverse(TypeExtentNoFunctions* input) { return static_cast<T*>(this)->traverseTypeExtentNoFunctions(input); }
+                    inline bool visitTypeExtentNoFunctions(TypeExtentNoFunctions* input) { return true; }
+                    inline bool endTypeExtentNoFunctions(TypeExtentNoFunctions* input) { return true; }
+                    inline bool visit(TypeExtentNoFunction* input) { return static_cast<T*>(this)->visitTypeExtentNoFunction(input); }
+                    inline bool end(TypeExtentNoFunction* input) { return static_cast<T*>(this)->endTypeExtentNoFunction(input); }
+                    inline bool traverse(TypeExtentNoFunction* input) { return static_cast<T*>(this)->traverseTypeExtentNoFunction(input); }
+                    inline bool visitTypeExtentNoFunction(TypeExtentNoFunction* input) { return true; }
+                    inline bool endTypeExtentNoFunction(TypeExtentNoFunction* input) { return true; }
+                    bool traverseTypeExtentNoFunctions(TypeExtentNoFunctions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseLocalVariableStatement(LocalVariableStatement* input)
+                    bool traverseTypeExtentNoFunction(TypeExtentNoFunction* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_LocalVariableDecl) if(!traverse(input->m_LocalVariableDecl)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(ExpressionStatements* input) { return static_cast<T*>(this)->visitExpressionStatements(input); }
-                    inline bool end(ExpressionStatements* input) { return static_cast<T*>(this)->endExpressionStatements(input); }
-                    inline bool traverse(ExpressionStatements* input) { return static_cast<T*>(this)->traverseExpressionStatements(input); }
-                    inline bool visitExpressionStatements(ExpressionStatements* input) { return true; }
-                    inline bool endExpressionStatements(ExpressionStatements* input) { return true; }
-                    inline bool visit(ExpressionStatement* input) { return static_cast<T*>(this)->visitExpressionStatement(input); }
-                    inline bool end(ExpressionStatement* input) { return static_cast<T*>(this)->endExpressionStatement(input); }
-                    inline bool traverse(ExpressionStatement* input) { return static_cast<T*>(this)->traverseExpressionStatement(input); }
-                    inline bool visitExpressionStatement(ExpressionStatement* input) { return true; }
-                    inline bool endExpressionStatement(ExpressionStatement* input) { return true; }
-                    bool traverseExpressionStatements(ExpressionStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseExpressionStatement(ExpressionStatement* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(LabelStatements* input) { return static_cast<T*>(this)->visitLabelStatements(input); }
-                    inline bool end(LabelStatements* input) { return static_cast<T*>(this)->endLabelStatements(input); }
-                    inline bool traverse(LabelStatements* input) { return static_cast<T*>(this)->traverseLabelStatements(input); }
-                    inline bool visitLabelStatements(LabelStatements* input) { return true; }
-                    inline bool endLabelStatements(LabelStatements* input) { return true; }
-                    inline bool visit(LabelStatement* input) { return static_cast<T*>(this)->visitLabelStatement(input); }
-                    inline bool end(LabelStatement* input) { return static_cast<T*>(this)->endLabelStatement(input); }
-                    inline bool traverse(LabelStatement* input) { return static_cast<T*>(this)->traverseLabelStatement(input); }
-                    inline bool visitLabelStatement(LabelStatement* input) { return true; }
-                    inline bool endLabelStatement(LabelStatement* input) { return true; }
-                    bool traverseLabelStatements(LabelStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseLabelStatement(LabelStatement* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
+                        if (input->m_ArrayExtent) if(!traverse(input->m_ArrayExtent)) return false;
+                        if (input->m_DerivedExtent) if(!traverse(input->m_DerivedExtent)) return false;
                         return end(input);
                     }
                     inline bool visit(AssignExpressions* input) { return static_cast<T*>(this)->visitAssignExpressions(input); }
@@ -5688,28 +5773,27 @@ namespace phantom
                         if (input->m_Else) if(!traverse(input->m_Else)) return false;
                         return end(input);
                     }
-                    inline bool visit(SwitchStatements* input) { return static_cast<T*>(this)->visitSwitchStatements(input); }
-                    inline bool end(SwitchStatements* input) { return static_cast<T*>(this)->endSwitchStatements(input); }
-                    inline bool traverse(SwitchStatements* input) { return static_cast<T*>(this)->traverseSwitchStatements(input); }
-                    inline bool visitSwitchStatements(SwitchStatements* input) { return true; }
-                    inline bool endSwitchStatements(SwitchStatements* input) { return true; }
-                    inline bool visit(SwitchStatement* input) { return static_cast<T*>(this)->visitSwitchStatement(input); }
-                    inline bool end(SwitchStatement* input) { return static_cast<T*>(this)->endSwitchStatement(input); }
-                    inline bool traverse(SwitchStatement* input) { return static_cast<T*>(this)->traverseSwitchStatement(input); }
-                    inline bool visitSwitchStatement(SwitchStatement* input) { return true; }
-                    inline bool endSwitchStatement(SwitchStatement* input) { return true; }
-                    bool traverseSwitchStatements(SwitchStatements* input)
+                    inline bool visit(Friends* input) { return static_cast<T*>(this)->visitFriends(input); }
+                    inline bool end(Friends* input) { return static_cast<T*>(this)->endFriends(input); }
+                    inline bool traverse(Friends* input) { return static_cast<T*>(this)->traverseFriends(input); }
+                    inline bool visitFriends(Friends* input) { return true; }
+                    inline bool endFriends(Friends* input) { return true; }
+                    inline bool visit(Friend* input) { return static_cast<T*>(this)->visitFriend(input); }
+                    inline bool end(Friend* input) { return static_cast<T*>(this)->endFriend(input); }
+                    inline bool traverse(Friend* input) { return static_cast<T*>(this)->traverseFriend(input); }
+                    inline bool visitFriend(Friend* input) { return true; }
+                    inline bool endFriend(Friend* input) { return true; }
+                    bool traverseFriends(Friends* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseSwitchStatement(SwitchStatement* input)
+                    bool traverseFriend(Friend* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
-                        if (input->m_StatementOrCases) if(!traverse(input->m_StatementOrCases)) return false;
+                        if (input->m_QualifiedName) if(!traverse(input->m_QualifiedName)) return false;
                         return end(input);
                     }
                     inline bool visit(LogicalOrExpressions* input) { return static_cast<T*>(this)->visitLogicalOrExpressions(input); }
@@ -5734,295 +5818,6 @@ namespace phantom
                         if (!visit(input)) return false;
                         if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
                         if (input->m_LogicalOrExpressionRights) if(!traverse(input->m_LogicalOrExpressionRights)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(Friends* input) { return static_cast<T*>(this)->visitFriends(input); }
-                    inline bool end(Friends* input) { return static_cast<T*>(this)->endFriends(input); }
-                    inline bool traverse(Friends* input) { return static_cast<T*>(this)->traverseFriends(input); }
-                    inline bool visitFriends(Friends* input) { return true; }
-                    inline bool endFriends(Friends* input) { return true; }
-                    inline bool visit(Friend* input) { return static_cast<T*>(this)->visitFriend(input); }
-                    inline bool end(Friend* input) { return static_cast<T*>(this)->endFriend(input); }
-                    inline bool traverse(Friend* input) { return static_cast<T*>(this)->traverseFriend(input); }
-                    inline bool visitFriend(Friend* input) { return true; }
-                    inline bool endFriend(Friend* input) { return true; }
-                    bool traverseFriends(Friends* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseFriend(Friend* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_QualifiedName) if(!traverse(input->m_QualifiedName)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(LogicalAndExpressions* input) { return static_cast<T*>(this)->visitLogicalAndExpressions(input); }
-                    inline bool end(LogicalAndExpressions* input) { return static_cast<T*>(this)->endLogicalAndExpressions(input); }
-                    inline bool traverse(LogicalAndExpressions* input) { return static_cast<T*>(this)->traverseLogicalAndExpressions(input); }
-                    inline bool visitLogicalAndExpressions(LogicalAndExpressions* input) { return true; }
-                    inline bool endLogicalAndExpressions(LogicalAndExpressions* input) { return true; }
-                    inline bool visit(LogicalAndExpression* input) { return static_cast<T*>(this)->visitLogicalAndExpression(input); }
-                    inline bool end(LogicalAndExpression* input) { return static_cast<T*>(this)->endLogicalAndExpression(input); }
-                    inline bool traverse(LogicalAndExpression* input) { return static_cast<T*>(this)->traverseLogicalAndExpression(input); }
-                    inline bool visitLogicalAndExpression(LogicalAndExpression* input) { return true; }
-                    inline bool endLogicalAndExpression(LogicalAndExpression* input) { return true; }
-                    bool traverseLogicalAndExpressions(LogicalAndExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseLogicalAndExpression(LogicalAndExpression* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
-                        if (input->m_LogicalAndExpressionRights) if(!traverse(input->m_LogicalAndExpressionRights)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(TypeExtentNoFunctions* input) { return static_cast<T*>(this)->visitTypeExtentNoFunctions(input); }
-                    inline bool end(TypeExtentNoFunctions* input) { return static_cast<T*>(this)->endTypeExtentNoFunctions(input); }
-                    inline bool traverse(TypeExtentNoFunctions* input) { return static_cast<T*>(this)->traverseTypeExtentNoFunctions(input); }
-                    inline bool visitTypeExtentNoFunctions(TypeExtentNoFunctions* input) { return true; }
-                    inline bool endTypeExtentNoFunctions(TypeExtentNoFunctions* input) { return true; }
-                    inline bool visit(TypeExtentNoFunction* input) { return static_cast<T*>(this)->visitTypeExtentNoFunction(input); }
-                    inline bool end(TypeExtentNoFunction* input) { return static_cast<T*>(this)->endTypeExtentNoFunction(input); }
-                    inline bool traverse(TypeExtentNoFunction* input) { return static_cast<T*>(this)->traverseTypeExtentNoFunction(input); }
-                    inline bool visitTypeExtentNoFunction(TypeExtentNoFunction* input) { return true; }
-                    inline bool endTypeExtentNoFunction(TypeExtentNoFunction* input) { return true; }
-                    bool traverseTypeExtentNoFunctions(TypeExtentNoFunctions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseTypeExtentNoFunction(TypeExtentNoFunction* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_ArrayExtent) if(!traverse(input->m_ArrayExtent)) return false;
-                        if (input->m_DerivedExtent) if(!traverse(input->m_DerivedExtent)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(BinOrExpressions* input) { return static_cast<T*>(this)->visitBinOrExpressions(input); }
-                    inline bool end(BinOrExpressions* input) { return static_cast<T*>(this)->endBinOrExpressions(input); }
-                    inline bool traverse(BinOrExpressions* input) { return static_cast<T*>(this)->traverseBinOrExpressions(input); }
-                    inline bool visitBinOrExpressions(BinOrExpressions* input) { return true; }
-                    inline bool endBinOrExpressions(BinOrExpressions* input) { return true; }
-                    inline bool visit(BinOrExpression* input) { return static_cast<T*>(this)->visitBinOrExpression(input); }
-                    inline bool end(BinOrExpression* input) { return static_cast<T*>(this)->endBinOrExpression(input); }
-                    inline bool traverse(BinOrExpression* input) { return static_cast<T*>(this)->traverseBinOrExpression(input); }
-                    inline bool visitBinOrExpression(BinOrExpression* input) { return true; }
-                    inline bool endBinOrExpression(BinOrExpression* input) { return true; }
-                    bool traverseBinOrExpressions(BinOrExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseBinOrExpression(BinOrExpression* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
-                        if (input->m_BinOrExpressionRights) if(!traverse(input->m_BinOrExpressionRights)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(ForStatements* input) { return static_cast<T*>(this)->visitForStatements(input); }
-                    inline bool end(ForStatements* input) { return static_cast<T*>(this)->endForStatements(input); }
-                    inline bool traverse(ForStatements* input) { return static_cast<T*>(this)->traverseForStatements(input); }
-                    inline bool visitForStatements(ForStatements* input) { return true; }
-                    inline bool endForStatements(ForStatements* input) { return true; }
-                    inline bool visit(ForStatement* input) { return static_cast<T*>(this)->visitForStatement(input); }
-                    inline bool end(ForStatement* input) { return static_cast<T*>(this)->endForStatement(input); }
-                    inline bool traverse(ForStatement* input) { return static_cast<T*>(this)->traverseForStatement(input); }
-                    inline bool visitForStatement(ForStatement* input) { return true; }
-                    inline bool endForStatement(ForStatement* input) { return true; }
-                    bool traverseForStatements(ForStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseForStatement(ForStatement* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_ForeachSignature) if(!traverse(input->m_ForeachSignature)) return false;
-                        if (input->m_Init) if(!traverse(input->m_Init)) return false;
-                        if (input->m_Test) if(!traverse(input->m_Test)) return false;
-                        if (input->m_Update) if(!traverse(input->m_Update)) return false;
-                        if (input->m_Statement) if(!traverse(input->m_Statement)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(XOrExpressions* input) { return static_cast<T*>(this)->visitXOrExpressions(input); }
-                    inline bool end(XOrExpressions* input) { return static_cast<T*>(this)->endXOrExpressions(input); }
-                    inline bool traverse(XOrExpressions* input) { return static_cast<T*>(this)->traverseXOrExpressions(input); }
-                    inline bool visitXOrExpressions(XOrExpressions* input) { return true; }
-                    inline bool endXOrExpressions(XOrExpressions* input) { return true; }
-                    inline bool visit(XOrExpression* input) { return static_cast<T*>(this)->visitXOrExpression(input); }
-                    inline bool end(XOrExpression* input) { return static_cast<T*>(this)->endXOrExpression(input); }
-                    inline bool traverse(XOrExpression* input) { return static_cast<T*>(this)->traverseXOrExpression(input); }
-                    inline bool visitXOrExpression(XOrExpression* input) { return true; }
-                    inline bool endXOrExpression(XOrExpression* input) { return true; }
-                    bool traverseXOrExpressions(XOrExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseXOrExpression(XOrExpression* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
-                        if (input->m_XOrExpressionRights) if(!traverse(input->m_XOrExpressionRights)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(WhileStatements* input) { return static_cast<T*>(this)->visitWhileStatements(input); }
-                    inline bool end(WhileStatements* input) { return static_cast<T*>(this)->endWhileStatements(input); }
-                    inline bool traverse(WhileStatements* input) { return static_cast<T*>(this)->traverseWhileStatements(input); }
-                    inline bool visitWhileStatements(WhileStatements* input) { return true; }
-                    inline bool endWhileStatements(WhileStatements* input) { return true; }
-                    inline bool visit(WhileStatement* input) { return static_cast<T*>(this)->visitWhileStatement(input); }
-                    inline bool end(WhileStatement* input) { return static_cast<T*>(this)->endWhileStatement(input); }
-                    inline bool traverse(WhileStatement* input) { return static_cast<T*>(this)->traverseWhileStatement(input); }
-                    inline bool visitWhileStatement(WhileStatement* input) { return true; }
-                    inline bool endWhileStatement(WhileStatement* input) { return true; }
-                    bool traverseWhileStatements(WhileStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseWhileStatement(WhileStatement* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_Condition) if(!traverse(input->m_Condition)) return false;
-                        if (input->m_Statement) if(!traverse(input->m_Statement)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(BinAndExpressions* input) { return static_cast<T*>(this)->visitBinAndExpressions(input); }
-                    inline bool end(BinAndExpressions* input) { return static_cast<T*>(this)->endBinAndExpressions(input); }
-                    inline bool traverse(BinAndExpressions* input) { return static_cast<T*>(this)->traverseBinAndExpressions(input); }
-                    inline bool visitBinAndExpressions(BinAndExpressions* input) { return true; }
-                    inline bool endBinAndExpressions(BinAndExpressions* input) { return true; }
-                    inline bool visit(BinAndExpression* input) { return static_cast<T*>(this)->visitBinAndExpression(input); }
-                    inline bool end(BinAndExpression* input) { return static_cast<T*>(this)->endBinAndExpression(input); }
-                    inline bool traverse(BinAndExpression* input) { return static_cast<T*>(this)->traverseBinAndExpression(input); }
-                    inline bool visitBinAndExpression(BinAndExpression* input) { return true; }
-                    inline bool endBinAndExpression(BinAndExpression* input) { return true; }
-                    bool traverseBinAndExpressions(BinAndExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseBinAndExpression(BinAndExpression* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
-                        if (input->m_BinAndExpressionRights) if(!traverse(input->m_BinAndExpressionRights)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(BlockStatements* input) { return static_cast<T*>(this)->visitBlockStatements(input); }
-                    inline bool end(BlockStatements* input) { return static_cast<T*>(this)->endBlockStatements(input); }
-                    inline bool traverse(BlockStatements* input) { return static_cast<T*>(this)->traverseBlockStatements(input); }
-                    inline bool visitBlockStatements(BlockStatements* input) { return true; }
-                    inline bool endBlockStatements(BlockStatements* input) { return true; }
-                    inline bool visit(BlockStatement* input) { return static_cast<T*>(this)->visitBlockStatement(input); }
-                    inline bool end(BlockStatement* input) { return static_cast<T*>(this)->endBlockStatement(input); }
-                    inline bool traverse(BlockStatement* input) { return static_cast<T*>(this)->traverseBlockStatement(input); }
-                    inline bool visitBlockStatement(BlockStatement* input) { return true; }
-                    inline bool endBlockStatement(BlockStatement* input) { return true; }
-                    bool traverseBlockStatements(BlockStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseBlockStatement(BlockStatement* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_Statements) if(!traverse(input->m_Statements)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(EqualityExpressions* input) { return static_cast<T*>(this)->visitEqualityExpressions(input); }
-                    inline bool end(EqualityExpressions* input) { return static_cast<T*>(this)->endEqualityExpressions(input); }
-                    inline bool traverse(EqualityExpressions* input) { return static_cast<T*>(this)->traverseEqualityExpressions(input); }
-                    inline bool visitEqualityExpressions(EqualityExpressions* input) { return true; }
-                    inline bool endEqualityExpressions(EqualityExpressions* input) { return true; }
-                    inline bool visit(EqualityExpression* input) { return static_cast<T*>(this)->visitEqualityExpression(input); }
-                    inline bool end(EqualityExpression* input) { return static_cast<T*>(this)->endEqualityExpression(input); }
-                    inline bool traverse(EqualityExpression* input) { return static_cast<T*>(this)->traverseEqualityExpression(input); }
-                    inline bool visitEqualityExpression(EqualityExpression* input) { return true; }
-                    inline bool endEqualityExpression(EqualityExpression* input) { return true; }
-                    bool traverseEqualityExpressions(EqualityExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseEqualityExpression(EqualityExpression* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
-                        if (input->m_EqualityExpressionRights) if(!traverse(input->m_EqualityExpressionRights)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(DoWhileStatements* input) { return static_cast<T*>(this)->visitDoWhileStatements(input); }
-                    inline bool end(DoWhileStatements* input) { return static_cast<T*>(this)->endDoWhileStatements(input); }
-                    inline bool traverse(DoWhileStatements* input) { return static_cast<T*>(this)->traverseDoWhileStatements(input); }
-                    inline bool visitDoWhileStatements(DoWhileStatements* input) { return true; }
-                    inline bool endDoWhileStatements(DoWhileStatements* input) { return true; }
-                    inline bool visit(DoWhileStatement* input) { return static_cast<T*>(this)->visitDoWhileStatement(input); }
-                    inline bool end(DoWhileStatement* input) { return static_cast<T*>(this)->endDoWhileStatement(input); }
-                    inline bool traverse(DoWhileStatement* input) { return static_cast<T*>(this)->traverseDoWhileStatement(input); }
-                    inline bool visitDoWhileStatement(DoWhileStatement* input) { return true; }
-                    inline bool endDoWhileStatement(DoWhileStatement* input) { return true; }
-                    bool traverseDoWhileStatements(DoWhileStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseDoWhileStatement(DoWhileStatement* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_BlockStatement) if(!traverse(input->m_BlockStatement)) return false;
-                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(RelationalExpressions* input) { return static_cast<T*>(this)->visitRelationalExpressions(input); }
-                    inline bool end(RelationalExpressions* input) { return static_cast<T*>(this)->endRelationalExpressions(input); }
-                    inline bool traverse(RelationalExpressions* input) { return static_cast<T*>(this)->traverseRelationalExpressions(input); }
-                    inline bool visitRelationalExpressions(RelationalExpressions* input) { return true; }
-                    inline bool endRelationalExpressions(RelationalExpressions* input) { return true; }
-                    inline bool visit(RelationalExpression* input) { return static_cast<T*>(this)->visitRelationalExpression(input); }
-                    inline bool end(RelationalExpression* input) { return static_cast<T*>(this)->endRelationalExpression(input); }
-                    inline bool traverse(RelationalExpression* input) { return static_cast<T*>(this)->traverseRelationalExpression(input); }
-                    inline bool visitRelationalExpression(RelationalExpression* input) { return true; }
-                    inline bool endRelationalExpression(RelationalExpression* input) { return true; }
-                    bool traverseRelationalExpressions(RelationalExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseRelationalExpression(RelationalExpression* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
-                        if (input->m_RelationalExpressionRights) if(!traverse(input->m_RelationalExpressionRights)) return false;
                         return end(input);
                     }
                     inline bool visit(BasicMembers* input) { return static_cast<T*>(this)->visitBasicMembers(input); }
@@ -6058,28 +5853,222 @@ namespace phantom
                         if (input->m_Declaration) if(!traverse(input->m_Declaration)) return false;
                         return end(input);
                     }
-                    inline bool visit(ShiftExpressions* input) { return static_cast<T*>(this)->visitShiftExpressions(input); }
-                    inline bool end(ShiftExpressions* input) { return static_cast<T*>(this)->endShiftExpressions(input); }
-                    inline bool traverse(ShiftExpressions* input) { return static_cast<T*>(this)->traverseShiftExpressions(input); }
-                    inline bool visitShiftExpressions(ShiftExpressions* input) { return true; }
-                    inline bool endShiftExpressions(ShiftExpressions* input) { return true; }
-                    inline bool visit(ShiftExpression* input) { return static_cast<T*>(this)->visitShiftExpression(input); }
-                    inline bool end(ShiftExpression* input) { return static_cast<T*>(this)->endShiftExpression(input); }
-                    inline bool traverse(ShiftExpression* input) { return static_cast<T*>(this)->traverseShiftExpression(input); }
-                    inline bool visitShiftExpression(ShiftExpression* input) { return true; }
-                    inline bool endShiftExpression(ShiftExpression* input) { return true; }
-                    bool traverseShiftExpressions(ShiftExpressions* input)
+                    inline bool visit(LogicalAndExpressions* input) { return static_cast<T*>(this)->visitLogicalAndExpressions(input); }
+                    inline bool end(LogicalAndExpressions* input) { return static_cast<T*>(this)->endLogicalAndExpressions(input); }
+                    inline bool traverse(LogicalAndExpressions* input) { return static_cast<T*>(this)->traverseLogicalAndExpressions(input); }
+                    inline bool visitLogicalAndExpressions(LogicalAndExpressions* input) { return true; }
+                    inline bool endLogicalAndExpressions(LogicalAndExpressions* input) { return true; }
+                    inline bool visit(LogicalAndExpression* input) { return static_cast<T*>(this)->visitLogicalAndExpression(input); }
+                    inline bool end(LogicalAndExpression* input) { return static_cast<T*>(this)->endLogicalAndExpression(input); }
+                    inline bool traverse(LogicalAndExpression* input) { return static_cast<T*>(this)->traverseLogicalAndExpression(input); }
+                    inline bool visitLogicalAndExpression(LogicalAndExpression* input) { return true; }
+                    inline bool endLogicalAndExpression(LogicalAndExpression* input) { return true; }
+                    bool traverseLogicalAndExpressions(LogicalAndExpressions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseShiftExpression(ShiftExpression* input)
+                    bool traverseLogicalAndExpression(LogicalAndExpression* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
                         if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
-                        if (input->m_ShiftExpressionRights) if(!traverse(input->m_ShiftExpressionRights)) return false;
+                        if (input->m_LogicalAndExpressionRights) if(!traverse(input->m_LogicalAndExpressionRights)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(ForStatements* input) { return static_cast<T*>(this)->visitForStatements(input); }
+                    inline bool end(ForStatements* input) { return static_cast<T*>(this)->endForStatements(input); }
+                    inline bool traverse(ForStatements* input) { return static_cast<T*>(this)->traverseForStatements(input); }
+                    inline bool visitForStatements(ForStatements* input) { return true; }
+                    inline bool endForStatements(ForStatements* input) { return true; }
+                    inline bool visit(ForStatement* input) { return static_cast<T*>(this)->visitForStatement(input); }
+                    inline bool end(ForStatement* input) { return static_cast<T*>(this)->endForStatement(input); }
+                    inline bool traverse(ForStatement* input) { return static_cast<T*>(this)->traverseForStatement(input); }
+                    inline bool visitForStatement(ForStatement* input) { return true; }
+                    inline bool endForStatement(ForStatement* input) { return true; }
+                    bool traverseForStatements(ForStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseForStatement(ForStatement* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_ForeachSignature) if(!traverse(input->m_ForeachSignature)) return false;
+                        if (input->m_Init) if(!traverse(input->m_Init)) return false;
+                        if (input->m_Test) if(!traverse(input->m_Test)) return false;
+                        if (input->m_Update) if(!traverse(input->m_Update)) return false;
+                        if (input->m_Statement) if(!traverse(input->m_Statement)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(BinOrExpressions* input) { return static_cast<T*>(this)->visitBinOrExpressions(input); }
+                    inline bool end(BinOrExpressions* input) { return static_cast<T*>(this)->endBinOrExpressions(input); }
+                    inline bool traverse(BinOrExpressions* input) { return static_cast<T*>(this)->traverseBinOrExpressions(input); }
+                    inline bool visitBinOrExpressions(BinOrExpressions* input) { return true; }
+                    inline bool endBinOrExpressions(BinOrExpressions* input) { return true; }
+                    inline bool visit(BinOrExpression* input) { return static_cast<T*>(this)->visitBinOrExpression(input); }
+                    inline bool end(BinOrExpression* input) { return static_cast<T*>(this)->endBinOrExpression(input); }
+                    inline bool traverse(BinOrExpression* input) { return static_cast<T*>(this)->traverseBinOrExpression(input); }
+                    inline bool visitBinOrExpression(BinOrExpression* input) { return true; }
+                    inline bool endBinOrExpression(BinOrExpression* input) { return true; }
+                    bool traverseBinOrExpressions(BinOrExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseBinOrExpression(BinOrExpression* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
+                        if (input->m_BinOrExpressionRights) if(!traverse(input->m_BinOrExpressionRights)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(WhileStatements* input) { return static_cast<T*>(this)->visitWhileStatements(input); }
+                    inline bool end(WhileStatements* input) { return static_cast<T*>(this)->endWhileStatements(input); }
+                    inline bool traverse(WhileStatements* input) { return static_cast<T*>(this)->traverseWhileStatements(input); }
+                    inline bool visitWhileStatements(WhileStatements* input) { return true; }
+                    inline bool endWhileStatements(WhileStatements* input) { return true; }
+                    inline bool visit(WhileStatement* input) { return static_cast<T*>(this)->visitWhileStatement(input); }
+                    inline bool end(WhileStatement* input) { return static_cast<T*>(this)->endWhileStatement(input); }
+                    inline bool traverse(WhileStatement* input) { return static_cast<T*>(this)->traverseWhileStatement(input); }
+                    inline bool visitWhileStatement(WhileStatement* input) { return true; }
+                    inline bool endWhileStatement(WhileStatement* input) { return true; }
+                    bool traverseWhileStatements(WhileStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseWhileStatement(WhileStatement* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_Condition) if(!traverse(input->m_Condition)) return false;
+                        if (input->m_Statement) if(!traverse(input->m_Statement)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(XOrExpressions* input) { return static_cast<T*>(this)->visitXOrExpressions(input); }
+                    inline bool end(XOrExpressions* input) { return static_cast<T*>(this)->endXOrExpressions(input); }
+                    inline bool traverse(XOrExpressions* input) { return static_cast<T*>(this)->traverseXOrExpressions(input); }
+                    inline bool visitXOrExpressions(XOrExpressions* input) { return true; }
+                    inline bool endXOrExpressions(XOrExpressions* input) { return true; }
+                    inline bool visit(XOrExpression* input) { return static_cast<T*>(this)->visitXOrExpression(input); }
+                    inline bool end(XOrExpression* input) { return static_cast<T*>(this)->endXOrExpression(input); }
+                    inline bool traverse(XOrExpression* input) { return static_cast<T*>(this)->traverseXOrExpression(input); }
+                    inline bool visitXOrExpression(XOrExpression* input) { return true; }
+                    inline bool endXOrExpression(XOrExpression* input) { return true; }
+                    bool traverseXOrExpressions(XOrExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseXOrExpression(XOrExpression* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
+                        if (input->m_XOrExpressionRights) if(!traverse(input->m_XOrExpressionRights)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(BlockStatements* input) { return static_cast<T*>(this)->visitBlockStatements(input); }
+                    inline bool end(BlockStatements* input) { return static_cast<T*>(this)->endBlockStatements(input); }
+                    inline bool traverse(BlockStatements* input) { return static_cast<T*>(this)->traverseBlockStatements(input); }
+                    inline bool visitBlockStatements(BlockStatements* input) { return true; }
+                    inline bool endBlockStatements(BlockStatements* input) { return true; }
+                    inline bool visit(BlockStatement* input) { return static_cast<T*>(this)->visitBlockStatement(input); }
+                    inline bool end(BlockStatement* input) { return static_cast<T*>(this)->endBlockStatement(input); }
+                    inline bool traverse(BlockStatement* input) { return static_cast<T*>(this)->traverseBlockStatement(input); }
+                    inline bool visitBlockStatement(BlockStatement* input) { return true; }
+                    inline bool endBlockStatement(BlockStatement* input) { return true; }
+                    bool traverseBlockStatements(BlockStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseBlockStatement(BlockStatement* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_Statements) if(!traverse(input->m_Statements)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(BinAndExpressions* input) { return static_cast<T*>(this)->visitBinAndExpressions(input); }
+                    inline bool end(BinAndExpressions* input) { return static_cast<T*>(this)->endBinAndExpressions(input); }
+                    inline bool traverse(BinAndExpressions* input) { return static_cast<T*>(this)->traverseBinAndExpressions(input); }
+                    inline bool visitBinAndExpressions(BinAndExpressions* input) { return true; }
+                    inline bool endBinAndExpressions(BinAndExpressions* input) { return true; }
+                    inline bool visit(BinAndExpression* input) { return static_cast<T*>(this)->visitBinAndExpression(input); }
+                    inline bool end(BinAndExpression* input) { return static_cast<T*>(this)->endBinAndExpression(input); }
+                    inline bool traverse(BinAndExpression* input) { return static_cast<T*>(this)->traverseBinAndExpression(input); }
+                    inline bool visitBinAndExpression(BinAndExpression* input) { return true; }
+                    inline bool endBinAndExpression(BinAndExpression* input) { return true; }
+                    bool traverseBinAndExpressions(BinAndExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseBinAndExpression(BinAndExpression* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
+                        if (input->m_BinAndExpressionRights) if(!traverse(input->m_BinAndExpressionRights)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(DoWhileStatements* input) { return static_cast<T*>(this)->visitDoWhileStatements(input); }
+                    inline bool end(DoWhileStatements* input) { return static_cast<T*>(this)->endDoWhileStatements(input); }
+                    inline bool traverse(DoWhileStatements* input) { return static_cast<T*>(this)->traverseDoWhileStatements(input); }
+                    inline bool visitDoWhileStatements(DoWhileStatements* input) { return true; }
+                    inline bool endDoWhileStatements(DoWhileStatements* input) { return true; }
+                    inline bool visit(DoWhileStatement* input) { return static_cast<T*>(this)->visitDoWhileStatement(input); }
+                    inline bool end(DoWhileStatement* input) { return static_cast<T*>(this)->endDoWhileStatement(input); }
+                    inline bool traverse(DoWhileStatement* input) { return static_cast<T*>(this)->traverseDoWhileStatement(input); }
+                    inline bool visitDoWhileStatement(DoWhileStatement* input) { return true; }
+                    inline bool endDoWhileStatement(DoWhileStatement* input) { return true; }
+                    bool traverseDoWhileStatements(DoWhileStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseDoWhileStatement(DoWhileStatement* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_BlockStatement) if(!traverse(input->m_BlockStatement)) return false;
+                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(EqualityExpressions* input) { return static_cast<T*>(this)->visitEqualityExpressions(input); }
+                    inline bool end(EqualityExpressions* input) { return static_cast<T*>(this)->endEqualityExpressions(input); }
+                    inline bool traverse(EqualityExpressions* input) { return static_cast<T*>(this)->traverseEqualityExpressions(input); }
+                    inline bool visitEqualityExpressions(EqualityExpressions* input) { return true; }
+                    inline bool endEqualityExpressions(EqualityExpressions* input) { return true; }
+                    inline bool visit(EqualityExpression* input) { return static_cast<T*>(this)->visitEqualityExpression(input); }
+                    inline bool end(EqualityExpression* input) { return static_cast<T*>(this)->endEqualityExpression(input); }
+                    inline bool traverse(EqualityExpression* input) { return static_cast<T*>(this)->traverseEqualityExpression(input); }
+                    inline bool visitEqualityExpression(EqualityExpression* input) { return true; }
+                    inline bool endEqualityExpression(EqualityExpression* input) { return true; }
+                    bool traverseEqualityExpressions(EqualityExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseEqualityExpression(EqualityExpression* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
+                        if (input->m_EqualityExpressionRights) if(!traverse(input->m_EqualityExpressionRights)) return false;
                         return end(input);
                     }
                     inline bool visit(StatementOrCases* input) { return static_cast<T*>(this)->visitStatementOrCases(input); }
@@ -6107,28 +6096,28 @@ namespace phantom
                         if (input->m_Statement) if(!traverse(input->m_Statement)) return false;
                         return end(input);
                     }
-                    inline bool visit(AddExpressions* input) { return static_cast<T*>(this)->visitAddExpressions(input); }
-                    inline bool end(AddExpressions* input) { return static_cast<T*>(this)->endAddExpressions(input); }
-                    inline bool traverse(AddExpressions* input) { return static_cast<T*>(this)->traverseAddExpressions(input); }
-                    inline bool visitAddExpressions(AddExpressions* input) { return true; }
-                    inline bool endAddExpressions(AddExpressions* input) { return true; }
-                    inline bool visit(AddExpression* input) { return static_cast<T*>(this)->visitAddExpression(input); }
-                    inline bool end(AddExpression* input) { return static_cast<T*>(this)->endAddExpression(input); }
-                    inline bool traverse(AddExpression* input) { return static_cast<T*>(this)->traverseAddExpression(input); }
-                    inline bool visitAddExpression(AddExpression* input) { return true; }
-                    inline bool endAddExpression(AddExpression* input) { return true; }
-                    bool traverseAddExpressions(AddExpressions* input)
+                    inline bool visit(RelationalExpressions* input) { return static_cast<T*>(this)->visitRelationalExpressions(input); }
+                    inline bool end(RelationalExpressions* input) { return static_cast<T*>(this)->endRelationalExpressions(input); }
+                    inline bool traverse(RelationalExpressions* input) { return static_cast<T*>(this)->traverseRelationalExpressions(input); }
+                    inline bool visitRelationalExpressions(RelationalExpressions* input) { return true; }
+                    inline bool endRelationalExpressions(RelationalExpressions* input) { return true; }
+                    inline bool visit(RelationalExpression* input) { return static_cast<T*>(this)->visitRelationalExpression(input); }
+                    inline bool end(RelationalExpression* input) { return static_cast<T*>(this)->endRelationalExpression(input); }
+                    inline bool traverse(RelationalExpression* input) { return static_cast<T*>(this)->traverseRelationalExpression(input); }
+                    inline bool visitRelationalExpression(RelationalExpression* input) { return true; }
+                    inline bool endRelationalExpression(RelationalExpression* input) { return true; }
+                    bool traverseRelationalExpressions(RelationalExpressions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseAddExpression(AddExpression* input)
+                    bool traverseRelationalExpression(RelationalExpression* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
                         if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
-                        if (input->m_AddExpressionRights) if(!traverse(input->m_AddExpressionRights)) return false;
+                        if (input->m_RelationalExpressionRights) if(!traverse(input->m_RelationalExpressionRights)) return false;
                         return end(input);
                     }
                     inline bool visit(MemberWithMetaOrAnnotations* input) { return static_cast<T*>(this)->visitMemberWithMetaOrAnnotations(input); }
@@ -6155,28 +6144,28 @@ namespace phantom
                         if (input->m_Member) if(!traverse(input->m_Member)) return false;
                         return end(input);
                     }
-                    inline bool visit(MulExpressions* input) { return static_cast<T*>(this)->visitMulExpressions(input); }
-                    inline bool end(MulExpressions* input) { return static_cast<T*>(this)->endMulExpressions(input); }
-                    inline bool traverse(MulExpressions* input) { return static_cast<T*>(this)->traverseMulExpressions(input); }
-                    inline bool visitMulExpressions(MulExpressions* input) { return true; }
-                    inline bool endMulExpressions(MulExpressions* input) { return true; }
-                    inline bool visit(MulExpression* input) { return static_cast<T*>(this)->visitMulExpression(input); }
-                    inline bool end(MulExpression* input) { return static_cast<T*>(this)->endMulExpression(input); }
-                    inline bool traverse(MulExpression* input) { return static_cast<T*>(this)->traverseMulExpression(input); }
-                    inline bool visitMulExpression(MulExpression* input) { return true; }
-                    inline bool endMulExpression(MulExpression* input) { return true; }
-                    bool traverseMulExpressions(MulExpressions* input)
+                    inline bool visit(ShiftExpressions* input) { return static_cast<T*>(this)->visitShiftExpressions(input); }
+                    inline bool end(ShiftExpressions* input) { return static_cast<T*>(this)->endShiftExpressions(input); }
+                    inline bool traverse(ShiftExpressions* input) { return static_cast<T*>(this)->traverseShiftExpressions(input); }
+                    inline bool visitShiftExpressions(ShiftExpressions* input) { return true; }
+                    inline bool endShiftExpressions(ShiftExpressions* input) { return true; }
+                    inline bool visit(ShiftExpression* input) { return static_cast<T*>(this)->visitShiftExpression(input); }
+                    inline bool end(ShiftExpression* input) { return static_cast<T*>(this)->endShiftExpression(input); }
+                    inline bool traverse(ShiftExpression* input) { return static_cast<T*>(this)->traverseShiftExpression(input); }
+                    inline bool visitShiftExpression(ShiftExpression* input) { return true; }
+                    inline bool endShiftExpression(ShiftExpression* input) { return true; }
+                    bool traverseShiftExpressions(ShiftExpressions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseMulExpression(MulExpression* input)
+                    bool traverseShiftExpression(ShiftExpression* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
                         if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
-                        if (input->m_MulExpressionRights) if(!traverse(input->m_MulExpressionRights)) return false;
+                        if (input->m_ShiftExpressionRights) if(!traverse(input->m_ShiftExpressionRights)) return false;
                         return end(input);
                     }
                     inline bool visit(BasicMemberWithMetaOrAnnotations* input) { return static_cast<T*>(this)->visitBasicMemberWithMetaOrAnnotations(input); }
@@ -6203,6 +6192,30 @@ namespace phantom
                         if (input->m_BasicMember) if(!traverse(input->m_BasicMember)) return false;
                         return end(input);
                     }
+                    inline bool visit(AddExpressions* input) { return static_cast<T*>(this)->visitAddExpressions(input); }
+                    inline bool end(AddExpressions* input) { return static_cast<T*>(this)->endAddExpressions(input); }
+                    inline bool traverse(AddExpressions* input) { return static_cast<T*>(this)->traverseAddExpressions(input); }
+                    inline bool visitAddExpressions(AddExpressions* input) { return true; }
+                    inline bool endAddExpressions(AddExpressions* input) { return true; }
+                    inline bool visit(AddExpression* input) { return static_cast<T*>(this)->visitAddExpression(input); }
+                    inline bool end(AddExpression* input) { return static_cast<T*>(this)->endAddExpression(input); }
+                    inline bool traverse(AddExpression* input) { return static_cast<T*>(this)->traverseAddExpression(input); }
+                    inline bool visitAddExpression(AddExpression* input) { return true; }
+                    inline bool endAddExpression(AddExpression* input) { return true; }
+                    bool traverseAddExpressions(AddExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseAddExpression(AddExpression* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
+                        if (input->m_AddExpressionRights) if(!traverse(input->m_AddExpressionRights)) return false;
+                        return end(input);
+                    }
                     inline bool visit(IfStatements* input) { return static_cast<T*>(this)->visitIfStatements(input); }
                     inline bool end(IfStatements* input) { return static_cast<T*>(this)->endIfStatements(input); }
                     inline bool traverse(IfStatements* input) { return static_cast<T*>(this)->traverseIfStatements(input); }
@@ -6226,6 +6239,77 @@ namespace phantom
                         if (input->m_Condition) if(!traverse(input->m_Condition)) return false;
                         if (input->m_Then) if(!traverse(input->m_Then)) return false;
                         if (input->m_Else) if(!traverse(input->m_Else)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(MulExpressions* input) { return static_cast<T*>(this)->visitMulExpressions(input); }
+                    inline bool end(MulExpressions* input) { return static_cast<T*>(this)->endMulExpressions(input); }
+                    inline bool traverse(MulExpressions* input) { return static_cast<T*>(this)->traverseMulExpressions(input); }
+                    inline bool visitMulExpressions(MulExpressions* input) { return true; }
+                    inline bool endMulExpressions(MulExpressions* input) { return true; }
+                    inline bool visit(MulExpression* input) { return static_cast<T*>(this)->visitMulExpression(input); }
+                    inline bool end(MulExpression* input) { return static_cast<T*>(this)->endMulExpression(input); }
+                    inline bool traverse(MulExpression* input) { return static_cast<T*>(this)->traverseMulExpression(input); }
+                    inline bool visitMulExpression(MulExpression* input) { return true; }
+                    inline bool endMulExpression(MulExpression* input) { return true; }
+                    bool traverseMulExpressions(MulExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseMulExpression(MulExpression* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_LeftExpression) if(!traverse(input->m_LeftExpression)) return false;
+                        if (input->m_MulExpressionRights) if(!traverse(input->m_MulExpressionRights)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(CaseStatements* input) { return static_cast<T*>(this)->visitCaseStatements(input); }
+                    inline bool end(CaseStatements* input) { return static_cast<T*>(this)->endCaseStatements(input); }
+                    inline bool traverse(CaseStatements* input) { return static_cast<T*>(this)->traverseCaseStatements(input); }
+                    inline bool visitCaseStatements(CaseStatements* input) { return true; }
+                    inline bool endCaseStatements(CaseStatements* input) { return true; }
+                    inline bool visit(CaseStatement* input) { return static_cast<T*>(this)->visitCaseStatement(input); }
+                    inline bool end(CaseStatement* input) { return static_cast<T*>(this)->endCaseStatement(input); }
+                    inline bool traverse(CaseStatement* input) { return static_cast<T*>(this)->traverseCaseStatement(input); }
+                    inline bool visitCaseStatement(CaseStatement* input) { return true; }
+                    inline bool endCaseStatement(CaseStatement* input) { return true; }
+                    bool traverseCaseStatements(CaseStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseCaseStatement(CaseStatement* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(ExplicitLocalVariableDecls* input) { return static_cast<T*>(this)->visitExplicitLocalVariableDecls(input); }
+                    inline bool end(ExplicitLocalVariableDecls* input) { return static_cast<T*>(this)->endExplicitLocalVariableDecls(input); }
+                    inline bool traverse(ExplicitLocalVariableDecls* input) { return static_cast<T*>(this)->traverseExplicitLocalVariableDecls(input); }
+                    inline bool visitExplicitLocalVariableDecls(ExplicitLocalVariableDecls* input) { return true; }
+                    inline bool endExplicitLocalVariableDecls(ExplicitLocalVariableDecls* input) { return true; }
+                    inline bool visit(ExplicitLocalVariableDecl* input) { return static_cast<T*>(this)->visitExplicitLocalVariableDecl(input); }
+                    inline bool end(ExplicitLocalVariableDecl* input) { return static_cast<T*>(this)->endExplicitLocalVariableDecl(input); }
+                    inline bool traverse(ExplicitLocalVariableDecl* input) { return static_cast<T*>(this)->traverseExplicitLocalVariableDecl(input); }
+                    inline bool visitExplicitLocalVariableDecl(ExplicitLocalVariableDecl* input) { return true; }
+                    inline bool endExplicitLocalVariableDecl(ExplicitLocalVariableDecl* input) { return true; }
+                    bool traverseExplicitLocalVariableDecls(ExplicitLocalVariableDecls* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseExplicitLocalVariableDecl(ExplicitLocalVariableDecl* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_BasicType) if(!traverse(input->m_BasicType)) return false;
+                        if (input->m_Declarators) if(!traverse(input->m_Declarators)) return false;
                         return end(input);
                     }
                     inline bool visit(UnaryExpressions* input) { return static_cast<T*>(this)->visitUnaryExpressions(input); }
@@ -6323,29 +6407,26 @@ namespace phantom
                         if (input->m_AssignExpressionOrInitializerLists) if(!traverse(input->m_AssignExpressionOrInitializerLists)) return false;
                         return end(input);
                     }
-                    inline bool visit(ExplicitLocalVariableDecls* input) { return static_cast<T*>(this)->visitExplicitLocalVariableDecls(input); }
-                    inline bool end(ExplicitLocalVariableDecls* input) { return static_cast<T*>(this)->endExplicitLocalVariableDecls(input); }
-                    inline bool traverse(ExplicitLocalVariableDecls* input) { return static_cast<T*>(this)->traverseExplicitLocalVariableDecls(input); }
-                    inline bool visitExplicitLocalVariableDecls(ExplicitLocalVariableDecls* input) { return true; }
-                    inline bool endExplicitLocalVariableDecls(ExplicitLocalVariableDecls* input) { return true; }
-                    inline bool visit(ExplicitLocalVariableDecl* input) { return static_cast<T*>(this)->visitExplicitLocalVariableDecl(input); }
-                    inline bool end(ExplicitLocalVariableDecl* input) { return static_cast<T*>(this)->endExplicitLocalVariableDecl(input); }
-                    inline bool traverse(ExplicitLocalVariableDecl* input) { return static_cast<T*>(this)->traverseExplicitLocalVariableDecl(input); }
-                    inline bool visitExplicitLocalVariableDecl(ExplicitLocalVariableDecl* input) { return true; }
-                    inline bool endExplicitLocalVariableDecl(ExplicitLocalVariableDecl* input) { return true; }
-                    bool traverseExplicitLocalVariableDecls(ExplicitLocalVariableDecls* input)
+                    inline bool visit(DefaultStatements* input) { return static_cast<T*>(this)->visitDefaultStatements(input); }
+                    inline bool end(DefaultStatements* input) { return static_cast<T*>(this)->endDefaultStatements(input); }
+                    inline bool traverse(DefaultStatements* input) { return static_cast<T*>(this)->traverseDefaultStatements(input); }
+                    inline bool visitDefaultStatements(DefaultStatements* input) { return true; }
+                    inline bool endDefaultStatements(DefaultStatements* input) { return true; }
+                    inline bool visit(DefaultStatement* input) { return static_cast<T*>(this)->visitDefaultStatement(input); }
+                    inline bool end(DefaultStatement* input) { return static_cast<T*>(this)->endDefaultStatement(input); }
+                    inline bool traverse(DefaultStatement* input) { return static_cast<T*>(this)->traverseDefaultStatement(input); }
+                    inline bool visitDefaultStatement(DefaultStatement* input) { return true; }
+                    inline bool endDefaultStatement(DefaultStatement* input) { return true; }
+                    bool traverseDefaultStatements(DefaultStatements* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseExplicitLocalVariableDecl(ExplicitLocalVariableDecl* input)
+                    bool traverseDefaultStatement(DefaultStatement* input)
                     {
                         assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_BasicType) if(!traverse(input->m_BasicType)) return false;
-                        if (input->m_Declarators) if(!traverse(input->m_Declarators)) return false;
-                        return end(input);
+                        return visit(input) && end(input);
                     }
                     inline bool visit(ArrayAccesses* input) { return static_cast<T*>(this)->visitArrayAccesses(input); }
                     inline bool end(ArrayAccesses* input) { return static_cast<T*>(this)->endArrayAccesses(input); }
@@ -6437,27 +6518,28 @@ namespace phantom
                         if (input->m_PostFixEnds) if(!traverse(input->m_PostFixEnds)) return false;
                         return end(input);
                     }
-                    inline bool visit(CaseStatements* input) { return static_cast<T*>(this)->visitCaseStatements(input); }
-                    inline bool end(CaseStatements* input) { return static_cast<T*>(this)->endCaseStatements(input); }
-                    inline bool traverse(CaseStatements* input) { return static_cast<T*>(this)->traverseCaseStatements(input); }
-                    inline bool visitCaseStatements(CaseStatements* input) { return true; }
-                    inline bool endCaseStatements(CaseStatements* input) { return true; }
-                    inline bool visit(CaseStatement* input) { return static_cast<T*>(this)->visitCaseStatement(input); }
-                    inline bool end(CaseStatement* input) { return static_cast<T*>(this)->endCaseStatement(input); }
-                    inline bool traverse(CaseStatement* input) { return static_cast<T*>(this)->traverseCaseStatement(input); }
-                    inline bool visitCaseStatement(CaseStatement* input) { return true; }
-                    inline bool endCaseStatement(CaseStatement* input) { return true; }
-                    bool traverseCaseStatements(CaseStatements* input)
+                    inline bool visit(AutoLocalVariableDecls* input) { return static_cast<T*>(this)->visitAutoLocalVariableDecls(input); }
+                    inline bool end(AutoLocalVariableDecls* input) { return static_cast<T*>(this)->endAutoLocalVariableDecls(input); }
+                    inline bool traverse(AutoLocalVariableDecls* input) { return static_cast<T*>(this)->traverseAutoLocalVariableDecls(input); }
+                    inline bool visitAutoLocalVariableDecls(AutoLocalVariableDecls* input) { return true; }
+                    inline bool endAutoLocalVariableDecls(AutoLocalVariableDecls* input) { return true; }
+                    inline bool visit(AutoLocalVariableDecl* input) { return static_cast<T*>(this)->visitAutoLocalVariableDecl(input); }
+                    inline bool end(AutoLocalVariableDecl* input) { return static_cast<T*>(this)->endAutoLocalVariableDecl(input); }
+                    inline bool traverse(AutoLocalVariableDecl* input) { return static_cast<T*>(this)->traverseAutoLocalVariableDecl(input); }
+                    inline bool visitAutoLocalVariableDecl(AutoLocalVariableDecl* input) { return true; }
+                    inline bool endAutoLocalVariableDecl(AutoLocalVariableDecl* input) { return true; }
+                    bool traverseAutoLocalVariableDecls(AutoLocalVariableDecls* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseCaseStatement(CaseStatement* input)
+                    bool traverseAutoLocalVariableDecl(AutoLocalVariableDecl* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
+                        if (input->m_Auto) if(!traverse(input->m_Auto)) return false;
+                        if (input->m_AutoDeclarators) if(!traverse(input->m_AutoDeclarators)) return false;
                         return end(input);
                     }
                     inline bool visit(CStyleCastExpressions* input) { return static_cast<T*>(this)->visitCStyleCastExpressions(input); }
@@ -6509,28 +6591,26 @@ namespace phantom
                         if (input->m_Type0) if(!traverse(input->m_Type0)) return false;
                         return end(input);
                     }
-                    inline bool visit(AutoLocalVariableDecls* input) { return static_cast<T*>(this)->visitAutoLocalVariableDecls(input); }
-                    inline bool end(AutoLocalVariableDecls* input) { return static_cast<T*>(this)->endAutoLocalVariableDecls(input); }
-                    inline bool traverse(AutoLocalVariableDecls* input) { return static_cast<T*>(this)->traverseAutoLocalVariableDecls(input); }
-                    inline bool visitAutoLocalVariableDecls(AutoLocalVariableDecls* input) { return true; }
-                    inline bool endAutoLocalVariableDecls(AutoLocalVariableDecls* input) { return true; }
-                    inline bool visit(AutoLocalVariableDecl* input) { return static_cast<T*>(this)->visitAutoLocalVariableDecl(input); }
-                    inline bool end(AutoLocalVariableDecl* input) { return static_cast<T*>(this)->endAutoLocalVariableDecl(input); }
-                    inline bool traverse(AutoLocalVariableDecl* input) { return static_cast<T*>(this)->traverseAutoLocalVariableDecl(input); }
-                    inline bool visitAutoLocalVariableDecl(AutoLocalVariableDecl* input) { return true; }
-                    inline bool endAutoLocalVariableDecl(AutoLocalVariableDecl* input) { return true; }
-                    bool traverseAutoLocalVariableDecls(AutoLocalVariableDecls* input)
+                    inline bool visit(LabelStatements* input) { return static_cast<T*>(this)->visitLabelStatements(input); }
+                    inline bool end(LabelStatements* input) { return static_cast<T*>(this)->endLabelStatements(input); }
+                    inline bool traverse(LabelStatements* input) { return static_cast<T*>(this)->traverseLabelStatements(input); }
+                    inline bool visitLabelStatements(LabelStatements* input) { return true; }
+                    inline bool endLabelStatements(LabelStatements* input) { return true; }
+                    inline bool visit(LabelStatement* input) { return static_cast<T*>(this)->visitLabelStatement(input); }
+                    inline bool end(LabelStatement* input) { return static_cast<T*>(this)->endLabelStatement(input); }
+                    inline bool traverse(LabelStatement* input) { return static_cast<T*>(this)->traverseLabelStatement(input); }
+                    inline bool visitLabelStatement(LabelStatement* input) { return true; }
+                    inline bool endLabelStatement(LabelStatement* input) { return true; }
+                    bool traverseLabelStatements(LabelStatements* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseAutoLocalVariableDecl(AutoLocalVariableDecl* input)
+                    bool traverseLabelStatement(LabelStatement* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_Auto) if(!traverse(input->m_Auto)) return false;
-                        if (input->m_AutoDeclarators) if(!traverse(input->m_AutoDeclarators)) return false;
                         return end(input);
                     }
                     inline bool visit(AssertStatements* input) { return static_cast<T*>(this)->visitAssertStatements(input); }
@@ -6622,6 +6702,52 @@ namespace phantom
                         assert(input); 
                         if (!visit(input)) return false;
                         if (input->m_Type) if(!traverse(input->m_Type)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(TypeofExpressions* input) { return static_cast<T*>(this)->visitTypeofExpressions(input); }
+                    inline bool end(TypeofExpressions* input) { return static_cast<T*>(this)->endTypeofExpressions(input); }
+                    inline bool traverse(TypeofExpressions* input) { return static_cast<T*>(this)->traverseTypeofExpressions(input); }
+                    inline bool visitTypeofExpressions(TypeofExpressions* input) { return true; }
+                    inline bool endTypeofExpressions(TypeofExpressions* input) { return true; }
+                    inline bool visit(TypeofExpression* input) { return static_cast<T*>(this)->visitTypeofExpression(input); }
+                    inline bool end(TypeofExpression* input) { return static_cast<T*>(this)->endTypeofExpression(input); }
+                    inline bool traverse(TypeofExpression* input) { return static_cast<T*>(this)->traverseTypeofExpression(input); }
+                    inline bool visitTypeofExpression(TypeofExpression* input) { return true; }
+                    inline bool endTypeofExpression(TypeofExpression* input) { return true; }
+                    bool traverseTypeofExpressions(TypeofExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseTypeofExpression(TypeofExpression* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_Type) if(!traverse(input->m_Type)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(LocalVariableStatements* input) { return static_cast<T*>(this)->visitLocalVariableStatements(input); }
+                    inline bool end(LocalVariableStatements* input) { return static_cast<T*>(this)->endLocalVariableStatements(input); }
+                    inline bool traverse(LocalVariableStatements* input) { return static_cast<T*>(this)->traverseLocalVariableStatements(input); }
+                    inline bool visitLocalVariableStatements(LocalVariableStatements* input) { return true; }
+                    inline bool endLocalVariableStatements(LocalVariableStatements* input) { return true; }
+                    inline bool visit(LocalVariableStatement* input) { return static_cast<T*>(this)->visitLocalVariableStatement(input); }
+                    inline bool end(LocalVariableStatement* input) { return static_cast<T*>(this)->endLocalVariableStatement(input); }
+                    inline bool traverse(LocalVariableStatement* input) { return static_cast<T*>(this)->traverseLocalVariableStatement(input); }
+                    inline bool visitLocalVariableStatement(LocalVariableStatement* input) { return true; }
+                    inline bool endLocalVariableStatement(LocalVariableStatement* input) { return true; }
+                    bool traverseLocalVariableStatements(LocalVariableStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseLocalVariableStatement(LocalVariableStatement* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_LocalVariableDecl) if(!traverse(input->m_LocalVariableDecl)) return false;
                         return end(input);
                     }
                     inline bool visit(LastTemplateArgumentAssigns* input) { return static_cast<T*>(this)->visitLastTemplateArgumentAssigns(input); }
@@ -7196,16 +7322,16 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(IfOrWhileLocalVariableDecls* input)
+                    bool traverse(ForeachSignatures* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(IfOrWhileLocalVariableDecl* input)
+                    bool traverse(ForeachSignature* input)
                     {
                         assert(input); 
-                        line("[IfOrWhileLocalVariableDecl]");
+                        line("[ForeachSignature]");
                         indent();
                         if (input->m_TypeOrAuto) traverse(input->m_TypeOrAuto);
                         if(input->m_IDENTIFIER)
@@ -7370,6 +7496,23 @@ namespace phantom
                         unindent();
                         return true;
                     }
+                    bool traverse(ArrowReturns* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(ArrowReturn* input)
+                    {
+                        assert(input); 
+                        line("[ArrowReturn]");
+                        indent();
+                        if(input->m_ARROW)
+                        line(phantom::lexical_cast<String>(input->m_ARROW));
+                        if (input->m_Type) traverse(input->m_Type);
+                        unindent();
+                        return true;
+                    }
                     bool traverse(FunctionEnds* input)
                     {
                         assert(input);
@@ -7404,6 +7547,7 @@ namespace phantom
                             case spell::any::e_bool: line(phantom::lexical_cast<String>(v.as_bool())); break;
                             default: assert(false); break;
                         }
+                        if (input->m_ArrowReturn) traverse(input->m_ArrowReturn);
                         if(input->m_OVERRIDEs) for(auto v : *input->m_OVERRIDEs)
                         switch(v.type())
                         {
@@ -7744,36 +7888,18 @@ namespace phantom
                         }
                         return true;
                     }
-                    bool traverse(IfOrWhileConditions* input)
+                    bool traverse(ForInits* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(IfOrWhileCondition* input)
+                    bool traverse(ForInit* input)
                     {
                         assert(input); 
-                        line("[IfOrWhileCondition]");
+                        line("[ForInit]");
                         indent();
-                        if (input->m_IfOrWhileLocalVariableDecl) traverse(input->m_IfOrWhileLocalVariableDecl);
-                        if (input->m_Expression) traverse(input->m_Expression);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(ForeachSignatures* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(ForeachSignature* input)
-                    {
-                        assert(input); 
-                        line("[ForeachSignature]");
-                        indent();
-                        if (input->m_TypeOrAuto) traverse(input->m_TypeOrAuto);
-                        if(input->m_IDENTIFIER)
-                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
+                        if (input->m_LocalVariableDecl) traverse(input->m_LocalVariableDecl);
                         if (input->m_Expression) traverse(input->m_Expression);
                         unindent();
                         return true;
@@ -7879,6 +8005,27 @@ namespace phantom
                         indent();
                         if(input->m_IDENTIFIER)
                         line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(Declarators* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(Declarator* input)
+                    {
+                        assert(input); 
+                        line("[Declarator]");
+                        indent();
+                        if (input->m_TypeExtents) traverse(input->m_TypeExtents);
+                        if(input->m_IDENTIFIER)
+                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
+                        if (input->m_ArrayExtents) traverse(input->m_ArrayExtents);
+                        if (input->m_AssignExpressionOrInitializerList) traverse(input->m_AssignExpressionOrInitializerList);
+                        if (input->m_CallList) traverse(input->m_CallList);
+                        if (input->m_InitializerList) traverse(input->m_InitializerList);
                         unindent();
                         return true;
                     }
@@ -8048,27 +8195,6 @@ namespace phantom
                         indent();
                         if(input->m_Typename)
                         line(phantom::lexical_cast<String>(input->m_Typename));
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(Declarators* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(Declarator* input)
-                    {
-                        assert(input); 
-                        line("[Declarator]");
-                        indent();
-                        if (input->m_TypeExtents) traverse(input->m_TypeExtents);
-                        if(input->m_IDENTIFIER)
-                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
-                        if (input->m_ArrayExtents) traverse(input->m_ArrayExtents);
-                        if (input->m_AssignExpressionOrInitializerList) traverse(input->m_AssignExpressionOrInitializerList);
-                        if (input->m_CallList) traverse(input->m_CallList);
-                        if (input->m_InitializerList) traverse(input->m_InitializerList);
                         unindent();
                         return true;
                     }
@@ -8268,44 +8394,6 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(Types* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(Type* input)
-                    {
-                        assert(input); 
-                        switch (input->__type)
-                        {
-                            case e_RuleType_UnsignedType: return traverse(static_cast<UnsignedType*>(input));
-                            case e_RuleType_SignedType: return traverse(static_cast<SignedType*>(input));
-                            case e_RuleType_LongType: return traverse(static_cast<LongType*>(input));
-                            case e_RuleType_VoidType: return traverse(static_cast<VoidType*>(input));
-                            case e_RuleType_FundamentalType: return traverse(static_cast<FundamentalType*>(input));
-                            case e_RuleType_QualifiedType: return traverse(static_cast<QualifiedType*>(input));
-                            case e_RuleType_ExplicitType: return traverse(static_cast<ExplicitType*>(input));
-                            case e_RuleType_TypeNoFunctionType: return traverse(static_cast<TypeNoFunctionType*>(input));
-                            case e_RuleType_ExplicitTypeNoFunctionType: return traverse(static_cast<ExplicitTypeNoFunctionType*>(input));
-                            case e_RuleType_ExpressionType: return traverse(static_cast<ExpressionType*>(input));
-                            case e_RuleType_ExplicitTypeOrAuto: return traverse(static_cast<ExplicitTypeOrAuto*>(input));
-                            case e_RuleType_TypeOrAuto: return traverse(static_cast<TypeOrAuto*>(input));
-                            case e_RuleType_AutoType: return traverse(static_cast<AutoType*>(input));
-                            case e_RuleType_BasicType: return traverse(static_cast<BasicType*>(input));
-                            case e_RuleType_Auto: return traverse(static_cast<Auto*>(input));
-                            case e_RuleType_BasicTypeOrAuto: return traverse(static_cast<BasicTypeOrAuto*>(input));
-                            default:
-                            {
-                                line("[Type]");
-                                indent();
-                                if (input->m_ExplicitType) traverse(input->m_ExplicitType);
-                                if (input->m_ExpressionType) traverse(input->m_ExpressionType);
-                            }
-                            unindent();
-                        }
-                        return true;
-                    }
                     bool traverse(RelationalExpressionRights* input)
                     {
                         assert(input);
@@ -8358,6 +8446,44 @@ namespace phantom
                             default: assert(false); break;
                         }
                         unindent();
+                        return true;
+                    }
+                    bool traverse(Types* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(Type* input)
+                    {
+                        assert(input); 
+                        switch (input->__type)
+                        {
+                            case e_RuleType_UnsignedType: return traverse(static_cast<UnsignedType*>(input));
+                            case e_RuleType_SignedType: return traverse(static_cast<SignedType*>(input));
+                            case e_RuleType_LongType: return traverse(static_cast<LongType*>(input));
+                            case e_RuleType_VoidType: return traverse(static_cast<VoidType*>(input));
+                            case e_RuleType_FundamentalType: return traverse(static_cast<FundamentalType*>(input));
+                            case e_RuleType_QualifiedType: return traverse(static_cast<QualifiedType*>(input));
+                            case e_RuleType_ExplicitType: return traverse(static_cast<ExplicitType*>(input));
+                            case e_RuleType_TypeNoFunctionType: return traverse(static_cast<TypeNoFunctionType*>(input));
+                            case e_RuleType_ExplicitTypeNoFunctionType: return traverse(static_cast<ExplicitTypeNoFunctionType*>(input));
+                            case e_RuleType_ExpressionType: return traverse(static_cast<ExpressionType*>(input));
+                            case e_RuleType_ExplicitTypeOrAuto: return traverse(static_cast<ExplicitTypeOrAuto*>(input));
+                            case e_RuleType_TypeOrAuto: return traverse(static_cast<TypeOrAuto*>(input));
+                            case e_RuleType_AutoType: return traverse(static_cast<AutoType*>(input));
+                            case e_RuleType_BasicType: return traverse(static_cast<BasicType*>(input));
+                            case e_RuleType_Auto: return traverse(static_cast<Auto*>(input));
+                            case e_RuleType_BasicTypeOrAuto: return traverse(static_cast<BasicTypeOrAuto*>(input));
+                            default:
+                            {
+                                line("[Type]");
+                                indent();
+                                if (input->m_ExplicitType) traverse(input->m_ExplicitType);
+                                if (input->m_ExpressionType) traverse(input->m_ExpressionType);
+                            }
+                            unindent();
+                        }
                         return true;
                     }
                     bool traverse(ShiftExpressionRights* input)
@@ -8500,22 +8626,6 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(ArrayExtentExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(ArrayExtentExpression* input)
-                    {
-                        assert(input); 
-                        line("[ArrayExtentExpression]");
-                        indent();
-                        if (input->m_IntegralConstant) traverse(input->m_IntegralConstant);
-                        if (input->m_AssignExpression) traverse(input->m_AssignExpression);
-                        unindent();
-                        return true;
-                    }
                     bool traverse(PostFixEnds* input)
                     {
                         assert(input);
@@ -8591,6 +8701,22 @@ namespace phantom
                         unindent();
                         return true;
                     }
+                    bool traverse(ArrayExtentExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(ArrayExtentExpression* input)
+                    {
+                        assert(input); 
+                        line("[ArrayExtentExpression]");
+                        indent();
+                        if (input->m_IntegralConstant) traverse(input->m_IntegralConstant);
+                        if (input->m_AssignExpression) traverse(input->m_AssignExpression);
+                        unindent();
+                        return true;
+                    }
                     bool traverse(StaticAsserts* input)
                     {
                         assert(input);
@@ -8663,21 +8789,113 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(Unions* input)
+                    bool traverse(LambdaCaptures* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(Union* input)
+                    bool traverse(LambdaCapture* input)
                     {
                         assert(input); 
-                        line("[Union]");
+                        line("[LambdaCapture]");
                         indent();
-                        if(input->m_IDENTIFIER)
-                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
-                        if (input->m_TemplateArgumentList) traverse(input->m_TemplateArgumentList);
-                        if (input->m_BasicMembers) traverse(input->m_BasicMembers);
+                        switch(input->m_IDENTIFIER.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_IDENTIFIER.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_IDENTIFIER.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        switch(input->m_ASSIGN.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_ASSIGN.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_ASSIGN.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        switch(input->m_BIN_AND.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_BIN_AND.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_BIN_AND.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        switch(input->m_THIS.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_THIS.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_THIS.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_THIS.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_THIS.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_THIS.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_THIS.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_THIS.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_THIS.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_THIS.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_THIS.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_THIS.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_THIS.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_THIS.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_THIS.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(LambdaExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(LambdaExpression* input)
+                    {
+                        assert(input); 
+                        line("[LambdaExpression]");
+                        indent();
+                        if (input->m_LambdaCaptures) traverse(input->m_LambdaCaptures);
+                        if (input->m_ArrowReturn) traverse(input->m_ArrowReturn);
+                        if(input->m_PAREN_START)
+                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
+                        if (input->m_Parameters) traverse(input->m_Parameters);
+                        if (input->m_FunctionBlock) traverse(input->m_FunctionBlock);
                         unindent();
                         return true;
                     }
@@ -9221,19 +9439,21 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(ForInits* input)
+                    bool traverse(Unions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(ForInit* input)
+                    bool traverse(Union* input)
                     {
                         assert(input); 
-                        line("[ForInit]");
+                        line("[Union]");
                         indent();
-                        if (input->m_LocalVariableDecl) traverse(input->m_LocalVariableDecl);
-                        if (input->m_Expression) traverse(input->m_Expression);
+                        if(input->m_IDENTIFIER)
+                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
+                        if (input->m_TemplateArgumentList) traverse(input->m_TemplateArgumentList);
+                        if (input->m_BasicMembers) traverse(input->m_BasicMembers);
                         unindent();
                         return true;
                     }
@@ -9390,6 +9610,40 @@ namespace phantom
                         }
                         return true;
                     }
+                    bool traverse(IfOrWhileLocalVariableDecls* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(IfOrWhileLocalVariableDecl* input)
+                    {
+                        assert(input); 
+                        line("[IfOrWhileLocalVariableDecl]");
+                        indent();
+                        if (input->m_TypeOrAuto) traverse(input->m_TypeOrAuto);
+                        if(input->m_IDENTIFIER)
+                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
+                        if (input->m_Expression) traverse(input->m_Expression);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(IfOrWhileConditions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(IfOrWhileCondition* input)
+                    {
+                        assert(input); 
+                        line("[IfOrWhileCondition]");
+                        indent();
+                        if (input->m_IfOrWhileLocalVariableDecl) traverse(input->m_IfOrWhileLocalVariableDecl);
+                        if (input->m_Expression) traverse(input->m_Expression);
+                        unindent();
+                        return true;
+                    }
                     bool traverse(BlockDeclarations* input)
                     {
                         assert(input);
@@ -9411,36 +9665,36 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(TypeofExpressions* input)
+                    bool traverse(FundamentalTypeFunctionCasts* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(TypeofExpression* input)
+                    bool traverse(FundamentalTypeFunctionCast* input)
                     {
                         assert(input); 
-                        line("[TypeofExpression]");
+                        line("[FundamentalTypeFunctionCast]");
                         indent();
-                        if(input->m_TYPEOF)
-                        line(phantom::lexical_cast<String>(input->m_TYPEOF));
+                        if (input->m_FundamentalType) traverse(input->m_FundamentalType);
                         if(input->m_PAREN_START)
                         line(phantom::lexical_cast<String>(input->m_PAREN_START));
-                        if (input->m_Type) traverse(input->m_Type);
+                        if (input->m_Expression) traverse(input->m_Expression);
                         unindent();
                         return true;
                     }
-                    bool traverse(DefaultStatements* input)
+                    bool traverse(ExpressionStatements* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(DefaultStatement* input)
+                    bool traverse(ExpressionStatement* input)
                     {
                         assert(input); 
-                        line("[DefaultStatement]");
+                        line("[ExpressionStatement]");
                         indent();
+                        if (input->m_Expression) traverse(input->m_Expression);
                         unindent();
                         return true;
                     }
@@ -9468,21 +9722,21 @@ namespace phantom
                         }
                         return true;
                     }
-                    bool traverse(FundamentalTypeFunctionCasts* input)
+                    bool traverse(SwitchStatements* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(FundamentalTypeFunctionCast* input)
+                    bool traverse(SwitchStatement* input)
                     {
                         assert(input); 
-                        line("[FundamentalTypeFunctionCast]");
+                        line("[SwitchStatement]");
                         indent();
-                        if (input->m_FundamentalType) traverse(input->m_FundamentalType);
                         if(input->m_PAREN_START)
                         line(phantom::lexical_cast<String>(input->m_PAREN_START));
                         if (input->m_Expression) traverse(input->m_Expression);
+                        if (input->m_StatementOrCases) traverse(input->m_StatementOrCases);
                         unindent();
                         return true;
                     }
@@ -9527,6 +9781,7 @@ namespace phantom
                         if (input->m_SpecialCastExpression) traverse(input->m_SpecialCastExpression);
                         if (input->m_FunctionPtrExpression) traverse(input->m_FunctionPtrExpression);
                         if (input->m_FundamentalTypeFunctionCast) traverse(input->m_FundamentalTypeFunctionCast);
+                        if (input->m_LambdaExpression) traverse(input->m_LambdaExpression);
                         switch(input->m_INT_VALUE.type())
                         {
                             case spell::any::e_undefined: break;
@@ -9778,6 +10033,25 @@ namespace phantom
                         }
                         if (input->m_BasicType) traverse(input->m_BasicType);
                         if (input->m_TypeExtentNoFunctions) traverse(input->m_TypeExtentNoFunctions);
+                        switch(input->m_ELLIPSE.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_ELLIPSE.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_ELLIPSE.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_bool())); break;
+                            default: assert(false); break;
+                        }
                         unindent();
                         return true;
                     }
@@ -10016,49 +10290,19 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(LocalVariableStatements* input)
+                    bool traverse(TypeExtentNoFunctions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(LocalVariableStatement* input)
+                    bool traverse(TypeExtentNoFunction* input)
                     {
                         assert(input); 
-                        line("[LocalVariableStatement]");
+                        line("[TypeExtentNoFunction]");
                         indent();
-                        if (input->m_LocalVariableDecl) traverse(input->m_LocalVariableDecl);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(ExpressionStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(ExpressionStatement* input)
-                    {
-                        assert(input); 
-                        line("[ExpressionStatement]");
-                        indent();
-                        if (input->m_Expression) traverse(input->m_Expression);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(LabelStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(LabelStatement* input)
-                    {
-                        assert(input); 
-                        line("[LabelStatement]");
-                        indent();
-                        if(input->m_IDENTIFIER)
-                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
+                        if (input->m_ArrayExtent) traverse(input->m_ArrayExtent);
+                        if (input->m_DerivedExtent) traverse(input->m_DerivedExtent);
                         unindent();
                         return true;
                     }
@@ -10176,40 +10420,6 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(SwitchStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(SwitchStatement* input)
-                    {
-                        assert(input); 
-                        line("[SwitchStatement]");
-                        indent();
-                        if(input->m_PAREN_START)
-                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
-                        if (input->m_Expression) traverse(input->m_Expression);
-                        if (input->m_StatementOrCases) traverse(input->m_StatementOrCases);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(LogicalOrExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(LogicalOrExpression* input)
-                    {
-                        assert(input); 
-                        line("[LogicalOrExpression]");
-                        indent();
-                        if (input->m_LeftExpression) traverse(input->m_LeftExpression);
-                        if (input->m_LogicalOrExpressionRights) traverse(input->m_LogicalOrExpressionRights);
-                        unindent();
-                        return true;
-                    }
                     bool traverse(Friends* input)
                     {
                         assert(input);
@@ -10244,187 +10454,19 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(LogicalAndExpressions* input)
+                    bool traverse(LogicalOrExpressions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(LogicalAndExpression* input)
+                    bool traverse(LogicalOrExpression* input)
                     {
                         assert(input); 
-                        line("[LogicalAndExpression]");
+                        line("[LogicalOrExpression]");
                         indent();
                         if (input->m_LeftExpression) traverse(input->m_LeftExpression);
-                        if (input->m_LogicalAndExpressionRights) traverse(input->m_LogicalAndExpressionRights);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(TypeExtentNoFunctions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(TypeExtentNoFunction* input)
-                    {
-                        assert(input); 
-                        line("[TypeExtentNoFunction]");
-                        indent();
-                        if (input->m_ArrayExtent) traverse(input->m_ArrayExtent);
-                        if (input->m_DerivedExtent) traverse(input->m_DerivedExtent);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(BinOrExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(BinOrExpression* input)
-                    {
-                        assert(input); 
-                        line("[BinOrExpression]");
-                        indent();
-                        if (input->m_LeftExpression) traverse(input->m_LeftExpression);
-                        if (input->m_BinOrExpressionRights) traverse(input->m_BinOrExpressionRights);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(ForStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(ForStatement* input)
-                    {
-                        assert(input); 
-                        line("[ForStatement]");
-                        indent();
-                        if(input->m_PAREN_START)
-                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
-                        if (input->m_ForeachSignature) traverse(input->m_ForeachSignature);
-                        if (input->m_Init) traverse(input->m_Init);
-                        if (input->m_Test) traverse(input->m_Test);
-                        if (input->m_Update) traverse(input->m_Update);
-                        if (input->m_Statement) traverse(input->m_Statement);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(XOrExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(XOrExpression* input)
-                    {
-                        assert(input); 
-                        line("[XOrExpression]");
-                        indent();
-                        if (input->m_LeftExpression) traverse(input->m_LeftExpression);
-                        if (input->m_XOrExpressionRights) traverse(input->m_XOrExpressionRights);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(WhileStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(WhileStatement* input)
-                    {
-                        assert(input); 
-                        line("[WhileStatement]");
-                        indent();
-                        if(input->m_PAREN_START)
-                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
-                        if (input->m_Condition) traverse(input->m_Condition);
-                        if (input->m_Statement) traverse(input->m_Statement);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(BinAndExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(BinAndExpression* input)
-                    {
-                        assert(input); 
-                        line("[BinAndExpression]");
-                        indent();
-                        if (input->m_LeftExpression) traverse(input->m_LeftExpression);
-                        if (input->m_BinAndExpressionRights) traverse(input->m_BinAndExpressionRights);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(BlockStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(BlockStatement* input)
-                    {
-                        assert(input); 
-                        line("[BlockStatement]");
-                        indent();
-                        if (input->m_Statements) traverse(input->m_Statements);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(EqualityExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(EqualityExpression* input)
-                    {
-                        assert(input); 
-                        line("[EqualityExpression]");
-                        indent();
-                        if (input->m_LeftExpression) traverse(input->m_LeftExpression);
-                        if (input->m_EqualityExpressionRights) traverse(input->m_EqualityExpressionRights);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(DoWhileStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(DoWhileStatement* input)
-                    {
-                        assert(input); 
-                        line("[DoWhileStatement]");
-                        indent();
-                        if (input->m_BlockStatement) traverse(input->m_BlockStatement);
-                        if(input->m_PAREN_START)
-                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
-                        if (input->m_Expression) traverse(input->m_Expression);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(RelationalExpressions* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(RelationalExpression* input)
-                    {
-                        assert(input); 
-                        line("[RelationalExpression]");
-                        indent();
-                        if (input->m_LeftExpression) traverse(input->m_LeftExpression);
-                        if (input->m_RelationalExpressionRights) traverse(input->m_RelationalExpressionRights);
+                        if (input->m_LogicalOrExpressionRights) traverse(input->m_LogicalOrExpressionRights);
                         unindent();
                         return true;
                     }
@@ -10453,19 +10495,155 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(ShiftExpressions* input)
+                    bool traverse(LogicalAndExpressions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(ShiftExpression* input)
+                    bool traverse(LogicalAndExpression* input)
                     {
                         assert(input); 
-                        line("[ShiftExpression]");
+                        line("[LogicalAndExpression]");
                         indent();
                         if (input->m_LeftExpression) traverse(input->m_LeftExpression);
-                        if (input->m_ShiftExpressionRights) traverse(input->m_ShiftExpressionRights);
+                        if (input->m_LogicalAndExpressionRights) traverse(input->m_LogicalAndExpressionRights);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(ForStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(ForStatement* input)
+                    {
+                        assert(input); 
+                        line("[ForStatement]");
+                        indent();
+                        if(input->m_PAREN_START)
+                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
+                        if (input->m_ForeachSignature) traverse(input->m_ForeachSignature);
+                        if (input->m_Init) traverse(input->m_Init);
+                        if (input->m_Test) traverse(input->m_Test);
+                        if (input->m_Update) traverse(input->m_Update);
+                        if (input->m_Statement) traverse(input->m_Statement);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(BinOrExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(BinOrExpression* input)
+                    {
+                        assert(input); 
+                        line("[BinOrExpression]");
+                        indent();
+                        if (input->m_LeftExpression) traverse(input->m_LeftExpression);
+                        if (input->m_BinOrExpressionRights) traverse(input->m_BinOrExpressionRights);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(WhileStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(WhileStatement* input)
+                    {
+                        assert(input); 
+                        line("[WhileStatement]");
+                        indent();
+                        if(input->m_PAREN_START)
+                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
+                        if (input->m_Condition) traverse(input->m_Condition);
+                        if (input->m_Statement) traverse(input->m_Statement);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(XOrExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(XOrExpression* input)
+                    {
+                        assert(input); 
+                        line("[XOrExpression]");
+                        indent();
+                        if (input->m_LeftExpression) traverse(input->m_LeftExpression);
+                        if (input->m_XOrExpressionRights) traverse(input->m_XOrExpressionRights);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(BlockStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(BlockStatement* input)
+                    {
+                        assert(input); 
+                        line("[BlockStatement]");
+                        indent();
+                        if (input->m_Statements) traverse(input->m_Statements);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(BinAndExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(BinAndExpression* input)
+                    {
+                        assert(input); 
+                        line("[BinAndExpression]");
+                        indent();
+                        if (input->m_LeftExpression) traverse(input->m_LeftExpression);
+                        if (input->m_BinAndExpressionRights) traverse(input->m_BinAndExpressionRights);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(DoWhileStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(DoWhileStatement* input)
+                    {
+                        assert(input); 
+                        line("[DoWhileStatement]");
+                        indent();
+                        if (input->m_BlockStatement) traverse(input->m_BlockStatement);
+                        if(input->m_PAREN_START)
+                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
+                        if (input->m_Expression) traverse(input->m_Expression);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(EqualityExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(EqualityExpression* input)
+                    {
+                        assert(input); 
+                        line("[EqualityExpression]");
+                        indent();
+                        if (input->m_LeftExpression) traverse(input->m_LeftExpression);
+                        if (input->m_EqualityExpressionRights) traverse(input->m_EqualityExpressionRights);
                         unindent();
                         return true;
                     }
@@ -10486,19 +10664,19 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(AddExpressions* input)
+                    bool traverse(RelationalExpressions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(AddExpression* input)
+                    bool traverse(RelationalExpression* input)
                     {
                         assert(input); 
-                        line("[AddExpression]");
+                        line("[RelationalExpression]");
                         indent();
                         if (input->m_LeftExpression) traverse(input->m_LeftExpression);
-                        if (input->m_AddExpressionRights) traverse(input->m_AddExpressionRights);
+                        if (input->m_RelationalExpressionRights) traverse(input->m_RelationalExpressionRights);
                         unindent();
                         return true;
                     }
@@ -10518,19 +10696,19 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(MulExpressions* input)
+                    bool traverse(ShiftExpressions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(MulExpression* input)
+                    bool traverse(ShiftExpression* input)
                     {
                         assert(input); 
-                        line("[MulExpression]");
+                        line("[ShiftExpression]");
                         indent();
                         if (input->m_LeftExpression) traverse(input->m_LeftExpression);
-                        if (input->m_MulExpressionRights) traverse(input->m_MulExpressionRights);
+                        if (input->m_ShiftExpressionRights) traverse(input->m_ShiftExpressionRights);
                         unindent();
                         return true;
                     }
@@ -10550,6 +10728,22 @@ namespace phantom
                         unindent();
                         return true;
                     }
+                    bool traverse(AddExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(AddExpression* input)
+                    {
+                        assert(input); 
+                        line("[AddExpression]");
+                        indent();
+                        if (input->m_LeftExpression) traverse(input->m_LeftExpression);
+                        if (input->m_AddExpressionRights) traverse(input->m_AddExpressionRights);
+                        unindent();
+                        return true;
+                    }
                     bool traverse(IfStatements* input)
                     {
                         assert(input);
@@ -10566,6 +10760,73 @@ namespace phantom
                         if (input->m_Condition) traverse(input->m_Condition);
                         if (input->m_Then) traverse(input->m_Then);
                         if (input->m_Else) traverse(input->m_Else);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(MulExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(MulExpression* input)
+                    {
+                        assert(input); 
+                        line("[MulExpression]");
+                        indent();
+                        if (input->m_LeftExpression) traverse(input->m_LeftExpression);
+                        if (input->m_MulExpressionRights) traverse(input->m_MulExpressionRights);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(CaseStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(CaseStatement* input)
+                    {
+                        assert(input); 
+                        line("[CaseStatement]");
+                        indent();
+                        if (input->m_Expression) traverse(input->m_Expression);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(ExplicitLocalVariableDecls* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(ExplicitLocalVariableDecl* input)
+                    {
+                        assert(input); 
+                        line("[ExplicitLocalVariableDecl]");
+                        indent();
+                        if(input->m_CONSTs) for(auto v : *input->m_CONSTs)
+                        switch(v.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(v.as_string()); break;
+                            case spell::any::e_char: line(String(&v.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(v.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(v.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(v.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(v.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(v.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(v.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(v.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(v.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(v.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(v.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(v.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(v.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        if (input->m_BasicType) traverse(input->m_BasicType);
+                        if (input->m_Declarators) traverse(input->m_Declarators);
                         unindent();
                         return true;
                     }
@@ -10651,39 +10912,17 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(ExplicitLocalVariableDecls* input)
+                    bool traverse(DefaultStatements* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(ExplicitLocalVariableDecl* input)
+                    bool traverse(DefaultStatement* input)
                     {
                         assert(input); 
-                        line("[ExplicitLocalVariableDecl]");
+                        line("[DefaultStatement]");
                         indent();
-                        if(input->m_CONSTs) for(auto v : *input->m_CONSTs)
-                        switch(v.type())
-                        {
-                            case spell::any::e_undefined: break;
-                            case spell::any::e_cstring:line(v.as_string()); break;
-                            case spell::any::e_char: line(String(&v.ref_char(), 1)); break;
-                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(v.as_uchar())); break;
-                            case spell::any::e_int: line(phantom::lexical_cast<String>(v.as_int())); break;
-                            case spell::any::e_uint: line(phantom::lexical_cast<String>(v.as_uint())); break;
-                            case spell::any::e_short: line(phantom::lexical_cast<String>(v.as_short())); break;
-                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(v.as_ushort())); break;
-                            case spell::any::e_long: line(phantom::lexical_cast<String>(v.as_long())); break;
-                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(v.as_ulong())); break;
-                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(v.as_longlong())); break;
-                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(v.as_ulonglong())); break;
-                            case spell::any::e_double: line(phantom::lexical_cast<String>(v.as_double())); break;
-                            case spell::any::e_float: line(phantom::lexical_cast<String>(v.as_float())); break;
-                            case spell::any::e_bool: line(phantom::lexical_cast<String>(v.as_bool())); break;
-                            default: assert(false); break;
-                        }
-                        if (input->m_BasicType) traverse(input->m_BasicType);
-                        if (input->m_Declarators) traverse(input->m_Declarators);
                         unindent();
                         return true;
                     }
@@ -10748,18 +10987,39 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(CaseStatements* input)
+                    bool traverse(AutoLocalVariableDecls* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(CaseStatement* input)
+                    bool traverse(AutoLocalVariableDecl* input)
                     {
                         assert(input); 
-                        line("[CaseStatement]");
+                        line("[AutoLocalVariableDecl]");
                         indent();
-                        if (input->m_Expression) traverse(input->m_Expression);
+                        if(input->m_CONSTs) for(auto v : *input->m_CONSTs)
+                        switch(v.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(v.as_string()); break;
+                            case spell::any::e_char: line(String(&v.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(v.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(v.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(v.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(v.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(v.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(v.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(v.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(v.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(v.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(v.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(v.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(v.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        if (input->m_Auto) traverse(input->m_Auto);
+                        if (input->m_AutoDeclarators) traverse(input->m_AutoDeclarators);
                         unindent();
                         return true;
                     }
@@ -10802,39 +11062,19 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(AutoLocalVariableDecls* input)
+                    bool traverse(LabelStatements* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(AutoLocalVariableDecl* input)
+                    bool traverse(LabelStatement* input)
                     {
                         assert(input); 
-                        line("[AutoLocalVariableDecl]");
+                        line("[LabelStatement]");
                         indent();
-                        if(input->m_CONSTs) for(auto v : *input->m_CONSTs)
-                        switch(v.type())
-                        {
-                            case spell::any::e_undefined: break;
-                            case spell::any::e_cstring:line(v.as_string()); break;
-                            case spell::any::e_char: line(String(&v.ref_char(), 1)); break;
-                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(v.as_uchar())); break;
-                            case spell::any::e_int: line(phantom::lexical_cast<String>(v.as_int())); break;
-                            case spell::any::e_uint: line(phantom::lexical_cast<String>(v.as_uint())); break;
-                            case spell::any::e_short: line(phantom::lexical_cast<String>(v.as_short())); break;
-                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(v.as_ushort())); break;
-                            case spell::any::e_long: line(phantom::lexical_cast<String>(v.as_long())); break;
-                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(v.as_ulong())); break;
-                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(v.as_longlong())); break;
-                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(v.as_ulonglong())); break;
-                            case spell::any::e_double: line(phantom::lexical_cast<String>(v.as_double())); break;
-                            case spell::any::e_float: line(phantom::lexical_cast<String>(v.as_float())); break;
-                            case spell::any::e_bool: line(phantom::lexical_cast<String>(v.as_bool())); break;
-                            default: assert(false); break;
-                        }
-                        if (input->m_Auto) traverse(input->m_Auto);
-                        if (input->m_AutoDeclarators) traverse(input->m_AutoDeclarators);
+                        if(input->m_IDENTIFIER)
+                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
                         unindent();
                         return true;
                     }
@@ -10923,6 +11163,40 @@ namespace phantom
                         if(input->m_PAREN_START)
                         line(phantom::lexical_cast<String>(input->m_PAREN_START));
                         if (input->m_Type) traverse(input->m_Type);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(TypeofExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(TypeofExpression* input)
+                    {
+                        assert(input); 
+                        line("[TypeofExpression]");
+                        indent();
+                        if(input->m_TYPEOF)
+                        line(phantom::lexical_cast<String>(input->m_TYPEOF));
+                        if(input->m_PAREN_START)
+                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
+                        if (input->m_Type) traverse(input->m_Type);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(LocalVariableStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(LocalVariableStatement* input)
+                    {
+                        assert(input); 
+                        line("[LocalVariableStatement]");
+                        indent();
+                        if (input->m_LocalVariableDecl) traverse(input->m_LocalVariableDecl);
                         unindent();
                         return true;
                     }

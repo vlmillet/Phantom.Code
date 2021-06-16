@@ -78,6 +78,7 @@
 #include <phantom/lang/Property.h>
 #include <phantom/lang/PropertyExpression.h>
 #include <phantom/lang/RValueReferenceExpression.h>
+#include <phantom/lang/Reference.h>
 #include <phantom/lang/ReturnStatement.h>
 #include <phantom/lang/Semantic.h>
 #include <phantom/lang/Signature.h>
@@ -123,15 +124,15 @@
 #include <phantom/typeof>
 #include <phantom/utils/Generic.h>
 /* *********************************************** */
+#include "ClassListInitializationExpression.h"
 #include "CppLiteMemory.h"
 #include "TemplateParameterPackExpansion.h"
 #include "TemplateParameterPackTypeExpansion.h"
 #include "phantom/lang/TemplateDependantTemplateInstance.h"
+#include "phantom/utils/random.h"
 
 #include <phantom/lang/FunctionType.h>
 #define DUMP_CODE_RANGES 0
-
-#pragma optimize("", off)
 
 namespace phantom
 {
@@ -410,8 +411,24 @@ static bool CheckShouldWeContinueParsing(Subroutine* a_pSubroutine)
     if (!CheckShouldWeContinueParsing(s))                                                                              \
     return true
 #define CppLiteDefaultReturnValue(value) bool soul_default_return_value = value
+
+#if PHANTOM_COMPILER == PHANTOM_COMPILER_VISUAL_STUDIO
+#    define CppLiteConvNoCodeRange(...)                                                                                \
+        PHANTOM_PP_CAT(PHANTOM_PP_CAT(CppLiteConvNoCodeRange_, PHANTOM_PP_ARGCOUNT(__VA_ARGS__)), (__VA_ARGS__))
+
+#else
+#    define CppLiteConvNoCodeRange(...)                                                                                \
+        PHANTOM_PP_CAT(CppLiteConvNoCodeRange_, PHANTOM_PP_ARGCOUNT(__VA_ARGS__))(__VA_ARGS__)
+//#   define o_findT(...) PHANTOM_PP_CAT(o_findT_, PHANTOM_PP_ARGCOUNT(__VA_ARGS__))(__VA_ARGS__)
+#endif
+
 #define CppLiteConv(...) CppLiteConvNoCodeRange(__VA_ARGS__)
-#define CppLiteConvNoCodeRange(...) CppLiteGetSemantic()->convert(__VA_ARGS__)
+#define CppLiteConvNoCodeRange_2(exp, type) CppLiteGetSemantic()->convert(exp, type, CppLiteGetScope())
+#define CppLiteConvNoCodeRange_3(exp, type, scope) CppLiteGetSemantic()->convert(exp, type, scope)
+#define CppLiteConvNoCodeRange_4(exp, type, convType, userConvFunc)                                                    \
+    CppLiteConvNoCodeRange_5(exp, type, convType, userConvFunc, CppLiteGetScope())
+#define CppLiteConvNoCodeRange_5(exp, type, convType, userConvFunc, scope)                                             \
+    CppLiteGetSemantic()->convert(exp, type, convType, userConvFunc, scope)
 #define CppLiteInitNE(...) CppLiteInitNENoCodeRange(__VA_ARGS__)
 #define CppLiteInitNENoCodeRange(...) CppLiteGetSemantic()->initializeIfNotEqual(__VA_ARGS__)
 
@@ -3402,8 +3419,10 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         }
         CppLiteMapAndReturn(pType);
     }
+
     bool traverseExplicitTypeNoFunctionType(ast::ExplicitTypeNoFunctionType* input)
     {
+        PHANTOM_STATIC_ASSERT(sizeof(ast::ExplicitTypeNoFunctionType) == sizeof(ast::ExplicitType));
         return traverseExplicitType(reinterpret_cast<ast::ExplicitType*>(input));
     }
 
@@ -3808,6 +3827,253 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             return true;
         }
         CppLiteMapAndReturn(pConv);
+        return true;
+    }
+
+    bool traverseLambdaExpression(ast::LambdaExpression* input)
+    {
+        auto pScopeElem = CppLiteGetScope();
+        auto pScope = pScopeElem->asScope();
+        if (pScope == nullptr)
+            pScope = pScopeElem->getEnclosingScope();
+
+        char lambdaName[44];
+        phantom::random::str(lambdaName, "lambda$%%%%%%%%_%%%%_%%%%_%%%%_%%%%%%%%%%%%");
+
+        // captures
+
+        SmallMap<StringView, LocalVariable*> capturedVariablesByRef;
+        SmallMap<StringView, LocalVariable*> capturedVariablesByCopy;
+        SmallSet<LocalVariable*>             explicitlyCaptured;
+
+        Block* pBlock = pScopeElem->asBlock();
+        CppLiteErrorReturnIf(input->m_LambdaCaptures != nullptr && !input->m_LambdaCaptures->empty() &&
+                             pBlock == nullptr,
+                             "lambda : captures outside of block are forbidden");
+
+        bool thisCaptured = false;
+        for (ast::LambdaCapture* pLambdaCapture : *input->m_LambdaCaptures)
+        {
+            bool copyAll = pLambdaCapture->m_ASSIGN.hasValue();
+            bool refAll = pLambdaCapture->m_BIN_AND.hasValue() && !pLambdaCapture->m_IDENTIFIER.hasValue();
+            if (refAll || copyAll)
+            {
+                thisCaptured = true;
+                if (copyAll && capturedVariablesByCopy.size())
+                {
+                    CppLiteError("lambda : '=' : capture all conflits with previous capture by copy");
+                    continue;
+                }
+                if (refAll && capturedVariablesByRef.size())
+                {
+                    CppLiteError("lambda : '&' : capture all conflits with previous capture by reference");
+                    continue;
+                }
+                auto& captureAll = copyAll ? capturedVariablesByCopy : capturedVariablesByRef;
+                auto  pCurrBlock = pBlock;
+                while (pCurrBlock)
+                {
+                    for (auto pLocal : pCurrBlock->getLocalVariables())
+                    {
+                        auto& captured = captureAll[pLocal->getName()];
+                        if (captured == nullptr)
+                            captured = pLocal;
+                    }
+                    pCurrBlock = pCurrBlock->getBlock();
+                }
+            }
+            else if (pLambdaCapture->m_THIS.hasValue())
+            {
+                thisCaptured = true;
+                auto pCaptureScopeMethod = pBlock->getSubroutine()->asMethod();
+                if (pCaptureScopeMethod == nullptr)
+                {
+                    CppLiteError("lambda : capturing 'this' outside of method block");
+                    continue;
+                }
+                auto pThis = pCaptureScopeMethod->getThis();
+                if (!explicitlyCaptured.insert(pThis).second)
+                {
+                    CppLiteError("lambda : 'this' already captured");
+                }
+                capturedVariablesByCopy["this"] = pThis;
+                capturedVariablesByRef.erase("this");
+            }
+            else if (pLambdaCapture->m_IDENTIFIER.hasValue())
+            {
+                auto name = pLambdaCapture->m_IDENTIFIER.as_string();
+                auto pCapturedLocal = pBlock->getLocalVariableCascade(name);
+                if (pCapturedLocal == nullptr)
+                {
+                    CppLiteError("lambda : capturing unknown local '%s'", name);
+                    continue;
+                }
+                if (!explicitlyCaptured.insert(pCapturedLocal).second)
+                {
+                    CppLiteError("lambda : '%s' already explicitly captured", name);
+                    continue;
+                }
+                if (pLambdaCapture->m_BIN_AND.hasValue())
+                {
+                    auto& captured = capturedVariablesByRef[name];
+                    if (captured)
+                    {
+                        CppLiteError("lambda : '%s' already captured by capture all '&'", name);
+                        continue;
+                    }
+                    captured = pCapturedLocal;
+                    capturedVariablesByCopy.erase(name);
+                }
+                else
+                {
+                    auto& captured = capturedVariablesByCopy[name];
+                    if (captured)
+                    {
+                        CppLiteError("lambda : '%s' already captured by capture all '='", name);
+                        continue;
+                    }
+                    captured = pCapturedLocal;
+                    capturedVariablesByRef.erase(name);
+                }
+            }
+        }
+
+        Expressions initExpressions;
+
+        auto builder = ClassBuilder::struct_(pScope, lambdaName);
+        for (auto& name_pLocalByCopy : capturedVariablesByCopy)
+        {
+            auto pType = name_pLocalByCopy.second->getValueType();
+            auto pTypeNoRef = pType->removeReference()->removeQualifiers();
+            if (!pTypeNoRef->isCopyable())
+            {
+                CppLiteError("lambda : %.* : unable to capture by copy as type '%.*s' is not copyable");
+                continue;
+            }
+            builder.field(pTypeNoRef->addConst(), name_pLocalByCopy.first);
+            auto pConvExp = CppLiteConv(New<LocalVariableExpression>(name_pLocalByCopy.second), pTypeNoRef, pScopeElem);
+            PHANTOM_ASSERT(pConvExp);
+            initExpressions.push_back(pConvExp);
+        }
+
+        for (auto name_pLocalByRef : capturedVariablesByRef)
+        {
+            auto pAsRef = name_pLocalByRef.second->getValueType();
+            auto pPointer = pAsRef->removeReference()->makePointer();
+            if (pPointer == nullptr)
+            {
+                CppLiteError("lambda : %.* : unable to capture by ref as type '%.*s' is not addressable");
+                continue;
+            }
+            builder.field(pPointer, name_pLocalByRef.first);
+            auto pConvExp = CppLiteConv(New<LocalVariableExpression>(name_pLocalByRef.second)->address(getSource()),
+                                        pPointer, pScopeElem);
+            PHANTOM_ASSERT(pConvExp);
+            initExpressions.push_back(pConvExp);
+        }
+
+        auto pLambdaClass = builder.finalize();
+
+        auto pLambdaInitCtrct = New<ClassListInitializationExpression>(pLambdaClass, initExpressions);
+
+        Modifiers modifiers = Modifier::Const;
+
+        Subroutine* pLambdaCallOp{};
+
+        Parameters params;
+
+        // signature
+        if (!resolveParameters(input, input->m_Parameters, params))
+            return true;
+
+        // check name collision between parameters and captured variables
+        for (auto param : params)
+        {
+            CppLiteErrorIf(capturedVariablesByRef.find(param->getName()) != capturedVariablesByRef.end() ||
+                           capturedVariablesByCopy.find(param->getName()) != capturedVariablesByCopy.end(),
+                           "lambda : parameter name '%.*s' collides with a capture",
+                           PHANTOM_STRING_AS_PRINTF_ARG(param->getName()));
+        }
+
+        Type* pRetType = nullptr;
+
+        if (input->m_ArrowReturn)
+        {
+            pRetType = CppLiteVisitType(input->m_ArrowReturn->m_Type);
+        }
+
+        auto pAuto = Application::Get()->getAuto();
+
+        if (!pRetType)
+            pRetType = pAuto;
+
+        auto pSign = New<Signature>(pRetType, params, Modifier::Const);
+
+        auto pLambdaMethod = New<Method>("operator()", pSign, Modifier::Const);
+        pLambdaMethod->setAccess(Access::Public);
+        pLambdaClass->addMethod(pLambdaMethod);
+
+        // create block (without 'this')
+
+        Block* pLambdaBlock = pLambdaMethod->New<Block>();
+        pLambdaMethod->setBlock(pLambdaBlock);
+        size_t count = params.size();
+        while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to argument
+                        // passing (right to left)
+        {
+            pLambdaBlock->addLocalVariable(params[count]);
+        }
+
+        // add 'this' if captured
+        if (thisCaptured)
+        {
+            auto pCapturedThis = pLambdaClass->getField("this");
+            auto pLocal = pLambdaBlock->addLocalVariable(pCapturedThis->getValueType()->addConst(), "this");
+            auto pLocalThisAccess = New<LocalVariableExpression>(pLambdaMethod->getThis())->dereference(getSource());
+            auto pFieldThisAccess = New<FieldExpression>(pLocalThisAccess, pCapturedThis);
+            auto pInitStmt = New<LocalVariableInitializationStatement>(pLocal, pFieldThisAccess->load(getSource()));
+            pLambdaBlock->addStatement(pInitStmt);
+        }
+
+        // make deref from field int* myCapturedRef to local int&
+        // myCapturedRef, inside the operator() block
+        for (auto& name_pLocal : capturedVariablesByRef)
+        {
+            if (name_pLocal.first == "this")
+                continue;
+            auto pLambdaThisAccess = New<LocalVariableExpression>(pLambdaMethod->getThis())->dereference(getSource());
+            auto pField = pLambdaClass->getField(name_pLocal.first);
+            auto pFieldAccess = New<FieldExpression>(pLambdaThisAccess, pField);
+            auto pLocal = pLambdaBlock->addLocalVariable(pField->getValueType()->removePointer()->addLValueReference(),
+                                                         name_pLocal.first);
+            auto pInitStmt = New<LocalVariableInitializationStatement>(pLocal, pFieldAccess->dereference(getSource()));
+            pLambdaBlock->addStatement(pInitStmt);
+        }
+
+        // make ref of int myCapturedCopy as int&
+        // myCapturedCopy, inside the operator() block
+        for (auto& name_pLocal : capturedVariablesByCopy)
+        {
+            if (name_pLocal.first == "this")
+                continue;
+            auto pLambdaThisAccess = New<LocalVariableExpression>(pLambdaMethod->getThis())->dereference(getSource());
+            auto pField = pLambdaClass->getField(name_pLocal.first);
+            auto pFieldAccess = New<FieldExpression>(pLambdaThisAccess, pField);
+            auto pLocal =
+            pLambdaBlock->addLocalVariable(pField->getValueType()->addLValueReference(), name_pLocal.first);
+            auto pInitStmt = New<LocalVariableInitializationStatement>(pLocal, pFieldAccess);
+            pLambdaBlock->addStatement(pInitStmt);
+        }
+
+        pLambdaMethod->setBlockBuilder([=](Block* a_pBlock) -> bool {
+            pLambdaMethod->setBlockBuilder({});
+            return CppLiteVisitElement(input->m_FunctionBlock, pLambdaMethod) != nullptr;
+        });
+
+        if (pBlock)
+            pLambdaMethod->buildBlock();
+
+        CppLiteMapAndReturn(pLambdaInitCtrct);
         return true;
     }
 
@@ -4535,6 +4801,10 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         else if (input->m_FunctionPtrExpression)
         {
             return this->traverse(input->m_FunctionPtrExpression);
+        }
+        else if (input->m_LambdaExpression)
+        {
+            return this->traverse(input->m_LambdaExpression);
         }
         PHANTOM_ASSERT(false);
         return true;
@@ -7618,8 +7888,14 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         }
         m_Data.popImplicitThisExpression();
 
+        auto pAuto = Application::Get()->getAuto();
+        auto pSignature = pSubroutine->getSignature();
+        if (pSignature->getReturnType() == pAuto)
+        {
+            pSignature->setReturnType(PHANTOM_TYPEOF(void));
+        }
         CppLiteErrorReturnIf(
-        pSubroutine->getReturnType() != PHANTOM_TYPEOF(void) &&
+        pSignature->getReturnType() != PHANTOM_TYPEOF(void) &&
         (pBlock->getStatements().empty() || (pBlock->getStatements().back())->asReturnStatement() == nullptr),
         "'%s' : function must return a value at end of block", CppLiteSubroutineName(pSubroutine).data());
         CppLiteMapAndReturn(pBlock);
@@ -8251,6 +8527,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
     {
         Block* pBlock = CppLiteGetScopeAs(Block);
         PHANTOM_ASSERT(pBlock && pBlock->getSubroutine());
+        auto             pSignature = pBlock->getSubroutine()->getSignature();
         Type*            pReturnType = pBlock->getSubroutine()->getReturnType();
         ReturnStatement* pReturnStatement = nullptr;
         if (input->m_pExpression)
@@ -8258,6 +8535,14 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
             OwnerGuard<Expression> pExpression = CppLiteVisitExpression(input->m_pExpression, pBlock);
             if (pExpression == nullptr)
                 return true;
+            if (!pExpression->isTemplateDependant() && pReturnType->removeEverything() == Application::Get()->getAuto())
+            {
+                pReturnType = CppLiteGetSemantic()->autoDeduction(pReturnType, pExpression->getValueType());
+                if (!pReturnType)
+                    return true;
+                pSignature->setReturnType(pReturnType);
+            }
+
             if (pReturnType != PHANTOM_TYPEOF(void))
             {
                 OwnerGuard<Expression> pConvExpression = CppLiteConv(pExpression.take(), pReturnType, pBlock);
@@ -8279,6 +8564,12 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         }
         else
         {
+            if (pReturnType == Application::Get()->getAuto())
+            {
+                pReturnType = PHANTOM_TYPEOF(void);
+                pSignature->setReturnType(pReturnType);
+            }
+
             CppLiteErrorReturnIf(pReturnType != PHANTOM_TYPEOF(void), "return : non-void function must return a value");
             pReturnStatement = New<ReturnStatement>();
             applyCodeRange(input, pReturnStatement);

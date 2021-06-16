@@ -157,7 +157,7 @@ inline StringView getAccessString(Access a_Access)
 //#   define o_findT(...) PHANTOM_PP_CAT(o_findT_, PHANTOM_PP_ARGCOUNT(__VA_ARGS__))(__VA_ARGS__)
 #endif
 
-#define o_findT(type, primary) static_cast<type*>(_findInstantiation(in_TemplateSubstitution, primary));
+#define o_findT(type, primary) static_cast<type*>(_findInstantiation(in_TemplateSubstitution, primary))
 
 #define o_mapT(primary, instance)                                                                                      \
     templateInstantiations()[in_TemplateSubstitution.getInstantiation()][primary] = instance
@@ -192,7 +192,6 @@ public:
         PHANTOM_SEMANTIC_ASSERT(a_pElement);
         LanguageElement* pResult =
         a_pSemantic->resolveTemplateDependency(a_pElement, a_TemplateSubstitution, a_uiPass, a_pScope, a_Flags);
-        PHANTOM_SEMANTIC_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
         return pResult ? (pResult->*a_Func)() : nullptr;
     }
     template<class T>
@@ -205,7 +204,6 @@ public:
             return nullptr;
         LanguageElement* pResult =
         a_pSemantic->instantiateTemplateElement(a_pElement, a_TemplateSubstitution, a_uiPass, a_pScope, a_Flags);
-        PHANTOM_SEMANTIC_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
         if (!pResult)
             return nullptr;
         T* pResT = (pResult->*a_Func)();

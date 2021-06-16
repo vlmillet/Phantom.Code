@@ -41,6 +41,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void()>("initialize", &_::initialize)
             .method<::phantom::lang::VariableExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)({"a_pOwner"})
             .method<Variable*() const>("getVariable", &_::getVariable)
+            .method<LanguageElement*() const, virtual_|override_>("removeExpression", &_::removeExpression)
         
         .protected_()
             .method<void*(ExecutionContext&) const, virtual_>("internalEvalAddress", &_::internalEvalAddress)({"a_Context"})

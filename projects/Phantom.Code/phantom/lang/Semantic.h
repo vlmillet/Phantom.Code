@@ -11,6 +11,7 @@
 #include "LanguageElementVisitorEx.h"
 #include "conversions.h"
 #include "lang.h"
+#include "phantom/lang/TemplateSubstitution.h"
 
 #include <phantom/lang/LanguageElement.h>
 #include <phantom/lang/Source.h>
@@ -457,9 +458,9 @@ public:
 
     struct SelectedOverloadInfo
     {
-        Subroutine*       subroutine = nullptr;
-        ConversionResults conversions;
-        PlaceholderMap    deductions;
+        Subroutine*          subroutine = nullptr;
+        ConversionResults    conversions;
+        TemplateSubstitution deductions;
     };
 
     using SelectedOverloadInfos = SmallVector<SelectedOverloadInfo>;
@@ -996,21 +997,25 @@ public:
                                 LanguageElement*     a_pContextScope,
                                 UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
     void newImplicitConversionsWithArgDeductions(Signature* a_pSignature, TypesView a_ArgTypes,
-                                                 ConversionResults& a_Out, PlaceholderMap& a_TemplateArgDeductions,
-                                                 LanguageElement*     a_pContextScope,
-                                                 UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
+                                                 ConversionResults&    a_Out,
+                                                 TemplateSubstitution& a_TemplateArgDeductions,
+                                                 LanguageElement*      a_pContextScope,
+                                                 UserDefinedFunctions  a_ConversionAllowedUserDefinedFunctions);
     void newImplicitConversionsWithArgDeductions(Signature* a_pSignature, ExpressionsView a_Args,
-                                                 ConversionResults& a_Out, PlaceholderMap& a_TemplateArgDeductions,
-                                                 LanguageElement*     a_pContextScope,
-                                                 UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
+                                                 ConversionResults&    a_Out,
+                                                 TemplateSubstitution& a_TemplateArgDeductions,
+                                                 LanguageElement*      a_pContextScope,
+                                                 UserDefinedFunctions  a_ConversionAllowedUserDefinedFunctions);
     void newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType, TypesView a_ArgTypes,
-                                                 ConversionResults& a_Out, PlaceholderMap& a_TemplateArgDeductions,
-                                                 LanguageElement*     a_pContextScope,
-                                                 UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
+                                                 ConversionResults&    a_Out,
+                                                 TemplateSubstitution& a_TemplateArgDeductions,
+                                                 LanguageElement*      a_pContextScope,
+                                                 UserDefinedFunctions  a_ConversionAllowedUserDefinedFunctions);
     void newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType, ExpressionsView a_Args,
-                                                 ConversionResults& a_Out, PlaceholderMap& a_TemplateArgDeductions,
-                                                 LanguageElement*     a_pContextScope,
-                                                 UserDefinedFunctions a_ConversionAllowedUserDefinedFunctions);
+                                                 ConversionResults&    a_Out,
+                                                 TemplateSubstitution& a_TemplateArgDeductions,
+                                                 LanguageElement*      a_pContextScope,
+                                                 UserDefinedFunctions  a_ConversionAllowedUserDefinedFunctions);
 
 private:
     template<typename t_Ty>
@@ -1105,16 +1110,21 @@ private:
     void _moveAssignField(Class* a_pThis, Block* a_pBlock, Expression* a_pDME, Array* a_pArray, Expression* a_pWhere);
     bool _useExplicitTemplateArguments(Subroutine* a_pInput, TemplateSpecialization* a_pTSpec,
                                        OptionalArrayView<LanguageElement*> a_ExplicitTemplateArguments,
-                                       PlaceholderMap& a_Deductions, const char* a_SubroutineKind);
+                                       TemplateSubstitution& a_Deductions, const char* a_SubroutineKind);
     LanguageElement* _findInstantiation(TemplateSubstitution const& a_TSubs, LanguageElement* a_pPrimary);
     LanguageElement* _findInstantiation(TemplateSubstitution const& a_TSubs, Evaluable* a_pPrimary);
 
+    void _pushSilentMessage();
+    void _popSilentMessage();
+
 private:
-    BuiltInOperator*   m_BuiltInOperators[int(Operator::COUNT)];
-    const char*        m_ScopeDelimiter = "::";
-    Message*           m_pMessage = nullptr;
-    Source*            m_pSource = nullptr;
-    NameFormatDelegate m_NameFormatDelegate;
+    BuiltInOperator*      m_BuiltInOperators[int(Operator::COUNT)];
+    const char*           m_ScopeDelimiter = "::";
+    Message*              m_pMessage{};
+    Message*              m_pLastSilentMessage{};
+    SmallVector<Message*> m_silentMessageStack;
+    Source*               m_pSource{};
+    NameFormatDelegate    m_NameFormatDelegate;
     SmallMap<TemplateSpecialization*, SmallMap<LanguageElement*, LanguageElement*>>* m_pTemplateInstantiations =
     nullptr;
     CodeRangeLocations m_CodeRangeLocationStack;
