@@ -911,14 +911,15 @@ struct CppLitePassData
     template<class T>
     T* mapElement(ast::_BaseRule* a_pRule, T* a_pElement)
     {
-        if (a_pElement && a_pElement->getOwner() == nullptr)
+        if (a_pElement)
         {
-            m_DebugCheckLeaks.push_back(a_pElement);
+            if (a_pElement->getOwner() == nullptr)
+                m_DebugCheckLeaks.push_back(a_pElement);
 #if CPPLIGHT_ENABLED_DEBUG_LEAK_HISTORY
             m_DebugCheckLeaksHistory.record("");
 #endif
+            m_RuleToElement[a_pRule].push_back(a_pElement);
         }
-        m_RuleToElement[a_pRule].push_back(a_pElement);
         return a_pElement;
     }
     template<class T, size_t N>
@@ -2057,7 +2058,7 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             {
                 pType = CppLiteVisitType(pTypeOrAuto);
                 if (pType == nullptr)
-                    return true;
+                    return false;
             }
 
             CppLiteDefaultReturnValue(false);
@@ -7265,6 +7266,7 @@ struct CppLitePassMembersGlobal : public CppLitePass<CppLitePassMembersGlobal>
     {
         Class* pClass = CppLiteGetElementAs(Class);
         CppLiteCheckShouldWeContinueParsing(pClass);
+        pClass->setCurrentAccess(pClass->getDefaultAccess());
         if (input->m_Members)
         {
             CppLiteVisitElements(input->m_Members, pClass);
@@ -7277,6 +7279,7 @@ struct CppLitePassMembersGlobal : public CppLitePass<CppLitePassMembersGlobal>
         Union* pUnion = CppLiteGetElementAs(Union);
         if (pUnion == nullptr)
             return true;
+        pUnion->setCurrentAccess(pUnion->getDefaultAccess());
         if (input->m_BasicMembers)
         {
             CppLiteVisitElements(input->m_BasicMembers, pUnion);
