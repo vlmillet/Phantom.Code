@@ -1282,20 +1282,25 @@ void Semantic::visit(Block* a_pInput, VisitorData a_Data)
                         pType = autoDeduction(pType, pExp->getValueType());
                         Delete(pExp); // we don't need this expression anymore as it will be reinstantiated
                                       // when instancing LocalVariableInitializationStatement
-                        if (pType == nullptr)
-                            return;
                     }
                     else
                     {
                         pType = o_resolveT(Type, pType, pBlock);
                     }
                     if (pType == nullptr)
+                        continue;
+                    if (pType->hasAuto() && !pBlock->isTemplateElement())
                     {
-                        return;
+                        CxxSemanticError("auto cannot be deduced in this context");
+                        continue;
                     }
-                    auto pInstanciated = createLocalVariable(pType, pLocal->getName(), pLocal->getModifiers());
-                    templateInstantiations()[in_TemplateSubstitution.getInstantiation()][pLocal] = pInstanciated;
-                    pBlock->addLocalVariable(pInstanciated);
+                    else
+                    {
+                        auto pInstanciated =
+                        createLocalVariable(pType, pLocal->getName(), pLocal->getModifiers()); // fallback to int
+                        templateInstantiations()[in_TemplateSubstitution.getInstantiation()][pLocal] = pInstanciated;
+                        pBlock->addLocalVariable(pInstanciated);
+                    }
                 }
             }
             for (Statement* pStatement : a_pInput->getStatements())
@@ -2955,6 +2960,12 @@ void Semantic::visit(Field* a_pInput, VisitorData a_Data)
         LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
         LanguageElement*&           pResolved = *(LanguageElement**)a_Data.out[0];
 
+        if (in_TemplateSubstitution.getInstantiation()->getInstantiationSpecialization()->getTemplated() ==
+            a_pInput->getOwnerClassType())
+        {
+            pResolved = o_findT(Field, a_pInput);
+            return;
+        }
         ClassType* pResolvedOwnerClassType = o_resolveT(ClassType, a_pInput->getOwnerClassType());
         if (pResolvedOwnerClassType == nullptr)
             return;
@@ -5779,7 +5790,9 @@ void Semantic::visit(LocalVariable* a_pInput, VisitorData a_Data)
         {
             Type* pType = o_resolveT(Type, a_pInput->getValueType());
             if (pType == nullptr)
+            {
                 return;
+            }
             pInstanciated = createLocalVariable(pType, a_pInput->getName(), a_pInput->getModifiers());
         }
         return;
