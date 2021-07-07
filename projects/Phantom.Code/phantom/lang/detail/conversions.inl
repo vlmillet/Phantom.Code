@@ -758,11 +758,13 @@ Expression* DefaultConversionSequence::convert(Semantic* a_pSemantic, Expression
 			if (pOutputNoConstRef->getTemplate() && pOutputNoConstRef->getTemplate()
 				->getQualifiedName() == "std::initializer_list")
 			{
+                auto pSource = a_pSemantic->getSource();
+
 				Expressions newArgs;
 				Type* pInitType = static_cast<Type*>(pOutputNoConstRef->getTemplateSpecialization()->getArgument(0));
 				for (auto pExp : pInitListExpression->getExpressions())
 				{
-					newArgs.push_back(a_pSemantic->convert(pExp, pInitType));
+					newArgs.push_back(a_pSemantic->convert(pExp, pInitType, pSource ? static_cast<LanguageElement*>(pSource) : Namespace::Global()));
 					PHANTOM_ASSERT(newArgs.back());
 				}
 				Expression* pNewExp =
@@ -770,7 +772,7 @@ Expression* DefaultConversionSequence::convert(Semantic* a_pSemantic, Expression
 				if (pOutputNoConstRef != output.type)
 				{
 					// const ref
-					return a_pSemantic->convert(pNewExp, output.type);
+					return a_pSemantic->convert(pNewExp, output.type, pSource ? static_cast<LanguageElement*>(pSource) : Namespace::Global());
 				}
 				return pNewExp;
 			}
