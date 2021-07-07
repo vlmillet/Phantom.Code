@@ -853,27 +853,19 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
         Module* pCurrModule = this->getSource()->getModule();
 
         // already instantiated ?
+
         if (TemplateSpecialization* pAlreadyThere =
-            a_pInput->getTemplateSpecialization(explicitSubstitution.getArguments()))
+            a_pInput->getTemplateSpecializationForModule(explicitSubstitution.getArguments(), pCurrModule))
         {
-            if (pAlreadyThere->getVisibility() != Visibility::Private &&
-                pAlreadyThere->getSource()->getVisibility() != Visibility::Private)
-            {
-                if (pAlreadyThere->getModule()->isNative() ||
-                    (pAlreadyThere->isFull() && !pAlreadyThere->testFlags(PHANTOM_R_FLAG_IMPLICIT)) ||
-                    pAlreadyThere->getModule() == this->getSource()->getModule())
-                {
-                    Symbol* pTemplated{};
-                    if (auto pExtended = pAlreadyThere->getExtendedSpecialization())
-                        pTemplated = pExtended->getTemplated();
-                    else
-                        pTemplated = pAlreadyThere->getTemplated();
-                    if (pTemplated &&
-                        (pTemplated->getModule()->isNative() || pCurrModule == pTemplated->getModule() ||
-                         pCurrModule->hasDependencyCascade(pTemplated->getModule())))
-                        return pTemplated;
-                }
-            }
+            Symbol* pTemplated{};
+            if (auto pExtended = pAlreadyThere->getExtendedSpecialization())
+                pTemplated = pExtended->getTemplated();
+            else
+                pTemplated = pAlreadyThere->getTemplated();
+            if (pTemplated &&
+                (pTemplated->getModule()->isNative() || pCurrModule == pTemplated->getModule() ||
+                 pCurrModule->hasDependencyCascade(pTemplated->getModule())))
+                return pTemplated;
         }
 
         /// Find viable specializations
@@ -968,30 +960,7 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
                 {
                     result = (specSubstitution.size() == 0);
                 }
-            }
-            if (result)
-            {
-                /// if any template specialization which has already found is same to this one, it means
-                /// the same template has been instantiated with the same arguments in two different
-                /// modules, if it happens we keep the one matching the currentModule (if this last
-                /// doesn't exist, we keep the last registered template specialization)
-                bool alreadyFound = false;
-                for (size_t i = 0; i < viableSpecializations.size(); ++i)
-                {
-                    TemplateSpecialization*& pAlreadyFound = viableSpecializations[i];
-                    if (pT0->isSame(pAlreadyFound)) // we found an equal template specialization
-                    {
-                        alreadyFound = true;
-                        // if the new occurrence match the current module, we replace the old occurrence
-                        if (this->getSource()->getModule() == pT0->getModule())
-                        {
-                            pAlreadyFound = pT0;
-                            viableSubstitutions[i] = specSubstitution;
-                        }
-                        break;
-                    }
-                }
-                if (!(alreadyFound))
+                if (result)
                 {
                     viableSpecializations.push_back(pT0);
                     viableSubstitutions.push_back(std::move(specSubstitution));
