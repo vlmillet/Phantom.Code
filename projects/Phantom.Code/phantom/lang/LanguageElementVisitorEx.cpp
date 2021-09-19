@@ -44,6 +44,7 @@
 #include "MemCopyStatement.h"
 #include "MethodPointerCallExpression.h"
 #include "NewExpression.h"
+#include "ParameterPackExpressionExpansion.h"
 #include "PlacementNewExpression.h"
 #include "PointerAdjustmentExpression.h"
 #include "PropertyExpression.h"
@@ -291,11 +292,15 @@ void LanguageElementVisitorEx::visit(TemplateParameterPackExpansion* a_pInput, V
 {
     visit(static_cast<LanguageElement*>(a_pInput), a_Data);
 }
+void LanguageElementVisitorEx::visit(TemplateParameterPackExpressionExpansion* a_pInput, VisitorData a_Data)
+{
+    visit(static_cast<Expression*>(a_pInput), a_Data);
+}
 void LanguageElementVisitorEx::visit(TemplateParameterPackTypeExpansion* a_pInput, VisitorData a_Data)
 {
     visit(static_cast<Type*>(a_pInput), a_Data);
 }
-void LanguageElementVisitorEx::visit(TemplateParameterPackExpressionExpansion* a_pInput, VisitorData a_Data)
+void LanguageElementVisitorEx::visit(ParameterPackExpressionExpansion* a_pInput, VisitorData a_Data)
 {
     visit(static_cast<Expression*>(a_pInput), a_Data);
 }

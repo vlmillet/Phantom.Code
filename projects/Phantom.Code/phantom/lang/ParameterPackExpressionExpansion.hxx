@@ -4,7 +4,7 @@
 
 // clang-format off
 
-#include "TemplateParameterPackExpressionExpansion.h"
+#include "ParameterPackExpressionExpansion.h"
 
 #if defined(_MSC_VER)
 #   pragma warning(push, 0)
@@ -26,10 +26,10 @@
 namespace phantom {
 namespace lang {
 PHANTOM_PACKAGE("phantom.lang")
-    PHANTOM_SOURCE("TemplateParameterPackExpressionExpansion")
+    PHANTOM_SOURCE("ParameterPackExpressionExpansion")
 
         #if PHANTOM_NOT_TEMPLATE
-        PHANTOM_CLASS(TemplateParameterPackExpressionExpansion)
+        PHANTOM_CLASS(ParameterPackExpressionExpansion)
         {
             this_()
             .inherits<::phantom::lang::Expression>()
@@ -37,17 +37,20 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
-            .constructor<void(TemplateParameterPackExpansion*)>()({"a_pExpansion"})
-            .method<TemplateParameterPackExpansion*() const>("getExpansion", &_::getExpansion)
-            .method<Placeholder*() const>("getPackArgument", &_::getPackArgument)
+            .constructor<void(Expression*, Parameter*)>()({"a_pExpandedExp","a_pExpandedParam"})
+            .method<Expression*() const>("getExpandedExpression", &_::getExpandedExpression)
+            .method<Parameter*() const>("getExpandedParameter", &_::getExpandedParameter)
             .method<void(ExecutionContext&) const, virtual_|override_>("eval", &_::eval)({""})
+            .method<void(ExecutionContext&) const, virtual_|override_>("flush", &_::flush)({"a_Context"})
+            .method<bool() const, virtual_|override_>("hasStorage", &_::hasStorage)
         
         .protected_()
-            .field("m_pExpansion", &_::m_pExpansion)
+            .field("m_pExpandedExpression", &_::m_pExpandedExpression)
+            .field("m_pExpandedParameter", &_::m_pExpandedParameter)
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE
-    PHANTOM_END("TemplateParameterPackExpressionExpansion")
+    PHANTOM_END("ParameterPackExpressionExpansion")
 PHANTOM_END("phantom.lang")
 }
 }

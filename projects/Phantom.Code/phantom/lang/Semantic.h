@@ -395,8 +395,9 @@ public:
     virtual void visit(TemplateDependantTypeOfExpression* a_pInput, VisitorData a_Data);
     virtual void visit(TemplateParameter* a_pInput, VisitorData a_Data);
     virtual void visit(TemplateParameterPackExpansion* a_pInput, VisitorData a_Data);
-    virtual void visit(TemplateParameterPackTypeExpansion* a_pInput, VisitorData a_Data);
     virtual void visit(TemplateParameterPackExpressionExpansion* a_pInput, VisitorData a_Data);
+    virtual void visit(TemplateParameterPackTypeExpansion* a_pInput, VisitorData a_Data);
+    virtual void visit(ParameterPackExpressionExpansion* a_pInput, VisitorData a_Data);
     virtual void visit(TemplateSignature* a_pInput, VisitorData a_Data);
     virtual void visit(TemplateSpecialization* a_pInput, VisitorData a_Data);
     virtual void visit(Type* a_pInput, VisitorData a_Data);

@@ -7,8 +7,9 @@
 #pragma once
 
 /* ****************** Includes ******************* */
-#include "Expression.h"
-/* **************** Declarations ***************** */
+#include "LanguageElementVisitorEx.h"
+
+#include <phantom/lang/Expression.h>
 /* *********************************************** */
 
 namespace phantom
@@ -23,35 +24,23 @@ class PHANTOM_EXPORT_PHANTOM_CODE TemplateParameterPackExpressionExpansion : pub
     PHANTOM_DECLARE_LANGUAGE_ELEMENT_VISIT_EX;
 
 public:
-    TemplateParameterPackExpressionExpansion(Expression* a_pExpandedExp, Parameter* a_pExpandedParam);
+    TemplateParameterPackExpressionExpansion(TemplateParameterPackExpansion* a_pExpansion);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    /// \brief  Gets the expanded expression.
+    /// \brief  Gets the non type-explicit expansion.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    Expression* getExpandedExpression() const { return m_pExpandedExpression; }
+    TemplateParameterPackExpansion* getExpansion() const { return m_pExpansion; }
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    /// \brief  Gets the expanded function parameter.
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    Placeholder* getPackArgument() const;
 
-    Parameter* getExpandedParameter() const { return m_pExpandedParameter; }
-
-    void eval(ExecutionContext&) const override { PHANTOM_ASSERT(false, "Invalid pack expansion evaluation"); }
-
-    void flush(ExecutionContext& a_Context) const override
-    {
-        PHANTOM_ASSERT(false, "Invalid pack expansion evaluation");
-    }
-
-    bool hasStorage() const override { return false; }
+    void eval(ExecutionContext&) const override { PHANTOM_ASSERT_FORBIDDEN_CALL(); }
 
 private:
-    TemplateParameterPackExpressionExpansion* cloneImpl(LanguageElement* a_pOwner) const override;
+    Expression* cloneImpl(LanguageElement* a_pOwner) const override;
 
 protected:
-    Expression* m_pExpandedExpression{};
-    Parameter*  m_pExpandedParameter{};
+    TemplateParameterPackExpansion* m_pExpansion{};
 };
 
 } // namespace lang

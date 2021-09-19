@@ -2646,7 +2646,8 @@ void CppTranslator::visit(LocalVariableInitializationStatement* a_pInput, Visito
     if (auto initExp = a_pInput->getInitializationExpression())
     {
         auto noImplicitInitExp = initExp->removeImplicitIdentity();
-        bool preferAuto = noImplicitInitExp == initExp && initExp->getValueType()->getTypeKind() != TypeKind::NullPtr;
+        bool preferAuto = noImplicitInitExp == initExp && initExp->getValueType()->getTypeKind() != TypeKind::NullPtr &&
+        !localVarType->asArray();
         ConstructorCallExpression* pCtorCall = a_pInput->getInitializationExpression()->as<ConstructorCallExpression>();
         if (!pCtorCall)
         {
@@ -4365,6 +4366,8 @@ void CppTranslator::_formatTemplateSign(LanguageElement* a_pScope, TemplateSigna
             pCst->getValueType()->getRelativeDecoratedName(a_pScope, buf);
             a_Str += StringView(buf);
         }
+        if (pTP->isPack())
+            a_Str += "...";
     }
     a_Str += "> ";
 }

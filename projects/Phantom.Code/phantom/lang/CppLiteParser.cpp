@@ -69,6 +69,7 @@
 #include <phantom/lang/Package.h>
 #include <phantom/lang/PackageFolder.h>
 #include <phantom/lang/Parameter.h>
+#include <phantom/lang/ParameterPackExpressionExpansion.h>
 #include <phantom/lang/Placeholder.h>
 #include <phantom/lang/PlaceholderConstant.h>
 #include <phantom/lang/PlaceholderType.h>
@@ -96,7 +97,6 @@
 #include <phantom/lang/TemplateDependantExpression.h>
 #include <phantom/lang/TemplateDependantTypeOfExpression.h>
 #include <phantom/lang/TemplateParameter.h>
-#include <phantom/lang/TemplateParameterPackExpressionExpansion.h>
 #include <phantom/lang/TemplateSignature.h>
 #include <phantom/lang/TemplateSpecialization.h>
 #include <phantom/lang/TypeTraitExpression.h>
@@ -166,35 +166,6 @@ auto isPowerOfTwo(int n) -> bool
     return (ceil(log2(n)) == floor(log2(n)));
 }
 } // namespace
-
-Block* AddBlock(Method* a_pMethod)
-{
-    Block* pBlock = a_pMethod->New<Block>();
-    a_pMethod->setBlock(pBlock);
-    size_t count = a_pMethod->getSignature()->getParameterCount();
-    while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to argument
-                    // passing (right to left)
-    {
-        pBlock->addLocalVariable(a_pMethod->getSignature()->getParameter(count));
-    }
-    pBlock->addLocalVariable(a_pMethod->getThis());
-    return pBlock;
-}
-
-Block* AddBlock(Subroutine* a_pSubroutine)
-{
-    if (Method* pMethod = a_pSubroutine->asMethod())
-        return AddBlock(pMethod);
-    Block* pBlock = a_pSubroutine->New<Block>();
-    a_pSubroutine->setBlock(pBlock);
-    size_t count = a_pSubroutine->getSignature()->getParameterCount();
-    while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to argument
-                    // passing (right to left)
-    {
-        pBlock->addLocalVariable(a_pSubroutine->getSignature()->getParameter(count));
-    }
-    return pBlock;
-}
 
 #if PHANTOM_COMPILER == PHANTOM_COMPILER_VISUAL_STUDIO
 static inline uint32_t clz(uint32_t value)
@@ -2752,13 +2723,13 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             // still add a local variable for minimizing error output
             LocalVariable* pLVErr = NewInScope<LocalVariable>(pType, input->m_IDENTIFIER);
             CppLiteSetCodeRange(pLVErr, CppLiteCodeRange(input->location()));
-            pBlock->addLocalVariable(pLVErr);
+            addLocalVariable(pBlock, pLVErr);
             return true;
         }
         Type*&         rpType = CppLiteGetInitializationType();
         LocalVariable* pLocalVariable = NewInScope<LocalVariable>(rpType, input->m_IDENTIFIER);
         CppLiteSetCodeRange(pLocalVariable, CppLiteCodeRange(input->location()));
-        pBlock->addLocalVariable(pLocalVariable);
+        addLocalVariable(pBlock, pLocalVariable);
         Statement* pStatement;
         if (pInitExpression == nullptr && (CppLiteHasFeature("ZeroInit")))
         {
@@ -2811,7 +2782,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                              "local variable '%s' already declared in this block", input->m_IDENTIFIER);
         CppLiteWarningIf(pBlock->getLocalVariableCascade(pLocalVariable->getName()),
                          "local variable '%s' hides previously declared one", input->m_IDENTIFIER);
-        pBlock->addLocalVariable(pLocalVariable);
+
+        addLocalVariable(pBlock, pLocalVariable);
         Statement* pStatement;
         pStatement = NewInScope<LocalVariableInitializationStatement>(
         pLocalVariable,
@@ -4022,14 +3994,14 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to argument
                         // passing (right to left)
         {
-            pLambdaBlock->addLocalVariable(params[count]);
+            addLocalVariable(pLambdaBlock, params[count]);
         }
 
         // add 'this' if captured
         if (thisCaptured)
         {
             auto pCapturedThis = pLambdaClass->getField("this");
-            auto pLocal = pLambdaBlock->addLocalVariable(pCapturedThis->getValueType()->addConst(), "this");
+            auto pLocal = addLocalVariable(pLambdaBlock, pCapturedThis->getValueType()->addConst(), "this");
             auto pLocalThisAccess = New<LocalVariableExpression>(pLambdaMethod->getThis())->dereference(getSource());
             auto pFieldThisAccess = New<FieldExpression>(pLocalThisAccess, pCapturedThis);
             auto pInitStmt = New<LocalVariableInitializationStatement>(pLocal, pFieldThisAccess->load(getSource()));
@@ -4045,8 +4017,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             auto pLambdaThisAccess = New<LocalVariableExpression>(pLambdaMethod->getThis())->dereference(getSource());
             auto pField = pLambdaClass->getField(name_pLocal.first);
             auto pFieldAccess = New<FieldExpression>(pLambdaThisAccess, pField);
-            auto pLocal = pLambdaBlock->addLocalVariable(pField->getValueType()->removePointer()->addLValueReference(),
-                                                         name_pLocal.first);
+            auto pLocal = addLocalVariable(pLambdaBlock, pField->getValueType()->removePointer()->addLValueReference(),
+                                           name_pLocal.first);
             auto pInitStmt = New<LocalVariableInitializationStatement>(pLocal, pFieldAccess->dereference(getSource()));
             pLambdaBlock->addStatement(pInitStmt);
         }
@@ -4061,7 +4033,7 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             auto pField = pLambdaClass->getField(name_pLocal.first);
             auto pFieldAccess = New<FieldExpression>(pLambdaThisAccess, pField);
             auto pLocal =
-            pLambdaBlock->addLocalVariable(pField->getValueType()->addLValueReference(), name_pLocal.first);
+            addLocalVariable(pLambdaBlock, pField->getValueType()->addLValueReference(), name_pLocal.first);
             auto pInitStmt = New<LocalVariableInitializationStatement>(pLocal, pFieldAccess);
             pLambdaBlock->addStatement(pInitStmt);
         }
@@ -4319,8 +4291,7 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                         PHANTOM_ASSERT(pLHS);
                         CppLiteErrorReturnIf(!pLHS->asExpression(),
                                              "... : parameter pack expansion expects evaluable expression");
-                        pLHS =
-                        New<TemplateParameterPackExpressionExpansion>(static_cast<Expression*>(pLHS), pPackParam);
+                        pLHS = New<ParameterPackExpressionExpansion>(static_cast<Expression*>(pLHS), pPackParam);
                     }
                     else if (auto pPackArg = m_Data.popPackArgument())
                     {
@@ -5336,8 +5307,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             // if (data.hasFlag(CppLite::e_Flag_CppCompatible))
             {
                 // If C++ compatible, ensure the specialization matches the 'primary' template
-                CppLiteErrorReturnIf(pTemplate->getTemplateSignature()->getTemplateParameters().size() >
-                                     specializationArguments.size(),
+                CppLiteErrorReturnIf((pTemplate->getTemplateSignature()->getTemplateParameters().size() -
+                                      pTemplate->getTemplateSignature()->isVariadic()) > specializationArguments.size(),
                                      "'%s' : template specialization : missing specialization arguments to match "
                                      "primary template signature, %zu expected",
                                      input->m_IDENTIFIER, pTemplate->getTemplateParameters().size());
@@ -5366,9 +5337,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             //                 }
 
             a_pTemplateSpec = pTemplate->getTemplateSpecialization(specializationArguments);
-            CppLiteErrorReturnIf(a_pTemplateSpec, "'%s' : template specialization already defined",
-                                 input->m_IDENTIFIER);
-
+            CppLiteErrorReturnIf(a_pTemplateSpec && (!a_pTemplateSpec->isNative() || a_pTemplateSpec->isFull()),
+                                 "'%s' : template specialization already defined", input->m_IDENTIFIER);
             pTemplateSignature->setOwner(nullptr);
             a_pTemplateSpec =
             pTemplate->createTemplateSpecialization(specializationArguments, nullptr, pTemplateSignature);
@@ -5726,6 +5696,61 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         }
 
         return true;
+    }
+
+    void addLocalVariable(Block* pBlock, LocalVariable* pLocalVariable)
+    {
+        auto pValueType = pLocalVariable->getValueType();
+        if (!pValueType->isNative())
+        {
+            if (ClassType* pClassType = pValueType->removeQualifiers()->asClassType())
+            {
+                m_Data.m_pSemantic->buildClass(pClassType, Semantic::e_ClassBuildState_Blocks);
+            }
+        }
+
+        pBlock->addLocalVariable(pLocalVariable);
+    }
+    LocalVariable* addLocalVariable(Block* pBlock, Type* a_pType, StringView a_strName, Expression* a_pInit = nullptr,
+                                    Modifiers a_Modifiers = 0, uint a_uiFlags = 0)
+    {
+        if (!a_pType->isNative())
+        {
+            if (ClassType* pClassType = a_pType->removeQualifiers()->asClassType())
+            {
+                m_Data.m_pSemantic->buildClass(pClassType, Semantic::e_ClassBuildState_Blocks);
+            }
+        }
+        return pBlock->addLocalVariable(a_pType, a_strName, a_pInit, a_Modifiers, a_uiFlags);
+    }
+
+    Block* addBlock(Method* a_pMethod)
+    {
+        Block* pBlock = a_pMethod->New<Block>();
+        a_pMethod->setBlock(pBlock);
+        size_t count = a_pMethod->getSignature()->getParameterCount();
+        while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to argument
+                        // passing (right to left)
+        {
+            addLocalVariable(pBlock, a_pMethod->getSignature()->getParameter(count));
+        }
+        addLocalVariable(pBlock, a_pMethod->getThis());
+        return pBlock;
+    }
+
+    Block* addBlock(Subroutine* a_pSubroutine)
+    {
+        if (Method* pMethod = a_pSubroutine->asMethod())
+            return addBlock(pMethod);
+        Block* pBlock = a_pSubroutine->New<Block>();
+        a_pSubroutine->setBlock(pBlock);
+        size_t count = a_pSubroutine->getSignature()->getParameterCount();
+        while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to argument
+                        // passing (right to left)
+        {
+            addLocalVariable(pBlock, a_pSubroutine->getSignature()->getParameter(count));
+        }
+        return pBlock;
     }
 };
 
@@ -6843,7 +6868,7 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
             resolveOverrideAndFinal(input, pDestructor->getName().data(), *input->m_OVERRIDEs, mods);
         pDestructor->addModifiers(mods);
         pDestructor->setAccess(CppLiteGetAccess());
-        AddBlock(pDestructor);
+        addBlock(pDestructor);
         CppLiteMapAndReturn(pDestructor);
     }
 
@@ -7442,7 +7467,7 @@ struct CppLitePassMembersGlobal : public CppLitePass<CppLitePassMembersGlobal>
             }
             if (input->m_FunctionEnd->m_FunctionBlock)
             {
-                AddBlock(pSubroutine);
+                addBlock(pSubroutine);
             }
         }
         return true;
@@ -7812,6 +7837,8 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         {
             CppLitePassGlobals(m_Data).traverseClass(input);
             Class* pClass = CppLiteGetElementAs(Class);
+            if (!pClass)
+                return true;
             CppLitePassInheritance(m_Data).traverseClass(input);
             CppLiteGetSemantic()->buildClass(pClass, Semantic::e_ClassBuildState_Inheritance);
             CppLitePassMembersLocal(m_Data).traverseClass(input); // in block
@@ -7921,7 +7948,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         else if (!(pConstructor->testModifiers(Modifier::Deleted)) &&
                  !(pConstructor->testModifiers(Modifier::Defaulted)))
         {
-            AddBlock(pConstructor);
+            addBlock(pConstructor);
         }
         else
         {
@@ -8287,7 +8314,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
     //     {
     //         Method* pMethod = CppLiteGetElementAs(Method);
     //         CppLiteCheckShouldWeContinueParsing(pMethod);
-    //         AddBlock(pMethod);
+    //         addBlock(pMethod);
     //         CppLiteVisitElement(input->m_FunctionBlock, pMethod);
     //         return true;
     //     }
@@ -8295,7 +8322,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
     //     {
     //         Method* pMethod = CppLiteGetElementAs(Method);
     //         CppLiteCheckShouldWeContinueParsing(pMethod);
-    //         AddBlock(pMethod);
+    //         addBlock(pMethod);
     //         CppLiteVisitElement(input->m_FunctionBlock, pMethod);
     //         return true;
     //     }
@@ -8303,7 +8330,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
     {
         Method* pMethod = CppLiteGetElementAs(Method);
         CppLiteCheckShouldWeContinueParsing(pMethod);
-        AddBlock(pMethod);
+        addBlock(pMethod);
         CppLiteVisitElement(input->m_FunctionBlock, pMethod);
         return true;
     }
@@ -8330,7 +8357,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
                                    pSubroutine->isPureVirtual());
                     if (input->m_FunctionOrVariableEnd->m_FunctionEnd->m_FunctionBlock)
                     {
-                        AddBlock(pSubroutine);
+                        addBlock(pSubroutine);
                         CppLiteVisitElement(input->m_FunctionOrVariableEnd->m_FunctionEnd->m_FunctionBlock,
                                             pSubroutine);
                     }
@@ -8339,7 +8366,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
                 {
                     if (input->m_OperatorEnd->m_FunctionEnd->m_FunctionBlock)
                     {
-                        AddBlock(pSubroutine);
+                        addBlock(pSubroutine);
                         CppLiteVisitElement(input->m_OperatorEnd->m_FunctionEnd->m_FunctionBlock, pSubroutine);
                     }
                     else
@@ -8493,7 +8520,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
                 // local variable
                 LocalVariable* pLocalVariable = NewInScope<LocalVariable>(pType, name);
                 CppLiteSetCodeRange(pLocalVariable, CppLiteCodeRange(input->location()));
-                pBlock->addLocalVariable(pLocalVariable);
+                addLocalVariable(pBlock, pLocalVariable);
                 Statement* pStatement;
                 pBlock->addStatement(pStatement =
                                      NewInScope<LocalVariableInitializationStatement>(pLocalVariable, pInitExpression));
@@ -8631,8 +8658,9 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
                     return true;
             }
 
-            LocalVariable* pTempLocal_Container = pForStatement->addLocalVariable(
-            pContainerLocalVarType, "$c", CppLiteGetSemantic()->convert(pContainerExp, pContainerLocalVarType));
+            LocalVariable* pTempLocal_Container =
+            addLocalVariable(pForStatement, pContainerLocalVarType, "$c",
+                             CppLiteGetSemantic()->convert(pContainerExp, pContainerLocalVarType));
 
             // ---------------------------------------------
             // begin()
@@ -8665,7 +8693,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
                                               : pBeginCall->getValueType()->removeReference()->removeConst(),
             "$begin");
 
-            pForStatement->addLocalVariable(pBeginVar);
+            addLocalVariable(pForStatement, pBeginVar);
             CppLiteSetCodeRange(pBeginVar, m_Data.CppLiteCodeRange(input->m_ForeachSignature));
 
             pForStatement->addStatement(
@@ -8679,7 +8707,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
                                                          ? NewInScope<TemplateDependantDeclType>(pEndCall)
                                                          : pEndCall->getValueType()->removeReference()->removeConst(),
                                                          "$end");
-            pForStatement->addLocalVariable(pEndVar);
+            addLocalVariable(pForStatement, pEndVar);
             CppLiteSetCodeRange(pEndVar, m_Data.CppLiteCodeRange(input->m_ForeachSignature));
 
             pForStatement->addStatement(
@@ -8762,7 +8790,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
                 LocalVariable* pElementVar =
                 createLocalVariable(pInnerBlock, pType, input->m_ForeachSignature->m_IDENTIFIER);
 
-                pInnerBlock->addLocalVariable(pElementVar);
+                addLocalVariable(pInnerBlock, pElementVar);
 
                 Expression* pIteratorContentAccessConv =
                 CppLiteInitNE(pDeref, pElementVar->getValueType(), CppLiteGetScope());
@@ -9273,7 +9301,7 @@ bool CppLitePassMembersGlobal::traverseConstructor(ast::Constructor* input)
         if (!pConstructor->testModifiers(Modifier::Deleted))
         {
             pConstructor->createThis(pClassType);
-            AddBlock(pConstructor);
+            addBlock(pConstructor);
             CppLitePassData* data = &m_Data;
             pConstructor->setBlockBuilder([=](Block* a_pBlock) {
                 CppLitePassBlocks blocks(*data);
@@ -9298,7 +9326,7 @@ bool CppLitePassMembersGlobal::traverseTemplateFunction(ast::TemplateFunction* i
         if (input->m_FunctionEnd->m_FunctionBlock)
         {
             CppLitePassData* data = &m_Data;
-            AddBlock(pSubroutine);
+            addBlock(pSubroutine);
             pSubroutine->setBlockBuilder([=](Block* a_pBlock) {
                 CppLitePassBlocks blocks(*data);
                 return blocks.traverse(input);

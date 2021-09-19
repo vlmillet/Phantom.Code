@@ -287,6 +287,13 @@ LocalVariable* Semantic::createLocalVariable(Type* a_pValueType, StringView a_Na
                                              Modifiers a_Modifiers /*= PHANTOM_R_NONE*/,
                                              Modifiers a_Flags /*= PHANTOM_R_NONE*/)
 {
+    if (!a_pValueType->isNative())
+    {
+        if (ClassType* pClassType = a_pValueType->removeQualifiers()->asClassType())
+        {
+            buildClass(pClassType, Semantic::e_ClassBuildState_Blocks);
+        }
+    }
     return New<LocalVariable>(a_pValueType, a_Name, a_Modifiers, a_Flags);
 }
 

@@ -1,26 +1,28 @@
 #include "TemplateParameterPackExpressionExpansion.h"
 
-#include "TemplateParameterPackTypeExpansion.h"
+#include "TemplateParameterPackExpansion.h"
 
-#include <phantom/lang/Application.h>
+#include <phantom/lang/Placeholder.h>
+#include <phantom/lang/TemplateDependantType.h>
 
 namespace phantom
 {
 namespace lang
 {
-TemplateParameterPackExpressionExpansion::TemplateParameterPackExpressionExpansion(Expression* a_pExpandedElement,
-                                                                                   Parameter*  a_pExpandedParameter)
-    : Expression(Application::Get()->getAuto()),
-      m_pExpandedExpression(a_pExpandedElement),
-      m_pExpandedParameter(a_pExpandedParameter)
+TemplateParameterPackExpressionExpansion::TemplateParameterPackExpressionExpansion(
+TemplateParameterPackExpansion* a_pExpansion)
+    : Expression(a_pExpansion->New<TemplateDependantType>()), m_pExpansion(a_pExpansion)
 {
-    PHANTOM_ASSERT(Object::Cast<TemplateParameterPackTypeExpansion>(a_pExpandedParameter->getValueType()));
 }
 
-TemplateParameterPackExpressionExpansion*
-TemplateParameterPackExpressionExpansion::cloneImpl(LanguageElement* a_pOwner) const
+Placeholder* TemplateParameterPackExpressionExpansion::getPackArgument() const
 {
-    return a_pOwner->New<TemplateParameterPackExpressionExpansion>(m_pExpandedExpression, m_pExpandedParameter);
+    return m_pExpansion->getPackArgument();
+}
+
+Expression* TemplateParameterPackExpressionExpansion::cloneImpl(LanguageElement* a_pOwner) const
+{
+    return a_pOwner->New<TemplateParameterPackExpressionExpansion>(m_pExpansion);
 }
 
 } // namespace lang

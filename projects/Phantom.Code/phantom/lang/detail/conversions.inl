@@ -749,7 +749,8 @@ DefaultConversionSequence* DefaultConversionSequence::clone(LanguageElement* a_p
 
 Expression* DefaultConversionSequence::convert(Semantic* a_pSemantic, Expression* a_pExpression) const
 {
-    if (a_pExpression->getMetaClass() == PHANTOM_CLASSOF(InitializerListExpression) )
+    if (a_pExpression->getMetaClass() == PHANTOM_CLASSOF(InitializerListExpression) 
+        && output->removeReference()->removeQualifiers() != input->removeReference()->removeQualifiers())
     {
         if(input->asInitializerListType())
 		{

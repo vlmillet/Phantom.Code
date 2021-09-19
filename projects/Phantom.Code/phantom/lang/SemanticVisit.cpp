@@ -137,6 +137,7 @@ namespace lang
 #include "Compiler.h"
 #include "CppLite.h"
 #include "ExpressionStatement.h"
+#include "ParameterPackExpressionExpansion.h"
 #include "ReturnStatement.h"
 #include "TemplateParameterPackExpansion.h"
 #include "TemplateParameterPackExpressionExpansion.h"
@@ -1591,10 +1592,12 @@ void Semantic::visit(Class* a_pInput, VisitorData a_Data)
             if (!(baseClass.baseClass->isNative()))
             {
                 // TODO : find a way to void this Compiler dependency here
-                Compiler::Get()
-                ->getCompiledSource(baseClass.baseClass->getSource())
-                ->getSemantic()
-                ->buildClass(baseClass.baseClass, buildState);
+                auto sema = this;
+                if (auto cs = Compiler::Get()->getCompiledSource(baseClass.baseClass->getSource()))
+                {
+                    sema = cs->getSemantic();
+                }
+                sema->buildClass(baseClass.baseClass, buildState);
             }
         }
 
@@ -4696,6 +4699,62 @@ void Semantic::visit(InitializerListExpression* a_pInput, VisitorData a_Data)
         }
     }
         return;
+
+    case e_VisitorFunction_InstanciateTemplateElement:
+    {
+        TemplateSubstitution const& in_TemplateSubstitution = *(TemplateSubstitution const*)a_Data.in[0];
+        EClassBuildState            in_eClassBuildState = *(EClassBuildState*)a_Data.in[1];
+        LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
+        LanguageElement*&           pInstanciated = *(LanguageElement**)a_Data.out[0];
+
+        Expressions instantiatedExprs;
+
+        for (auto pExp : a_pInput->getExpressions())
+        {
+            if (auto pPackExp = Object::Cast<TemplateParameterPackExpressionExpansion>(pExp))
+            {
+                auto             pPackArg = pPackExp->getPackArgument();
+                LanguageElements variadicArguments;
+                auto             variadicSubs =
+                in_TemplateSubstitution.splitVariadics(pPackExp->getPackArgument(), variadicArguments);
+                for (size_t i = 0; i < variadicArguments.size(); ++i)
+                {
+                    variadicSubs.substituteVariadic(pPackArg, variadicArguments[i]);
+                    Expression* pUnrolledExp = SemanticPrivate::SemanticInstantiateTemplateElement<Expression>(
+                    this, pPackExp->getExpansion()->getExpandedElement(), variadicSubs, in_eClassBuildState,
+                    in_pContextScope, a_Data.flags, &LanguageElement::asExpression);
+                    if (pUnrolledExp == nullptr)
+                        return;
+                    instantiatedExprs.push_back(pUnrolledExp);
+                }
+                continue;
+            }
+
+            instantiatedExprs.push_back(o_instantiateT(Expression, pExp));
+        }
+
+        auto pClass = a_pInput->getValueType()->asClass();
+        if (pClass)
+        {
+            auto pResolvedClass = o_resolveT(Class, pClass);
+            if (!pResolvedClass)
+            {
+                // TODO : trace error ?
+                return;
+            }
+            pInstanciated = New<InitializerListExpression>(pResolvedClass, instantiatedExprs);
+        }
+        else
+        {
+            Types types;
+            for (auto pExp : instantiatedExprs)
+            {
+                types.push_back(pExp->getValueType());
+            }
+            pInstanciated = New<InitializerListExpression>(New<InitializerListType>(types), instantiatedExprs);
+        }
+    }
+        return;
     }
     visit(static_cast<Expression*>(a_pInput), a_Data);
 }
@@ -4704,6 +4763,26 @@ void Semantic::visit(InitializerListType* a_pInput, VisitorData a_Data)
 {
     switch (a_Data.id)
     {
+    case e_VisitorFunction_InstanciateTemplateElement:
+    {
+        TemplateSubstitution const& in_TemplateSubstitution = *(TemplateSubstitution const*)a_Data.in[0];
+        EClassBuildState            in_eClassBuildState = *(EClassBuildState*)a_Data.in[1];
+        LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
+        LanguageElement*&           pInstanciated = *(LanguageElement**)a_Data.out[0];
+
+        Types resolvedTypes;
+        for (auto pType : a_pInput->getTypes())
+        {
+            auto pResolved = o_resolveT(Type, pType);
+            if (!pResolved)
+                continue;
+            resolvedTypes.push_back(pResolved);
+        }
+
+        pInstanciated = New<InitializerListType>(resolvedTypes);
+    }
+        return;
+
     case e_VisitorFunction_TypeConversion:
     {
         Type*                pOutput = *(Type* const*)a_Data.in[0];
@@ -7506,6 +7585,8 @@ void Semantic::visit(PrimitiveType* a_pInput, VisitorData a_Data)
 {
     visit(static_cast<Type*>(a_pInput), a_Data);
 }
+
+#pragma optimize("", off)
 void Semantic::visit(Property* a_pInput, VisitorData a_Data)
 {
     switch (a_Data.id)
@@ -7575,6 +7656,7 @@ void Semantic::visit(Property* a_pInput, VisitorData a_Data)
             if (a_pInput->getSet())
             {
                 o_mapT(a_pInput->getSet(), pInstanceProperty->getSet());
+                pInstanceProperty->getSet()->createThis(pInstanceProperty->getOwnerClass());
                 o_mapT(a_pInput->getSet()->getBlock(), addBlock(pInstanceProperty->getSet(), true));
                 o_mapT(a_pInput->getSet()->getParameters().front(),
                        pInstanceProperty->getSet()->getParameters().front());
@@ -7584,6 +7666,7 @@ void Semantic::visit(Property* a_pInput, VisitorData a_Data)
             if (a_pInput->getGet())
             {
                 o_mapT(a_pInput->getGet(), pInstanceProperty->getGet());
+                pInstanceProperty->getGet()->createThis(pInstanceProperty->getOwnerClass());
                 o_mapT(a_pInput->getGet()->getBlock(), addBlock(pInstanceProperty->getGet(), true));
                 o_instantiateT(Method, a_pInput->getGet()->getBlock());
             }
@@ -8770,7 +8853,7 @@ void Semantic::visit(TemplateDependantElement* a_pInput, VisitorData a_Data)
             {
                 if (pArgument->isTemplateDependant())
                 {
-                    if (auto pPackExp = Object::Cast<TemplateParameterPackExpressionExpansion>(pArgument))
+                    if (auto pPackExp = Object::Cast<ParameterPackExpressionExpansion>(pArgument))
                     {
                         auto   pExpParam = pPackExp->getExpandedParameter();
                         auto&  templateDepParams = static_cast<Signature*>(pExpParam->getOwner())->getParameters();
@@ -8966,6 +9049,11 @@ void Semantic::visit(TemplateDependantElement* a_pInput, VisitorData a_Data)
                     pType = pType->removeQualifiers(); // remove potential qualifiers
 
                     // -- TRY type.type(...)
+                    auto pAsClassType = pType->removeQualifiers()->asClassType();
+                    if (pAsClassType && !pAsClassType->isNative())
+                    {
+                        buildClass(pAsClassType, e_ClassBuildState_Blocks);
+                    }
 
                     // we then perform a classical expression lookup if necessary
                     pResolved =
@@ -8978,7 +9066,7 @@ void Semantic::visit(TemplateDependantElement* a_pInput, VisitorData a_Data)
                         {
                             if (Expression* pLHSExp = pLHS->asExpression())
                             {
-                                if (pType->asClassType())
+                                if (pAsClassType)
                                 {
                                     if (ConstructorCallExpression* pCtorCall =
                                         phantom::Object::Cast<ConstructorCallExpression>(
@@ -9337,6 +9425,10 @@ void Semantic::visit(TemplateParameterPackExpansion* a_pInput, VisitorData a_Dat
     {
         return a_pInput->getPackArgument()->asSymbol()->visit(this, a_Data);
     }
+    case e_VisitorFunction_ToExpression:
+        Expression*& pResult = *(Expression**)a_Data.out[0];
+        pResult = New<TemplateParameterPackExpressionExpansion>(a_pInput);
+        return;
     }
     PHANTOM_UNREACHABLE();
 }
@@ -9345,6 +9437,10 @@ void Semantic::visit(TemplateParameterPackTypeExpansion* a_pInput, VisitorData a
     return a_pInput->getExpansion()->visit(this, a_Data);
 }
 void Semantic::visit(TemplateParameterPackExpressionExpansion* a_pInput, VisitorData a_Data)
+{
+    return a_pInput->getExpansion()->visit(this, a_Data);
+}
+void Semantic::visit(ParameterPackExpressionExpansion* a_pInput, VisitorData a_Data)
 {
     switch (a_Data.id)
     {
