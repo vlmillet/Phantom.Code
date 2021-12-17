@@ -20,6 +20,7 @@
 #include "CallExpression.h"
 #include "ClassListInitializationExpression.h"
 #include "ClassTypeListInitializationExpression.h"
+#include "CommaExpression.h"
 #include "ConditionalExpression.h"
 #include "ConstantExpression.h"
 #include "ConstructorCallExpression.h"
@@ -43,6 +44,7 @@
 #include "MemCopyStatement.h"
 #include "MethodPointerCallExpression.h"
 #include "NewExpression.h"
+#include "ParameterPackExpressionExpansion.h"
 #include "PlacementNewExpression.h"
 #include "PointerAdjustmentExpression.h"
 #include "PropertyExpression.h"
@@ -58,6 +60,9 @@
 #include "TemplateDependantDeclType.h"
 #include "TemplateDependantExpression.h"
 #include "TemplateDependantTypeOfExpression.h"
+#include "TemplateParameterPackExpansion.h"
+#include "TemplateParameterPackExpressionExpansion.h"
+#include "TemplateParameterPackTypeExpansion.h"
 #include "TemporaryObjectDestructionExpression.h"
 #include "TypeTraitExpression.h"
 #include "UnaryPostOperationExpression.h"
@@ -120,6 +125,10 @@ void LanguageElementVisitorEx::visit(ClassListInitializationExpression* a_pInput
     return visit(static_cast<Expression*>(a_pInput), a_Data);
 }
 void LanguageElementVisitorEx::visit(ClassTypeListInitializationExpression* a_pInput, VisitorData a_Data)
+{
+    return visit(static_cast<Expression*>(a_pInput), a_Data);
+}
+void LanguageElementVisitorEx::visit(CommaExpression* a_pInput, VisitorData a_Data)
 {
     return visit(static_cast<Expression*>(a_pInput), a_Data);
 }
@@ -278,6 +287,22 @@ void LanguageElementVisitorEx::visit(UnaryPostOperationExpression* a_pInput, Vis
 void LanguageElementVisitorEx::visit(UnaryPreOperationExpression* a_pInput, VisitorData a_Data)
 {
     return visit(static_cast<Expression*>(a_pInput), a_Data);
+}
+void LanguageElementVisitorEx::visit(TemplateParameterPackExpansion* a_pInput, VisitorData a_Data)
+{
+    visit(static_cast<LanguageElement*>(a_pInput), a_Data);
+}
+void LanguageElementVisitorEx::visit(TemplateParameterPackExpressionExpansion* a_pInput, VisitorData a_Data)
+{
+    visit(static_cast<Expression*>(a_pInput), a_Data);
+}
+void LanguageElementVisitorEx::visit(TemplateParameterPackTypeExpansion* a_pInput, VisitorData a_Data)
+{
+    visit(static_cast<Type*>(a_pInput), a_Data);
+}
+void LanguageElementVisitorEx::visit(ParameterPackExpressionExpansion* a_pInput, VisitorData a_Data)
+{
+    visit(static_cast<Expression*>(a_pInput), a_Data);
 }
 void LanguageElementVisitorEx::visit(TemplateDependantDeclType* a_pInput, VisitorData a_Data)
 {

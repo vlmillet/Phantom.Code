@@ -155,11 +155,12 @@ namespace phantom
                 SourceDeclaration m_SourceDeclaration;
                 Declaration m_Declaration;
                 MixinStatementDefinition m_MixinStatementDefinition;
-                ForInit m_ForInit;
+                ForeachSignature m_ForeachSignature;
                 ConversionFunction m_ConversionFunction;
                 Constructor m_Constructor;
                 Destructor m_Destructor;
                 ConstructorInitializer m_ConstructorInitializer;
+                ArrowReturn m_ArrowReturn;
                 FunctionEnd m_FunctionEnd;
                 Operator m_Operator;
                 OperatorEnd m_OperatorEnd;
@@ -169,19 +170,20 @@ namespace phantom
                 FunctionOrVariable m_FunctionOrVariable;
                 DeclType m_DeclType;
                 TemplateArgument m_TemplateArgument;
+                ForInit m_ForInit;
                 Statement m_Statement;
                 MixinStatement m_MixinStatement;
                 ReturnStatement m_ReturnStatement;
                 GotoStatement m_GotoStatement;
                 Declarator m_Declarator;
-                AutoDeclarator m_AutoDeclarator;
                 TemplateArgumentListSplit m_TemplateArgumentListSplit;
                 TemplateArgumentNoAssign m_TemplateArgumentNoAssign;
                 TemplateArgumentAssign m_TemplateArgumentAssign;
                 TemplateArgumentList m_TemplateArgumentList;
-                LocalVariableDecl m_LocalVariableDecl;
                 Name m_Name;
                 FundamentalTypeBase m_FundamentalTypeBase;
+                AutoDeclarator m_AutoDeclarator;
+                LocalVariableDecl m_LocalVariableDecl;
                 Expression m_Expression;
                 LogicalOrExpressionRight m_LogicalOrExpressionRight;
                 LogicalAndExpressionRight m_LogicalAndExpressionRight;
@@ -201,6 +203,8 @@ namespace phantom
                 ArrayExtentExpression m_ArrayExtentExpression;
                 StaticAssert m_StaticAssert;
                 StringLiteralChain m_StringLiteralChain;
+                LambdaCapture m_LambdaCapture;
+                LambdaExpression m_LambdaExpression;
                 TypeExtent m_TypeExtent;
                 Enum m_Enum;
                 EnumConstant m_EnumConstant;
@@ -213,6 +217,7 @@ namespace phantom
                 TemplateParameter m_TemplateParameter;
                 TemplateSignature m_TemplateSignature;
                 Template m_Template;
+                TemplateFunction m_TemplateFunction;
                 FunctionBlock m_FunctionBlock;
                 QualifiedName m_QualifiedName;
                 QualifiedDotName m_QualifiedDotName;
@@ -228,15 +233,13 @@ namespace phantom
                 Member m_Member;
                 IfOrWhileLocalVariableDecl m_IfOrWhileLocalVariableDecl;
                 IfOrWhileCondition m_IfOrWhileCondition;
-                ForeachSignature m_ForeachSignature;
                 BlockDeclaration m_BlockDeclaration;
-                SizeofExpression m_SizeofExpression;
-                TypeofExpression m_TypeofExpression;
+                FundamentalTypeFunctionCast m_FundamentalTypeFunctionCast;
+                ExpressionStatement m_ExpressionStatement;
                 LastTemplateArgument m_LastTemplateArgument;
-                LocalVariableStatement m_LocalVariableStatement;
+                SwitchStatement m_SwitchStatement;
                 PrimaryExpression m_PrimaryExpression;
                 NotLastTemplateArgument m_NotLastTemplateArgument;
-                FunctionPointerType m_FunctionPointerType;
                 UnsignedType m_UnsignedType;
                 SignedType m_SignedType;
                 LongType m_LongType;
@@ -244,6 +247,8 @@ namespace phantom
                 FundamentalType m_FundamentalType;
                 QualifiedType m_QualifiedType;
                 ExplicitType m_ExplicitType;
+                TypeNoFunctionType m_TypeNoFunctionType;
+                ExplicitTypeNoFunctionType m_ExplicitTypeNoFunctionType;
                 ExpressionType m_ExpressionType;
                 ExplicitTypeOrAuto m_ExplicitTypeOrAuto;
                 TypeOrAuto m_TypeOrAuto;
@@ -253,9 +258,9 @@ namespace phantom
                 BasicTypeOrAuto m_BasicTypeOrAuto;
                 IntegralConstant m_IntegralConstant;
                 ArrayExtent m_ArrayExtent;
+                FunctionTypeExtent m_FunctionTypeExtent;
                 DerivedExtent m_DerivedExtent;
-                ExpressionStatement m_ExpressionStatement;
-                SwitchStatement m_SwitchStatement;
+                TypeExtentNoFunction m_TypeExtentNoFunction;
                 AssignExpression m_AssignExpression;
                 ConditionalExpression m_ConditionalExpression;
                 Friend m_Friend;
@@ -296,6 +301,9 @@ namespace phantom
                 AssertStatement m_AssertStatement;
                 BreakStatement m_BreakStatement;
                 ContinueStatement m_ContinueStatement;
+                SizeofExpression m_SizeofExpression;
+                TypeofExpression m_TypeofExpression;
+                LocalVariableStatement m_LocalVariableStatement;
                 LastTemplateArgumentAssign m_LastTemplateArgumentAssign;
                 LastTemplateArgumentNoAssign m_LastTemplateArgumentNoAssign;
                 NotLastTemplateArgumentAssign m_NotLastTemplateArgumentAssign;
@@ -1225,7 +1233,15 @@ namespace phantom
                         break;
                         case token_USING:
                         {
-                            if(!readUsing(__element__->m_Using)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            beginTry();
+                            readAlias(__element__->m_Alias);
+                            if(endTry())
+                            {
+                            }
+                            else
+                            {
+                                if(!readUsing(__element__->m_Using)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            }
                         }
                         break;
                         case token_STATIC_ASSERT:
@@ -1234,7 +1250,7 @@ namespace phantom
                         }
                         break;
                         default:
-                        if(!readAlias(__element__->m_Alias)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        if(!readAlias(__element__->m_Alias0)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         break;
                     }
                     if(__reductible__ && *__reduction__ != __element__)
@@ -1254,7 +1270,7 @@ namespace phantom
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
                     if(!read(token_OPERATOR)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    if(!readType(__element__->m_Type)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(!readTypeNoFunctionType(__element__->m_TypeNoFunctionType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_PAREN_START, __element__->m_PAREN_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     while(!endOfFile())
@@ -1349,6 +1365,11 @@ namespace phantom
                     auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(Destructor);
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
+                    if(token() == token_VIRTUAL)
+                    {
+                        valueAs(__element__->m_VIRTUAL);
+                        consume();
+                    }
                     if(!read(token_COMPL, __element__->m_COMPL)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_PAREN_START, __element__->m_PAREN_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
@@ -1382,7 +1403,7 @@ namespace phantom
                     output = __element__;
                     ConstructorInitializer** __reduction__ = (ConstructorInitializer**)&__element__;
                     bool __reductible__ = true;
-                    if(!readType(__element__->m_Type)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(!readBasicType(__element__->m_BasicType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     switch(token())
                     {
                         case token_PAREN_START:
@@ -1402,6 +1423,18 @@ namespace phantom
                         *__reduction__ = nullptr;
                         PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__);
                     }
+                    output->__location.begin = pos_begin;
+                    output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
+                    return true;
+                }
+                bool readArrowReturn(ArrowReturn*& output)
+                {
+                    m_LookaheadCounter = 0;
+                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(ArrowReturn);
+                    auto pos_begin = m_Tokens.back().location.begin;
+                    output = __element__;
+                    if(!read(token_ARROW, __element__->m_ARROW)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(!readType(__element__->m_Type)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
                     return true;
@@ -1446,18 +1479,25 @@ namespace phantom
                             break;
                         }
                     }
+                    beginTry();
+                    phantom::lang::ast::ArrowReturn* temp24=nullptr;
+                    readArrowReturn(temp24);
+                    if(endTry())
+                    {
+                        __element__->m_ArrowReturn=temp24;
+                    }
                     if(lookahead({token_BLOCK_START,token_OVERRIDE,token_FINAL}))
                     {
                         while(!endOfFile())
                         {
                             beginTry();
-                            char const* temp24=nullptr;
-                            read({token_OVERRIDE,token_FINAL}, temp24);
+                            char const* temp25=nullptr;
+                            read({token_OVERRIDE,token_FINAL}, temp25);
                             if(endTry())
                             {
                                 if(__element__->m_OVERRIDEs == nullptr)
                                 __element__->m_OVERRIDEs = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<spell::any,4ull>);
-                                __element__->m_OVERRIDEs->push_back(temp24);
+                                __element__->m_OVERRIDEs->push_back(temp25);
                             }
                             else
                             {
@@ -1468,8 +1508,8 @@ namespace phantom
                     }
                     else
                     {
-                        char const* temp25=nullptr;
-                        if(!read(token_ASSIGN, temp25)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        char const* temp26=nullptr;
+                        if(!read(token_ASSIGN, temp26)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         if(!read({token_INT_VALUE,token_DELETE,token_DEFAULT}, __element__->m_Suffix)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         if(lookahead(token_BLOCK_START))
                         {
@@ -1567,21 +1607,21 @@ namespace phantom
                         case token_BRACKET_START:
                         {
                             __element__->m_ArrayExtents = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>);
-                            phantom::lang::ast::TypeExtent* temp26=nullptr;
-                            if(!readArrayExtent(temp26)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            phantom::lang::ast::TypeExtent* temp27=nullptr;
+                            if(!readArrayExtent(temp27)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                             __element__->m_ArrayExtents = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>);
-                            __element__->m_ArrayExtents->push_back(temp26);
+                            __element__->m_ArrayExtents->push_back(temp27);
                             while(!endOfFile())
                             {
                                 beginTry();
-                                readArrayExtent(temp26);
+                                readArrayExtent(temp27);
                                 if(endTry())
                                 {
-                                    __element__->m_ArrayExtents->push_back(temp26);
+                                    __element__->m_ArrayExtents->push_back(temp27);
                                 }
                                 else
                                 {
-                                    PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp26); 
+                                    PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp27); 
                                     break;
                                 }
                             }
@@ -1594,14 +1634,14 @@ namespace phantom
                             {
                                 consume();
                                 __element__->m_Declarators = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Declarator*,4ull>);
-                                phantom::lang::ast::Declarator* temp27=nullptr;
-                                if(!readDeclarator(temp27)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                                __element__->m_Declarators->push_back(temp27);
+                                phantom::lang::ast::Declarator* temp28=nullptr;
+                                if(!readDeclarator(temp28)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                                __element__->m_Declarators->push_back(temp28);
                                 while(token(token_COMMA, m_TokenPointer + 0))
                                 {
                                     consume();
-                                    if(!readDeclarator(temp27)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                                    __element__->m_Declarators->push_back(temp27);
+                                    if(!readDeclarator(temp28)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                                    __element__->m_Declarators->push_back(temp28);
                                 }
                             }
                             if(!read(token_SEMI_COLON)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
@@ -1627,14 +1667,14 @@ namespace phantom
                                 {
                                     consume();
                                     __element__->m_Declarators = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Declarator*,4ull>);
-                                    phantom::lang::ast::Declarator* temp28=nullptr;
-                                    if(!readDeclarator(temp28)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                                    __element__->m_Declarators->push_back(temp28);
+                                    phantom::lang::ast::Declarator* temp29=nullptr;
+                                    if(!readDeclarator(temp29)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                                    __element__->m_Declarators->push_back(temp29);
                                     while(token(token_COMMA, m_TokenPointer + 0))
                                     {
                                         consume();
-                                        if(!readDeclarator(temp28)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                                        __element__->m_Declarators->push_back(temp28);
+                                        if(!readDeclarator(temp29)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                                        __element__->m_Declarators->push_back(temp29);
                                     }
                                 }
                                 if(!read(token_SEMI_COLON)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
@@ -1643,21 +1683,21 @@ namespace phantom
                         break;
                         case token_ASSIGN:
                         {
-                            char const* temp29=nullptr;
-                            if(!read(token_ASSIGN, temp29)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            char const* temp30=nullptr;
+                            if(!read(token_ASSIGN, temp30)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                             if(!readAssignExpressionOrInitializerList(__element__->m_AssignExpressionOrInitializerList)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                             if(token() == token_COMMA)
                             {
                                 consume();
                                 __element__->m_Declarators = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Declarator*,4ull>);
-                                phantom::lang::ast::Declarator* temp30=nullptr;
-                                if(!readDeclarator(temp30)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                                __element__->m_Declarators->push_back(temp30);
+                                phantom::lang::ast::Declarator* temp31=nullptr;
+                                if(!readDeclarator(temp31)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                                __element__->m_Declarators->push_back(temp31);
                                 while(token(token_COMMA, m_TokenPointer + 0))
                                 {
                                     consume();
-                                    if(!readDeclarator(temp30)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                                    __element__->m_Declarators->push_back(temp30);
+                                    if(!readDeclarator(temp31)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                                    __element__->m_Declarators->push_back(temp31);
                                 }
                             }
                             if(!read(token_SEMI_COLON)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
@@ -1668,14 +1708,14 @@ namespace phantom
                         {
                             consume();
                             __element__->m_Declarators = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Declarator*,4ull>);
-                            phantom::lang::ast::Declarator* temp31=nullptr;
-                            if(!readDeclarator(temp31)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                            __element__->m_Declarators->push_back(temp31);
+                            phantom::lang::ast::Declarator* temp32=nullptr;
+                            if(!readDeclarator(temp32)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __element__->m_Declarators->push_back(temp32);
                             while(token(token_COMMA, m_TokenPointer + 0))
                             {
                                 consume();
-                                if(!readDeclarator(temp31)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                                __element__->m_Declarators->push_back(temp31);
+                                if(!readDeclarator(temp32)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                                __element__->m_Declarators->push_back(temp32);
                             }
                         }
                         if(!read(token_SEMI_COLON)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
@@ -1724,17 +1764,17 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::Specifier* temp32=nullptr;
-                        readSpecifier(temp32);
+                        phantom::lang::ast::Specifier* temp33=nullptr;
+                        readSpecifier(temp33);
                         if(endTry())
                         {
                             if(__element__->m_Specifiers == nullptr)
                             __element__->m_Specifiers = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Specifier*,4ull>);
-                            __element__->m_Specifiers->push_back(temp32);
+                            __element__->m_Specifiers->push_back(temp33);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp32); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp33); 
                             break;
                         }
                     }
@@ -1789,8 +1829,8 @@ namespace phantom
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
                     if(!readTemplateArgumentAssign(__element__->m_TemplateArgumentAssign)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    char const* temp33=nullptr;
-                    if(!read(token_GT, temp33)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    char const* temp34=nullptr;
+                    if(!read(token_GT, temp34)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
                     return true;
@@ -1802,8 +1842,8 @@ namespace phantom
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
                     if(!readTemplateArgumentNoAssign(__element__->m_TemplateArgumentNoAssign)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    char const* temp34=nullptr;
-                    if(!read(token_GT, temp34)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    char const* temp35=nullptr;
+                    if(!read(token_GT, temp35)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
                     return true;
@@ -1897,18 +1937,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::TemplateArgument* temp35=nullptr;
-                        readNotLastTemplateArgument(temp35);
+                        phantom::lang::ast::TemplateArgument* temp36=nullptr;
+                        readNotLastTemplateArgument(temp36);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_NotLastTemplateArguments == nullptr)
                             __element__->m_NotLastTemplateArguments = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TemplateArgument*,4ull>);
-                            __element__->m_NotLastTemplateArguments->push_back(temp35);
+                            __element__->m_NotLastTemplateArguments->push_back(temp36);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp35); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp36); 
                             break;
                         }
                     }
@@ -1975,8 +2015,8 @@ namespace phantom
                     auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(TemplateArgumentList);
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
-                    char const* temp36=nullptr;
-                    if(!read(token_LT, temp36)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    char const* temp37=nullptr;
+                    if(!read(token_LT, temp37)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(lookahead(token_GT))
                     {
                         if(!read(token_GT, __element__->m_GT)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
@@ -1985,36 +2025,6 @@ namespace phantom
                     {
                         if(!readTemplateArgumentListSplit(__element__->m_TemplateArgumentListSplit)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     }
-                    output->__location.begin = pos_begin;
-                    output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
-                    return true;
-                }
-                bool readFunctionPointerType(Type*& output)
-                {
-                    m_LookaheadCounter = 0;
-                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(FunctionPointerType);
-                    auto pos_begin = m_Tokens.back().location.begin;
-                    output = __element__;
-                    if(!read(token_FUNCTION)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    if(!readType(__element__->m_Type)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    if(!read(token_PAREN_START, __element__->m_PAREN_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    phantom::lang::ast::Type* temp37=nullptr;
-                    beginTry();
-                    readType(temp37);
-                    if(endTry())
-                    {
-                        __element__->m_Types = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Type*,4ull>);
-                        __element__->m_Types->push_back(temp37);
-                        while(token(token_COMMA, m_TokenPointer + 0))
-                        {
-                            consume();
-                            phantom::lang::ast::Type* temp38=nullptr;
-                            if(!readType(temp38)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                            __element__->m_Types->push_back(temp38);
-                        }
-                    }
-                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp37);
-                    if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
                     return true;
@@ -2080,11 +2090,11 @@ namespace phantom
                     bool __reductible__ = true;
                     if(!read(token_UNSIGNED, __element__->m_UNSIGNED)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     beginTry();
-                    phantom::lang::ast::Type* temp39=nullptr;
-                    readType(temp39);
+                    phantom::lang::ast::Type* temp38=nullptr;
+                    readType(temp38);
                     if(endTry())
                     {
-                        __element__->m_Type=temp39;
+                        __element__->m_Type=temp38;
                     }
                     if(__reductible__ && *__reduction__ != __element__)
                     {
@@ -2106,11 +2116,11 @@ namespace phantom
                     bool __reductible__ = true;
                     if(!read(token_SIGNED, __element__->m_SIGNED)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     beginTry();
-                    phantom::lang::ast::Type* temp40=nullptr;
-                    readType(temp40);
+                    phantom::lang::ast::Type* temp39=nullptr;
+                    readType(temp39);
                     if(endTry())
                     {
-                        __element__->m_Type=temp40;
+                        __element__->m_Type=temp39;
                     }
                     if(__reductible__ && *__reduction__ != __element__)
                     {
@@ -2132,11 +2142,11 @@ namespace phantom
                     bool __reductible__ = true;
                     if(!read(token_LONG, __element__->m_LONG)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     beginTry();
-                    phantom::lang::ast::Type* temp41=nullptr;
-                    readType(temp41);
+                    phantom::lang::ast::Type* temp40=nullptr;
+                    readType(temp40);
                     if(endTry())
                     {
-                        __element__->m_Type=temp41;
+                        __element__->m_Type=temp40;
                     }
                     if(__reductible__ && *__reduction__ != __element__)
                     {
@@ -2224,13 +2234,6 @@ namespace phantom
                     Type** __reduction__ = (Type**)&__element__;
                     bool __reductible__ = true;
                     if(!readQualifiedName(__element__->m_QualifiedName)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    beginTry();
-                    phantom::lang::ast::Type* temp42=nullptr;
-                    readFunctionPointerType(temp42);
-                    if(endTry())
-                    {
-                        __element__->m_FunctionPointerType=temp42;
-                    }
                     if(__reductible__ && *__reduction__ != __element__)
                     {
                         output = *__reduction__;
@@ -2245,6 +2248,96 @@ namespace phantom
                 {
                     m_LookaheadCounter = 0;
                     auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(ExplicitType);
+                    auto pos_begin = m_Tokens.back().location.begin;
+                    output = __element__;
+                    Type** __reduction__ = (Type**)&__element__;
+                    bool __reductible__ = true;
+                    while(!endOfFile())
+                    {
+                        beginTry();
+                        char const* temp41=nullptr;
+                        read({token_CONST,token_VOLATILE}, temp41);
+                        if(endTry())
+                        {
+                            __reductible__ = false;
+                            if(__element__->m_CONSTs == nullptr)
+                            __element__->m_CONSTs = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<spell::any,4ull>);
+                            __element__->m_CONSTs->push_back(temp41);
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    if(!readBasicType(__element__->m_BasicType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    __reduction__ = &__element__->m_BasicType;
+                    while(!endOfFile())
+                    {
+                        beginTry();
+                        phantom::lang::ast::TypeExtent* temp42=nullptr;
+                        readTypeExtent(temp42);
+                        if(endTry())
+                        {
+                            __reductible__ = false;
+                            if(__element__->m_TypeExtents == nullptr)
+                            __element__->m_TypeExtents = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>);
+                            __element__->m_TypeExtents->push_back(temp42);
+                        }
+                        else
+                        {
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp42); 
+                            break;
+                        }
+                    }
+                    if(token() == token_ELLIPSE)
+                    {
+                        __reductible__ = false;
+                        valueAs(__element__->m_ELLIPSE);
+                        consume();
+                    }
+                    if(__reductible__ && *__reduction__ != __element__)
+                    {
+                        output = *__reduction__;
+                        *__reduction__ = nullptr;
+                        PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__);
+                    }
+                    output->__location.begin = pos_begin;
+                    output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
+                    return true;
+                }
+                bool readTypeNoFunctionType(Type*& output)
+                {
+                    m_LookaheadCounter = 0;
+                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(TypeNoFunctionType);
+                    auto pos_begin = m_Tokens.back().location.begin;
+                    output = __element__;
+                    Type** __reduction__ = (Type**)&__element__;
+                    bool __reductible__ = true;
+                    beginTry();
+                    readExplicitTypeNoFunctionType(__element__->m_ExplicitTypeNoFunctionType);
+                    __reduction__ = &__element__->m_ExplicitTypeNoFunctionType;
+                    if(endTry())
+                    {
+                    }
+                    else
+                    {
+                        if(!readExpressionType(__element__->m_ExpressionType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        __reduction__ = &__element__->m_ExpressionType;
+                    }
+                    if(__reductible__ && *__reduction__ != __element__)
+                    {
+                        output = *__reduction__;
+                        *__reduction__ = nullptr;
+                        PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__);
+                    }
+                    output->__location.begin = pos_begin;
+                    output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
+                    return true;
+                }
+                bool readExplicitTypeNoFunctionType(Type*& output)
+                {
+                    m_LookaheadCounter = 0;
+                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(ExplicitTypeNoFunctionType);
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
                     Type** __reduction__ = (Type**)&__element__;
@@ -2272,19 +2365,25 @@ namespace phantom
                     {
                         beginTry();
                         phantom::lang::ast::TypeExtent* temp44=nullptr;
-                        readTypeExtent(temp44);
+                        readTypeExtentNoFunction(temp44);
                         if(endTry())
                         {
                             __reductible__ = false;
-                            if(__element__->m_TypeExtents == nullptr)
-                            __element__->m_TypeExtents = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>);
-                            __element__->m_TypeExtents->push_back(temp44);
+                            if(__element__->m_TypeExtentNoFunctions == nullptr)
+                            __element__->m_TypeExtentNoFunctions = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>);
+                            __element__->m_TypeExtentNoFunctions->push_back(temp44);
                         }
                         else
                         {
                             PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp44); 
                             break;
                         }
+                    }
+                    if(token() == token_ELLIPSE)
+                    {
+                        __reductible__ = false;
+                        valueAs(__element__->m_ELLIPSE);
+                        consume();
                     }
                     if(__reductible__ && *__reduction__ != __element__)
                     {
@@ -2512,12 +2611,6 @@ namespace phantom
                             if(!readDeclType(__element__->m_DeclType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         }
                         break;
-                        case token_FUNCTION:
-                        {
-                            if(!readFunctionPointerType(__element__->m_FunctionPointerType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                            __reduction__ = &__element__->m_FunctionPointerType;
-                        }
-                        break;
                         default:
                         if(!readQualifiedType(__element__->m_QualifiedType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         __reduction__ = &__element__->m_QualifiedType;
@@ -2585,12 +2678,6 @@ namespace phantom
                         case token_DECLTYPE:
                         {
                             if(!readDeclType(__element__->m_DeclType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                        }
-                        break;
-                        case token_FUNCTION:
-                        {
-                            if(!readFunctionPointerType(__element__->m_FunctionPointerType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                            __reduction__ = &__element__->m_FunctionPointerType;
                         }
                         break;
                         default:
@@ -2665,6 +2752,34 @@ namespace phantom
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
                     return true;
                 }
+                bool readFunctionTypeExtent(TypeExtent*& output)
+                {
+                    m_LookaheadCounter = 0;
+                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(FunctionTypeExtent);
+                    auto pos_begin = m_Tokens.back().location.begin;
+                    output = __element__;
+                    if(!read(token_PAREN_START, __element__->m_PAREN_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    phantom::lang::ast::Type* temp50=nullptr;
+                    beginTry();
+                    readType(temp50);
+                    if(endTry())
+                    {
+                        __element__->m_Types = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Type*,4ull>);
+                        __element__->m_Types->push_back(temp50);
+                        while(token(token_COMMA, m_TokenPointer + 0))
+                        {
+                            consume();
+                            phantom::lang::ast::Type* temp51=nullptr;
+                            if(!readType(temp51)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __element__->m_Types->push_back(temp51);
+                        }
+                    }
+                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp50);
+                    if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    output->__location.begin = pos_begin;
+                    output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
+                    return true;
+                }
                 bool readDerivedExtent(TypeExtent*& output)
                 {
                     m_LookaheadCounter = 0;
@@ -2672,6 +2787,37 @@ namespace phantom
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
                     if(!read({token_BIN_AND,token_LOG_AND,token_MUL,token_CONST,token_VOLATILE}, __element__->m_BIN_AND)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    output->__location.begin = pos_begin;
+                    output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
+                    return true;
+                }
+                bool readTypeExtentNoFunction(TypeExtent*& output)
+                {
+                    m_LookaheadCounter = 0;
+                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(TypeExtentNoFunction);
+                    auto pos_begin = m_Tokens.back().location.begin;
+                    output = __element__;
+                    TypeExtent** __reduction__ = (TypeExtent**)&__element__;
+                    bool __reductible__ = true;
+                    switch(token())
+                    {
+                        case token_BRACKET_START:
+                        {
+                            if(!readArrayExtent(__element__->m_ArrayExtent)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __reduction__ = &__element__->m_ArrayExtent;
+                        }
+                        break;
+                        default:
+                        if(!readDerivedExtent(__element__->m_DerivedExtent)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        __reduction__ = &__element__->m_DerivedExtent;
+                        break;
+                    }
+                    if(__reductible__ && *__reduction__ != __element__)
+                    {
+                        output = *__reduction__;
+                        *__reduction__ = nullptr;
+                        PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__);
+                    }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
                     return true;
@@ -2684,15 +2830,24 @@ namespace phantom
                     output = __element__;
                     TypeExtent** __reduction__ = (TypeExtent**)&__element__;
                     bool __reductible__ = true;
-                    if(lookahead(token_BRACKET_START))
+                    switch(token())
                     {
-                        if(!readArrayExtent(__element__->m_ArrayExtent)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                        __reduction__ = &__element__->m_ArrayExtent;
-                    }
-                    else
-                    {
+                        case token_BRACKET_START:
+                        {
+                            if(!readArrayExtent(__element__->m_ArrayExtent)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __reduction__ = &__element__->m_ArrayExtent;
+                        }
+                        break;
+                        case token_PAREN_START:
+                        {
+                            if(!readFunctionTypeExtent(__element__->m_FunctionTypeExtent)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __reduction__ = &__element__->m_FunctionTypeExtent;
+                        }
+                        break;
+                        default:
                         if(!readDerivedExtent(__element__->m_DerivedExtent)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         __reduction__ = &__element__->m_DerivedExtent;
+                        break;
                     }
                     if(__reductible__ && *__reduction__ != __element__)
                     {
@@ -2718,22 +2873,22 @@ namespace phantom
                     }
                     if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_BLOCK_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    phantom::lang::ast::EnumConstant* temp50=nullptr;
+                    phantom::lang::ast::EnumConstant* temp52=nullptr;
                     beginTry();
-                    readEnumConstant(temp50);
+                    readEnumConstant(temp52);
                     if(endTry())
                     {
                         __element__->m_EnumConstants = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::EnumConstant*,4ull>);
-                        __element__->m_EnumConstants->push_back(temp50);
+                        __element__->m_EnumConstants->push_back(temp52);
                         while(token(token_COMMA, m_TokenPointer + 0))
                         {
                             consume();
-                            phantom::lang::ast::EnumConstant* temp51=nullptr;
-                            if(!readEnumConstant(temp51)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                            __element__->m_EnumConstants->push_back(temp51);
+                            phantom::lang::ast::EnumConstant* temp53=nullptr;
+                            if(!readEnumConstant(temp53)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __element__->m_EnumConstants->push_back(temp53);
                         }
                     }
-                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp50);
+                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp52);
                     if(!read(token_BLOCK_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -2812,8 +2967,8 @@ namespace phantom
                     auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(TemplateParameterDefault);
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
-                    char const* temp52=nullptr;
-                    if(!read(token_ASSIGN, temp52)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    char const* temp54=nullptr;
+                    if(!read(token_ASSIGN, temp54)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     beginTry();
                     readTemplateArgumentAssign(__element__->m_TemplateArgumentAssign);
                     if(endTry())
@@ -2841,6 +2996,11 @@ namespace phantom
                     {
                         if(!readFundamentalType(__element__->m_FundamentalType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     }
+                    if(token() == token_ELLIPSE)
+                    {
+                        valueAs(__element__->m_ELLIPSE);
+                        consume();
+                    }
                     if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -2852,26 +3012,14 @@ namespace phantom
                     auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(TemplateTypeParameter);
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
-                    TemplateTypeParameter** __reduction__ = (TemplateTypeParameter**)&__element__;
-                    bool __reductible__ = true;
-                    switch(token())
+                    char const* temp55=nullptr;
+                    if(!read({token_CLASS,token_TYPENAME}, temp55)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(token() == token_ELLIPSE)
                     {
-                        case token_CLASS:
-                        case token_TYPENAME:
-                        {
-                            consume();
-                        }
-                        break;
-                        default:
-                        break;
+                        valueAs(__element__->m_ELLIPSE);
+                        consume();
                     }
                     if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    if(__reductible__ && *__reduction__ != __element__)
-                    {
-                        output = *__reduction__;
-                        *__reduction__ = nullptr;
-                        PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__);
-                    }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
                     return true;
@@ -2893,19 +3041,12 @@ namespace phantom
                     {
                         if(!readTemplateTypeParameter(__element__->m_TemplateTypeParameter)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     }
-                    if(lookahead(token_ELLIPSE))
+                    beginTry();
+                    phantom::lang::ast::TemplateParameterDefault* temp56=nullptr;
+                    readTemplateParameterDefault(temp56);
+                    if(endTry())
                     {
-                        if(!read(token_ELLIPSE, __element__->m_ELLIPSE)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    }
-                    else
-                    {
-                        beginTry();
-                        phantom::lang::ast::TemplateParameterDefault* temp53=nullptr;
-                        readTemplateParameterDefault(temp53);
-                        if(endTry())
-                        {
-                            __element__->m_TemplateParameterDefault=temp53;
-                        }
+                        __element__->m_TemplateParameterDefault=temp56;
                     }
                     if(__reductible__ && *__reduction__ != __element__)
                     {
@@ -2924,26 +3065,26 @@ namespace phantom
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
                     if(!read(token_TEMPLATE)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    char const* temp54=nullptr;
-                    if(!read(token_LT, temp54)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    phantom::lang::ast::TemplateParameter* temp55=nullptr;
+                    char const* temp57=nullptr;
+                    if(!read(token_LT, temp57)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    phantom::lang::ast::TemplateParameter* temp58=nullptr;
                     beginTry();
-                    readTemplateParameter(temp55);
+                    readTemplateParameter(temp58);
                     if(endTry())
                     {
                         __element__->m_TemplateParameters = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TemplateParameter*,4ull>);
-                        __element__->m_TemplateParameters->push_back(temp55);
+                        __element__->m_TemplateParameters->push_back(temp58);
                         while(token(token_COMMA, m_TokenPointer + 0))
                         {
                             consume();
-                            phantom::lang::ast::TemplateParameter* temp56=nullptr;
-                            if(!readTemplateParameter(temp56)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                            __element__->m_TemplateParameters->push_back(temp56);
+                            phantom::lang::ast::TemplateParameter* temp59=nullptr;
+                            if(!readTemplateParameter(temp59)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __element__->m_TemplateParameters->push_back(temp59);
                         }
                     }
-                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp55);
-                    char const* temp57=nullptr;
-                    if(!read(token_GT, temp57)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp58);
+                    char const* temp60=nullptr;
+                    if(!read(token_GT, temp60)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
                     return true;
@@ -2954,8 +3095,6 @@ namespace phantom
                     auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(Template);
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
-                    Template** __reduction__ = (Template**)&__element__;
-                    bool __reductible__ = true;
                     if(!readTemplateSignature(__element__->m_TemplateSignature)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     switch(token())
                     {
@@ -2975,13 +3114,36 @@ namespace phantom
                             if(!readAlias(__element__->m_Alias)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         }
                         break;
+                        default:
+                        beginTry();
+                        readTemplateFunction(__element__->m_TemplateFunction);
+                        if(endTry())
+                        {
+                        }
+                        else
+                        {
+                            if(!readConstructor(__element__->m_Constructor)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        }
+                        break;
                     }
-                    if(__reductible__ && *__reduction__ != __element__)
+                    output->__location.begin = pos_begin;
+                    output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
+                    return true;
+                }
+                bool readTemplateFunction(TemplateFunction*& output)
+                {
+                    m_LookaheadCounter = 0;
+                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(TemplateFunction);
+                    auto pos_begin = m_Tokens.back().location.begin;
+                    output = __element__;
+                    if(token() == token_STATIC)
                     {
-                        output = *__reduction__;
-                        *__reduction__ = nullptr;
-                        PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__);
+                        valueAs(__element__->m_STATIC);
+                        consume();
                     }
+                    if(!readTypeOrAuto(__element__->m_TypeOrAuto)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(!readFunctionEnd(__element__->m_FunctionEnd)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
                     return true;
@@ -2996,17 +3158,17 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::Statement* temp58=nullptr;
-                        readStatement(temp58);
+                        phantom::lang::ast::Statement* temp61=nullptr;
+                        readStatement(temp61);
                         if(endTry())
                         {
                             if(__element__->m_Statements == nullptr)
                             __element__->m_Statements = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Statement*,4ull>);
-                            __element__->m_Statements->push_back(temp58);
+                            __element__->m_Statements->push_back(temp61);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp58); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp61); 
                             break;
                         }
                     }
@@ -3060,14 +3222,14 @@ namespace phantom
                         consume();
                     }
                     __element__->m_Names = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Name*,4ull>);
-                    phantom::lang::ast::Name* temp59=nullptr;
-                    if(!readName(temp59)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    __element__->m_Names->push_back(temp59);
+                    phantom::lang::ast::Name* temp62=nullptr;
+                    if(!readName(temp62)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    __element__->m_Names->push_back(temp62);
                     while(token(token_DOT, m_TokenPointer + 0))
                     {
                         consume();
-                        if(!readName(temp59)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                        __element__->m_Names->push_back(temp59);
+                        if(!readName(temp62)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        __element__->m_Names->push_back(temp62);
                     }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -3082,14 +3244,14 @@ namespace phantom
                     if(lookahead(token_SCOPE))
                     {
                         __element__->m_Names = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Name*,4ull>);
-                        phantom::lang::ast::Name* temp60=nullptr;
-                        if(!readName(temp60)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                        __element__->m_Names->push_back(temp60);
+                        phantom::lang::ast::Name* temp63=nullptr;
+                        if(!readName(temp63)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        __element__->m_Names->push_back(temp63);
                         while(token(token_SCOPE, m_TokenPointer + 0))
                         {
                             consume();
-                            if(!readName(temp60)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                            __element__->m_Names->push_back(temp60);
+                            if(!readName(temp63)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __element__->m_Names->push_back(temp63);
                         }
                     }
                     else
@@ -3097,14 +3259,14 @@ namespace phantom
                         if(!readName(__element__->m_Name)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         if(!read(token_SCOPE, __element__->m_SCOPE)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         __element__->m_Names = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Name*,4ull>);
-                        phantom::lang::ast::Name* temp61=nullptr;
-                        if(!readName(temp61)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                        __element__->m_Names->push_back(temp61);
+                        phantom::lang::ast::Name* temp64=nullptr;
+                        if(!readName(temp64)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        __element__->m_Names->push_back(temp64);
                         while(token(token_SCOPE, m_TokenPointer + 0))
                         {
                             consume();
-                            if(!readName(temp61)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                            __element__->m_Names->push_back(temp61);
+                            if(!readName(temp64)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __element__->m_Names->push_back(temp64);
                         }
                     }
                     output->__location.begin = pos_begin;
@@ -3167,41 +3329,41 @@ namespace phantom
                     }
                     if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     beginTry();
-                    phantom::lang::ast::TemplateArgumentList* temp62=nullptr;
-                    readTemplateArgumentList(temp62);
+                    phantom::lang::ast::TemplateArgumentList* temp65=nullptr;
+                    readTemplateArgumentList(temp65);
                     if(endTry())
                     {
-                        __element__->m_TemplateArgumentList=temp62;
+                        __element__->m_TemplateArgumentList=temp65;
                     }
                     if(token() == token_COLON)
                     {
                         consume();
                         __element__->m_BaseClasses = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::BaseClass*,4ull>);
-                        phantom::lang::ast::BaseClass* temp63=nullptr;
-                        if(!readBaseClass(temp63)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                        __element__->m_BaseClasses->push_back(temp63);
+                        phantom::lang::ast::BaseClass* temp66=nullptr;
+                        if(!readBaseClass(temp66)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        __element__->m_BaseClasses->push_back(temp66);
                         while(token(token_COMMA, m_TokenPointer + 0))
                         {
                             consume();
-                            if(!readBaseClass(temp63)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                            __element__->m_BaseClasses->push_back(temp63);
+                            if(!readBaseClass(temp66)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __element__->m_BaseClasses->push_back(temp66);
                         }
                     }
                     if(!read(token_BLOCK_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::Member* temp64=nullptr;
-                        readMember(temp64);
+                        phantom::lang::ast::Member* temp67=nullptr;
+                        readMember(temp67);
                         if(endTry())
                         {
                             if(__element__->m_Members == nullptr)
                             __element__->m_Members = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Member*,4ull>);
-                            __element__->m_Members->push_back(temp64);
+                            __element__->m_Members->push_back(temp67);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp64); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp67); 
                             break;
                         }
                     }
@@ -3219,27 +3381,27 @@ namespace phantom
                     if(!read(token_UNION)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     beginTry();
-                    phantom::lang::ast::TemplateArgumentList* temp65=nullptr;
-                    readTemplateArgumentList(temp65);
+                    phantom::lang::ast::TemplateArgumentList* temp68=nullptr;
+                    readTemplateArgumentList(temp68);
                     if(endTry())
                     {
-                        __element__->m_TemplateArgumentList=temp65;
+                        __element__->m_TemplateArgumentList=temp68;
                     }
                     if(!read(token_BLOCK_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::Member* temp66=nullptr;
-                        readBasicMember(temp66);
+                        phantom::lang::ast::Member* temp69=nullptr;
+                        readBasicMember(temp69);
                         if(endTry())
                         {
                             if(__element__->m_BasicMembers == nullptr)
                             __element__->m_BasicMembers = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Member*,4ull>);
-                            __element__->m_BasicMembers->push_back(temp66);
+                            __element__->m_BasicMembers->push_back(temp69);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp66); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp69); 
                             break;
                         }
                     }
@@ -3257,17 +3419,17 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::MethodSpecifier* temp67=nullptr;
-                        readMethodSpecifier(temp67);
+                        phantom::lang::ast::MethodSpecifier* temp70=nullptr;
+                        readMethodSpecifier(temp70);
                         if(endTry())
                         {
                             if(__element__->m_MethodSpecifiers == nullptr)
                             __element__->m_MethodSpecifiers = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::MethodSpecifier*,4ull>);
-                            __element__->m_MethodSpecifiers->push_back(temp67);
+                            __element__->m_MethodSpecifiers->push_back(temp70);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp67); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp70); 
                             break;
                         }
                     }
@@ -3295,18 +3457,18 @@ namespace phantom
                         while(!endOfFile())
                         {
                             beginTry();
-                            phantom::lang::ast::TypeExtent* temp68=nullptr;
-                            readArrayExtent(temp68);
+                            phantom::lang::ast::TypeExtent* temp71=nullptr;
+                            readArrayExtent(temp71);
                             if(endTry())
                             {
                                 __reductible__ = false;
                                 if(__element__->m_ArrayExtents == nullptr)
                                 __element__->m_ArrayExtents = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>);
-                                __element__->m_ArrayExtents->push_back(temp68);
+                                __element__->m_ArrayExtents->push_back(temp71);
                             }
                             else
                             {
-                                PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp68); 
+                                PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp71); 
                                 break;
                             }
                         }
@@ -3420,21 +3582,21 @@ namespace phantom
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
                     __element__->m_MetaOrAnnotations = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::MetaOrAnnotation*,4ull>);
-                    phantom::lang::ast::MetaOrAnnotation* temp69=nullptr;
-                    if(!readMetaOrAnnotation(temp69)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    phantom::lang::ast::MetaOrAnnotation* temp72=nullptr;
+                    if(!readMetaOrAnnotation(temp72)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     __element__->m_MetaOrAnnotations = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::MetaOrAnnotation*,4ull>);
-                    __element__->m_MetaOrAnnotations->push_back(temp69);
+                    __element__->m_MetaOrAnnotations->push_back(temp72);
                     while(!endOfFile())
                     {
                         beginTry();
-                        readMetaOrAnnotation(temp69);
+                        readMetaOrAnnotation(temp72);
                         if(endTry())
                         {
-                            __element__->m_MetaOrAnnotations->push_back(temp69);
+                            __element__->m_MetaOrAnnotations->push_back(temp72);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp69); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp72); 
                             break;
                         }
                     }
@@ -3450,21 +3612,21 @@ namespace phantom
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
                     __element__->m_MetaOrAnnotations = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::MetaOrAnnotation*,4ull>);
-                    phantom::lang::ast::MetaOrAnnotation* temp70=nullptr;
-                    if(!readMetaOrAnnotation(temp70)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    phantom::lang::ast::MetaOrAnnotation* temp73=nullptr;
+                    if(!readMetaOrAnnotation(temp73)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     __element__->m_MetaOrAnnotations = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::MetaOrAnnotation*,4ull>);
-                    __element__->m_MetaOrAnnotations->push_back(temp70);
+                    __element__->m_MetaOrAnnotations->push_back(temp73);
                     while(!endOfFile())
                     {
                         beginTry();
-                        readMetaOrAnnotation(temp70);
+                        readMetaOrAnnotation(temp73);
                         if(endTry())
                         {
-                            __element__->m_MetaOrAnnotations->push_back(temp70);
+                            __element__->m_MetaOrAnnotations->push_back(temp73);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp70); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp73); 
                             break;
                         }
                     }
@@ -3517,7 +3679,21 @@ namespace phantom
                         break;
                         case token_VIRTUAL:
                         {
-                            if(!readMethod(__element__->m_Method)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            if(lookahead(token_VIRTUAL))
+                            {
+                                if(lookahead(token_COMPL))
+                                {
+                                    if(!readDestructor(__element__->m_Destructor)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                                }
+                                else
+                                {
+                                    if(!readMethod(__element__->m_Method)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                                }
+                            }
+                            else
+                            {
+                                if(!readMethod(__element__->m_Method0)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            }
                         }
                         break;
                         case token_STATIC:
@@ -3545,7 +3721,7 @@ namespace phantom
                         break;
                         case token_COMPL:
                         {
-                            if(!readDestructor(__element__->m_Destructor)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            if(!readDestructor(__element__->m_Destructor0)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         }
                         break;
                         case token_FRIEND:
@@ -3627,8 +3803,8 @@ namespace phantom
                     output = __element__;
                     if(!readTypeOrAuto(__element__->m_TypeOrAuto)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    char const* temp71=nullptr;
-                    if(!read(token_ASSIGN, temp71)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    char const* temp74=nullptr;
+                    if(!read(token_ASSIGN, temp74)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!readAssignExpressionOrInitializerList(__element__->m_Expression)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -3700,8 +3876,8 @@ namespace phantom
                     auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(DefaultStatement);
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
-                    char const* temp72=nullptr;
-                    if(!read(token_DEFAULT, temp72)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    char const* temp75=nullptr;
+                    if(!read(token_DEFAULT, temp75)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_COLON)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -3731,21 +3907,21 @@ namespace phantom
                     if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_BLOCK_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     __element__->m_StatementOrCases = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Statement*,4ull>);
-                    phantom::lang::ast::Statement* temp73=nullptr;
-                    if(!readStatementOrCase(temp73)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    phantom::lang::ast::Statement* temp76=nullptr;
+                    if(!readStatementOrCase(temp76)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     __element__->m_StatementOrCases = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Statement*,4ull>);
-                    __element__->m_StatementOrCases->push_back(temp73);
+                    __element__->m_StatementOrCases->push_back(temp76);
                     while(!endOfFile())
                     {
                         beginTry();
-                        readStatementOrCase(temp73);
+                        readStatementOrCase(temp76);
                         if(endTry())
                         {
-                            __element__->m_StatementOrCases->push_back(temp73);
+                            __element__->m_StatementOrCases->push_back(temp76);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp73); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp76); 
                             break;
                         }
                     }
@@ -3811,27 +3987,27 @@ namespace phantom
                     else
                     {
                         beginTry();
-                        phantom::lang::ast::ForInit* temp74=nullptr;
-                        readForInit(temp74);
+                        phantom::lang::ast::ForInit* temp77=nullptr;
+                        readForInit(temp77);
                         if(endTry())
                         {
-                            __element__->m_Init=temp74;
+                            __element__->m_Init=temp77;
                         }
                         if(!read(token_SEMI_COLON)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         beginTry();
-                        phantom::lang::ast::Expression* temp75=nullptr;
-                        readExpression(temp75);
+                        phantom::lang::ast::Expression* temp78=nullptr;
+                        readExpression(temp78);
                         if(endTry())
                         {
-                            __element__->m_Test=temp75;
+                            __element__->m_Test=temp78;
                         }
                         if(!read(token_SEMI_COLON)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         beginTry();
-                        phantom::lang::ast::Expression* temp76=nullptr;
-                        readExpression(temp76);
+                        phantom::lang::ast::Expression* temp79=nullptr;
+                        readExpression(temp79);
                         if(endTry())
                         {
-                            __element__->m_Update=temp76;
+                            __element__->m_Update=temp79;
                         }
                     }
                     if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
@@ -3865,17 +4041,17 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::Statement* temp77=nullptr;
-                        readStatement(temp77);
+                        phantom::lang::ast::Statement* temp80=nullptr;
+                        readStatement(temp80);
                         if(endTry())
                         {
                             if(__element__->m_Statements == nullptr)
                             __element__->m_Statements = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Statement*,4ull>);
-                            __element__->m_Statements->push_back(temp77);
+                            __element__->m_Statements->push_back(temp80);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp77); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp80); 
                             break;
                         }
                     }
@@ -4037,22 +4213,22 @@ namespace phantom
                     if(!read(token_ATAT, __element__->m_ATAT)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_PAREN_START, __element__->m_PAREN_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    phantom::lang::ast::Expression* temp78=nullptr;
+                    phantom::lang::ast::Expression* temp81=nullptr;
                     beginTry();
-                    readExpression(temp78);
+                    readExpression(temp81);
                     if(endTry())
                     {
                         __element__->m_Expressions = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Expression*,4ull>);
-                        __element__->m_Expressions->push_back(temp78);
+                        __element__->m_Expressions->push_back(temp81);
                         while(token(token_COMMA, m_TokenPointer + 0))
                         {
                             consume();
-                            phantom::lang::ast::Expression* temp79=nullptr;
-                            if(!readExpression(temp79)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                            __element__->m_Expressions->push_back(temp79);
+                            phantom::lang::ast::Expression* temp82=nullptr;
+                            if(!readExpression(temp82)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __element__->m_Expressions->push_back(temp82);
                         }
                     }
-                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp78);
+                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp81);
                     if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_SEMI_COLON)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
@@ -4067,11 +4243,11 @@ namespace phantom
                     output = __element__;
                     if(!read(token_RETURN)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     beginTry();
-                    phantom::lang::ast::Expression* temp80=nullptr;
-                    readExpression(temp80);
+                    phantom::lang::ast::Expression* temp83=nullptr;
+                    readExpression(temp83);
                     if(endTry())
                     {
-                        __element__->m_pExpression=temp80;
+                        __element__->m_pExpression=temp83;
                     }
                     if(!read(token_SEMI_COLON)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
@@ -4102,18 +4278,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::TypeExtent* temp81=nullptr;
-                        readTypeExtent(temp81);
+                        phantom::lang::ast::TypeExtent* temp84=nullptr;
+                        readTypeExtent(temp84);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_TypeExtents == nullptr)
                             __element__->m_TypeExtents = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>);
-                            __element__->m_TypeExtents->push_back(temp81);
+                            __element__->m_TypeExtents->push_back(temp84);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp81); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp84); 
                             break;
                         }
                     }
@@ -4124,35 +4300,35 @@ namespace phantom
                         {
                             __reductible__ = false;
                             __element__->m_ArrayExtents = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>);
-                            phantom::lang::ast::TypeExtent* temp82=nullptr;
-                            if(!readArrayExtent(temp82)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            phantom::lang::ast::TypeExtent* temp85=nullptr;
+                            if(!readArrayExtent(temp85)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                             __element__->m_ArrayExtents = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>);
-                            __element__->m_ArrayExtents->push_back(temp82);
+                            __element__->m_ArrayExtents->push_back(temp85);
                             while(!endOfFile())
                             {
                                 beginTry();
-                                readArrayExtent(temp82);
+                                readArrayExtent(temp85);
                                 if(endTry())
                                 {
                                     __reductible__ = false;
-                                    __element__->m_ArrayExtents->push_back(temp82);
+                                    __element__->m_ArrayExtents->push_back(temp85);
                                 }
                                 else
                                 {
-                                    PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp82); 
+                                    PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp85); 
                                     break;
                                 }
                             }
-                            char const* temp83=nullptr;
-                            if(!read(token_ASSIGN, temp83)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            char const* temp86=nullptr;
+                            if(!read(token_ASSIGN, temp86)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                             if(!readAssignExpressionOrInitializerList(__element__->m_AssignExpressionOrInitializerList)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         }
                         break;
                         case token_ASSIGN:
                         {
                             __reductible__ = false;
-                            char const* temp84=nullptr;
-                            if(!read(token_ASSIGN, temp84)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            char const* temp87=nullptr;
+                            if(!read(token_ASSIGN, temp87)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                             if(!readAssignExpressionOrInitializerList(__element__->m_AssignExpressionOrInitializerList)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         }
                         break;
@@ -4186,13 +4362,13 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        char const* temp85=nullptr;
-                        read({token_CONST,token_VOLATILE}, temp85);
+                        char const* temp88=nullptr;
+                        read({token_CONST,token_VOLATILE}, temp88);
                         if(endTry())
                         {
                             if(__element__->m_CONSTs == nullptr)
                             __element__->m_CONSTs = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<spell::any,4ull>);
-                            __element__->m_CONSTs->push_back(temp85);
+                            __element__->m_CONSTs->push_back(temp88);
                         }
                         else
                         {
@@ -4201,14 +4377,14 @@ namespace phantom
                     }
                     if(!readBasicType(__element__->m_BasicType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     __element__->m_Declarators = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Declarator*,4ull>);
-                    phantom::lang::ast::Declarator* temp86=nullptr;
-                    if(!readDeclarator(temp86)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    __element__->m_Declarators->push_back(temp86);
+                    phantom::lang::ast::Declarator* temp89=nullptr;
+                    if(!readDeclarator(temp89)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    __element__->m_Declarators->push_back(temp89);
                     while(token(token_COMMA, m_TokenPointer + 0))
                     {
                         consume();
-                        if(!readDeclarator(temp86)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                        __element__->m_Declarators->push_back(temp86);
+                        if(!readDeclarator(temp89)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        __element__->m_Declarators->push_back(temp89);
                     }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -4223,17 +4399,17 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::TypeExtent* temp87=nullptr;
-                        readTypeExtent(temp87);
+                        phantom::lang::ast::TypeExtent* temp90=nullptr;
+                        readTypeExtent(temp90);
                         if(endTry())
                         {
                             if(__element__->m_TypeExtents == nullptr)
                             __element__->m_TypeExtents = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>);
-                            __element__->m_TypeExtents->push_back(temp87);
+                            __element__->m_TypeExtents->push_back(temp90);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp87); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp90); 
                             break;
                         }
                     }
@@ -4254,22 +4430,22 @@ namespace phantom
                         while(!endOfFile())
                         {
                             beginTry();
-                            phantom::lang::ast::TypeExtent* temp88=nullptr;
-                            readArrayExtent(temp88);
+                            phantom::lang::ast::TypeExtent* temp91=nullptr;
+                            readArrayExtent(temp91);
                             if(endTry())
                             {
                                 if(__element__->m_ArrayExtents == nullptr)
                                 __element__->m_ArrayExtents = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>);
-                                __element__->m_ArrayExtents->push_back(temp88);
+                                __element__->m_ArrayExtents->push_back(temp91);
                             }
                             else
                             {
-                                PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp88); 
+                                PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp91); 
                                 break;
                             }
                         }
-                        char const* temp89=nullptr;
-                        if(!read(token_ASSIGN, temp89)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        char const* temp92=nullptr;
+                        if(!read(token_ASSIGN, temp92)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         if(!readAssignExpressionOrInitializerList(__element__->m_AssignExpressionOrInitializerList)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         break;
                     }
@@ -4286,13 +4462,13 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        char const* temp90=nullptr;
-                        read({token_CONST,token_VOLATILE}, temp90);
+                        char const* temp93=nullptr;
+                        read({token_CONST,token_VOLATILE}, temp93);
                         if(endTry())
                         {
                             if(__element__->m_CONSTs == nullptr)
                             __element__->m_CONSTs = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<spell::any,4ull>);
-                            __element__->m_CONSTs->push_back(temp90);
+                            __element__->m_CONSTs->push_back(temp93);
                         }
                         else
                         {
@@ -4301,14 +4477,14 @@ namespace phantom
                     }
                     if(!readAuto(__element__->m_Auto)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     __element__->m_AutoDeclarators = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::AutoDeclarator*,4ull>);
-                    phantom::lang::ast::AutoDeclarator* temp91=nullptr;
-                    if(!readAutoDeclarator(temp91)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    __element__->m_AutoDeclarators->push_back(temp91);
+                    phantom::lang::ast::AutoDeclarator* temp94=nullptr;
+                    if(!readAutoDeclarator(temp94)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    __element__->m_AutoDeclarators->push_back(temp94);
                     while(token(token_COMMA, m_TokenPointer + 0))
                     {
                         consume();
-                        if(!readAutoDeclarator(temp91)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                        __element__->m_AutoDeclarators->push_back(temp91);
+                        if(!readAutoDeclarator(temp94)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        __element__->m_AutoDeclarators->push_back(temp94);
                     }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -4524,18 +4700,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::LogicalOrExpressionRight* temp92=nullptr;
-                        readLogicalOrExpressionRight(temp92);
+                        phantom::lang::ast::LogicalOrExpressionRight* temp95=nullptr;
+                        readLogicalOrExpressionRight(temp95);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_LogicalOrExpressionRights == nullptr)
                             __element__->m_LogicalOrExpressionRights = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::LogicalOrExpressionRight*,4ull>);
-                            __element__->m_LogicalOrExpressionRights->push_back(temp92);
+                            __element__->m_LogicalOrExpressionRights->push_back(temp95);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp92); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp95); 
                             break;
                         }
                     }
@@ -4559,11 +4735,11 @@ namespace phantom
                     bool __reductible__ = true;
                     if(!read(token_LOG_AND, __element__->m_Op)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     beginTry();
-                    phantom::lang::ast::Expression* temp93=nullptr;
-                    readBinOrExpression(temp93);
+                    phantom::lang::ast::Expression* temp96=nullptr;
+                    readBinOrExpression(temp96);
                     if(endTry())
                     {
-                        __element__->m_RightExpression=temp93;
+                        __element__->m_RightExpression=temp96;
                     }
                     if(__reductible__ && *__reduction__ != __element__)
                     {
@@ -4588,18 +4764,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::LogicalAndExpressionRight* temp94=nullptr;
-                        readLogicalAndExpressionRight(temp94);
+                        phantom::lang::ast::LogicalAndExpressionRight* temp97=nullptr;
+                        readLogicalAndExpressionRight(temp97);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_LogicalAndExpressionRights == nullptr)
                             __element__->m_LogicalAndExpressionRights = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::LogicalAndExpressionRight*,4ull>);
-                            __element__->m_LogicalAndExpressionRights->push_back(temp94);
+                            __element__->m_LogicalAndExpressionRights->push_back(temp97);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp94); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp97); 
                             break;
                         }
                     }
@@ -4638,18 +4814,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::BinOrExpressionRight* temp95=nullptr;
-                        readBinOrExpressionRight(temp95);
+                        phantom::lang::ast::BinOrExpressionRight* temp98=nullptr;
+                        readBinOrExpressionRight(temp98);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_BinOrExpressionRights == nullptr)
                             __element__->m_BinOrExpressionRights = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::BinOrExpressionRight*,4ull>);
-                            __element__->m_BinOrExpressionRights->push_back(temp95);
+                            __element__->m_BinOrExpressionRights->push_back(temp98);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp95); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp98); 
                             break;
                         }
                     }
@@ -4688,18 +4864,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::XOrExpressionRight* temp96=nullptr;
-                        readXOrExpressionRight(temp96);
+                        phantom::lang::ast::XOrExpressionRight* temp99=nullptr;
+                        readXOrExpressionRight(temp99);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_XOrExpressionRights == nullptr)
                             __element__->m_XOrExpressionRights = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::XOrExpressionRight*,4ull>);
-                            __element__->m_XOrExpressionRights->push_back(temp96);
+                            __element__->m_XOrExpressionRights->push_back(temp99);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp96); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp99); 
                             break;
                         }
                     }
@@ -4723,11 +4899,11 @@ namespace phantom
                     bool __reductible__ = true;
                     if(!read(token_BIN_AND, __element__->m_Op)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     beginTry();
-                    phantom::lang::ast::Expression* temp97=nullptr;
-                    readEqualityExpression(temp97);
+                    phantom::lang::ast::Expression* temp100=nullptr;
+                    readEqualityExpression(temp100);
                     if(endTry())
                     {
-                        __element__->m_RightExpression=temp97;
+                        __element__->m_RightExpression=temp100;
                     }
                     if(__reductible__ && *__reduction__ != __element__)
                     {
@@ -4752,18 +4928,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::BinAndExpressionRight* temp98=nullptr;
-                        readBinAndExpressionRight(temp98);
+                        phantom::lang::ast::BinAndExpressionRight* temp101=nullptr;
+                        readBinAndExpressionRight(temp101);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_BinAndExpressionRights == nullptr)
                             __element__->m_BinAndExpressionRights = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::BinAndExpressionRight*,4ull>);
-                            __element__->m_BinAndExpressionRights->push_back(temp98);
+                            __element__->m_BinAndExpressionRights->push_back(temp101);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp98); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp101); 
                             break;
                         }
                     }
@@ -4802,18 +4978,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::EqualityExpressionRight* temp99=nullptr;
-                        readEqualityExpressionRight(temp99);
+                        phantom::lang::ast::EqualityExpressionRight* temp102=nullptr;
+                        readEqualityExpressionRight(temp102);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_EqualityExpressionRights == nullptr)
                             __element__->m_EqualityExpressionRights = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::EqualityExpressionRight*,4ull>);
-                            __element__->m_EqualityExpressionRights->push_back(temp99);
+                            __element__->m_EqualityExpressionRights->push_back(temp102);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp99); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp102); 
                             break;
                         }
                     }
@@ -4862,18 +5038,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::RelationalExpressionRight* temp100=nullptr;
-                        readRelationalExpressionRight(temp100);
+                        phantom::lang::ast::RelationalExpressionRight* temp103=nullptr;
+                        readRelationalExpressionRight(temp103);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_RelationalExpressionRights == nullptr)
                             __element__->m_RelationalExpressionRights = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::RelationalExpressionRight*,4ull>);
-                            __element__->m_RelationalExpressionRights->push_back(temp100);
+                            __element__->m_RelationalExpressionRights->push_back(temp103);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp100); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp103); 
                             break;
                         }
                     }
@@ -4940,18 +5116,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::ShiftExpressionRight* temp101=nullptr;
-                        readShiftExpressionRight(temp101);
+                        phantom::lang::ast::ShiftExpressionRight* temp104=nullptr;
+                        readShiftExpressionRight(temp104);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_ShiftExpressionRights == nullptr)
                             __element__->m_ShiftExpressionRights = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::ShiftExpressionRight*,4ull>);
-                            __element__->m_ShiftExpressionRights->push_back(temp101);
+                            __element__->m_ShiftExpressionRights->push_back(temp104);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp101); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp104); 
                             break;
                         }
                     }
@@ -4990,18 +5166,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::AddExpressionRight* temp102=nullptr;
-                        readAddExpressionRight(temp102);
+                        phantom::lang::ast::AddExpressionRight* temp105=nullptr;
+                        readAddExpressionRight(temp105);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_AddExpressionRights == nullptr)
                             __element__->m_AddExpressionRights = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::AddExpressionRight*,4ull>);
-                            __element__->m_AddExpressionRights->push_back(temp102);
+                            __element__->m_AddExpressionRights->push_back(temp105);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp102); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp105); 
                             break;
                         }
                     }
@@ -5023,11 +5199,11 @@ namespace phantom
                     output = __element__;
                     if(!read({token_MUL,token_DIV,token_MOD}, __element__->m_Op)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     beginTry();
-                    phantom::lang::ast::Expression* temp103=nullptr;
-                    readUnaryExpression(temp103);
+                    phantom::lang::ast::Expression* temp106=nullptr;
+                    readUnaryExpression(temp106);
                     if(endTry())
                     {
-                        __element__->m_RightExpression=temp103;
+                        __element__->m_RightExpression=temp106;
                     }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -5046,18 +5222,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::MulExpressionRight* temp104=nullptr;
-                        readMulExpressionRight(temp104);
+                        phantom::lang::ast::MulExpressionRight* temp107=nullptr;
+                        readMulExpressionRight(temp107);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_MulExpressionRights == nullptr)
                             __element__->m_MulExpressionRights = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::MulExpressionRight*,4ull>);
-                            __element__->m_MulExpressionRights->push_back(temp104);
+                            __element__->m_MulExpressionRights->push_back(temp107);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp104); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp107); 
                             break;
                         }
                     }
@@ -5078,11 +5254,11 @@ namespace phantom
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
                     if(!read({token_REINTERPRET_CAST,token_STATIC_CAST,token_CONST_CAST}, __element__->m_CastKind)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    char const* temp105=nullptr;
-                    if(!read(token_LT, temp105)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    char const* temp108=nullptr;
+                    if(!read(token_LT, temp108)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!readType(__element__->m_Type)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    char const* temp106=nullptr;
-                    if(!read(token_GT, temp106)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    char const* temp109=nullptr;
+                    if(!read(token_GT, temp109)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_PAREN_START, __element__->m_PAREN_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!readExpression(__element__->m_Expression)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
@@ -5204,22 +5380,22 @@ namespace phantom
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
                     if(!read(token_BLOCK_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    phantom::lang::ast::Expression* temp107=nullptr;
+                    phantom::lang::ast::Expression* temp110=nullptr;
                     beginTry();
-                    readAssignExpressionOrInitializerList(temp107);
+                    readAssignExpressionOrInitializerList(temp110);
                     if(endTry())
                     {
                         __element__->m_AssignExpressionOrInitializerLists = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Expression*,4ull>);
-                        __element__->m_AssignExpressionOrInitializerLists->push_back(temp107);
+                        __element__->m_AssignExpressionOrInitializerLists->push_back(temp110);
                         while(token(token_COMMA, m_TokenPointer + 0))
                         {
                             consume();
-                            phantom::lang::ast::Expression* temp108=nullptr;
-                            if(!readAssignExpressionOrInitializerList(temp108)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                            __element__->m_AssignExpressionOrInitializerLists->push_back(temp108);
+                            phantom::lang::ast::Expression* temp111=nullptr;
+                            if(!readAssignExpressionOrInitializerList(temp111)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __element__->m_AssignExpressionOrInitializerLists->push_back(temp111);
                         }
                     }
-                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp107);
+                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp110);
                     if(!read(token_BLOCK_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -5232,22 +5408,22 @@ namespace phantom
                     auto pos_begin = m_Tokens.back().location.begin;
                     output = __element__;
                     if(!read(token_PAREN_START, __element__->m_PAREN_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                    phantom::lang::ast::Expression* temp109=nullptr;
+                    phantom::lang::ast::Expression* temp112=nullptr;
                     beginTry();
-                    readAssignExpressionOrInitializerList(temp109);
+                    readAssignExpressionOrInitializerList(temp112);
                     if(endTry())
                     {
                         __element__->m_AssignExpressionOrInitializerLists = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Expression*,4ull>);
-                        __element__->m_AssignExpressionOrInitializerLists->push_back(temp109);
+                        __element__->m_AssignExpressionOrInitializerLists->push_back(temp112);
                         while(token(token_COMMA, m_TokenPointer + 0))
                         {
                             consume();
-                            phantom::lang::ast::Expression* temp110=nullptr;
-                            if(!readAssignExpressionOrInitializerList(temp110)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                            __element__->m_AssignExpressionOrInitializerLists->push_back(temp110);
+                            phantom::lang::ast::Expression* temp113=nullptr;
+                            if(!readAssignExpressionOrInitializerList(temp113)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __element__->m_AssignExpressionOrInitializerLists->push_back(temp113);
                         }
                     }
-                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp109);
+                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp112);
                     if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -5317,18 +5493,18 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        phantom::lang::ast::PostFixEnd* temp111=nullptr;
-                        readPostFixEnd(temp111);
+                        phantom::lang::ast::PostFixEnd* temp114=nullptr;
+                        readPostFixEnd(temp114);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_PostFixEnds == nullptr)
                             __element__->m_PostFixEnds = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::PostFixEnd*,4ull>);
-                            __element__->m_PostFixEnds->push_back(temp111);
+                            __element__->m_PostFixEnds->push_back(temp114);
                         }
                         else
                         {
-                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp111); 
+                            PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp114); 
                             break;
                         }
                     }
@@ -5376,6 +5552,11 @@ namespace phantom
                             if(!readName(__element__->m_Name)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         }
                         break;
+                        case token_ELLIPSE:
+                        {
+                            if(!read(token_ELLIPSE, __element__->m_ELLIPSE)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        }
+                        break;
                         default:
                         if(!read({token_INC,token_DEC}, __element__->m_INC)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         break;
@@ -5408,11 +5589,11 @@ namespace phantom
                     }
                     if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     beginTry();
-                    phantom::lang::ast::Expression* temp112=nullptr;
-                    readUnaryExpression(temp112);
+                    phantom::lang::ast::Expression* temp115=nullptr;
+                    readUnaryExpression(temp115);
                     if(endTry())
                     {
-                        __element__->m_Casted=temp112;
+                        __element__->m_Casted=temp115;
                     }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
@@ -5467,22 +5648,22 @@ namespace phantom
                     {
                         consume();
                         if(!read(token_STRING_LIT, __element__->m_STRING_LIT)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                        phantom::lang::ast::Expression* temp113=nullptr;
+                        phantom::lang::ast::Expression* temp116=nullptr;
                         beginTry();
-                        readAssignExpression(temp113);
+                        readAssignExpression(temp116);
                         if(endTry())
                         {
                             __element__->m_AssignExpressions = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Expression*,4ull>);
-                            __element__->m_AssignExpressions->push_back(temp113);
+                            __element__->m_AssignExpressions->push_back(temp116);
                             while(token(token_COMMA, m_TokenPointer + 0))
                             {
                                 consume();
-                                phantom::lang::ast::Expression* temp114=nullptr;
-                                if(!readAssignExpression(temp114)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
-                                __element__->m_AssignExpressions->push_back(temp114);
+                                phantom::lang::ast::Expression* temp117=nullptr;
+                                if(!readAssignExpression(temp117)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                                __element__->m_AssignExpressions->push_back(temp117);
                             }
                         }
-                        else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp113);
+                        else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp116);
                     }
                     if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     if(!read(token_SEMI_COLON)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
@@ -5554,14 +5735,14 @@ namespace phantom
                     while(!endOfFile())
                     {
                         beginTry();
-                        char const* temp115=nullptr;
-                        read(token_STRING_LIT, temp115);
+                        char const* temp118=nullptr;
+                        read(token_STRING_LIT, temp118);
                         if(endTry())
                         {
                             __reductible__ = false;
                             if(__element__->m_STRING_LITs == nullptr)
                             __element__->m_STRING_LITs = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<spell::any,4ull>);
-                            __element__->m_STRING_LITs->push_back(temp115);
+                            __element__->m_STRING_LITs->push_back(temp118);
                         }
                         else
                         {
@@ -5574,6 +5755,112 @@ namespace phantom
                         *__reduction__ = nullptr;
                         PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__);
                     }
+                    output->__location.begin = pos_begin;
+                    output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
+                    return true;
+                }
+                bool readFundamentalTypeFunctionCast(Expression*& output)
+                {
+                    m_LookaheadCounter = 0;
+                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(FundamentalTypeFunctionCast);
+                    auto pos_begin = m_Tokens.back().location.begin;
+                    output = __element__;
+                    if(!readFundamentalType(__element__->m_FundamentalType)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(!read(token_PAREN_START, __element__->m_PAREN_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(!readExpression(__element__->m_Expression)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    output->__location.begin = pos_begin;
+                    output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
+                    return true;
+                }
+                bool readLambdaCapture(LambdaCapture*& output)
+                {
+                    m_LookaheadCounter = 0;
+                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(LambdaCapture);
+                    auto pos_begin = m_Tokens.back().location.begin;
+                    output = __element__;
+                    switch(token())
+                    {
+                        case token_IDENTIFIER:
+                        {
+                            if(!read(token_IDENTIFIER, __element__->m_IDENTIFIER)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        }
+                        break;
+                        case token_ASSIGN:
+                        {
+                            if(!read(token_ASSIGN, __element__->m_ASSIGN)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        }
+                        break;
+                        case token_BIN_AND:
+                        {
+                            if(!read(token_BIN_AND, __element__->m_BIN_AND)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            if(token() == token_IDENTIFIER)
+                            {
+                                valueAs(__element__->m_IDENTIFIER);
+                                consume();
+                            }
+                        }
+                        break;
+                        case token_THIS:
+                        {
+                            if(!read(token_THIS, __element__->m_THIS)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        }
+                        break;
+                    }
+                    output->__location.begin = pos_begin;
+                    output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
+                    return true;
+                }
+                bool readLambdaExpression(LambdaExpression*& output)
+                {
+                    m_LookaheadCounter = 0;
+                    auto __element__ = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(LambdaExpression);
+                    auto pos_begin = m_Tokens.back().location.begin;
+                    output = __element__;
+                    if(!read(token_BRACKET_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    phantom::lang::ast::LambdaCapture* temp119=nullptr;
+                    beginTry();
+                    readLambdaCapture(temp119);
+                    if(endTry())
+                    {
+                        __element__->m_LambdaCaptures = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::LambdaCapture*,4ull>);
+                        __element__->m_LambdaCaptures->push_back(temp119);
+                        while(token(token_COMMA, m_TokenPointer + 0))
+                        {
+                            consume();
+                            phantom::lang::ast::LambdaCapture* temp120=nullptr;
+                            if(!readLambdaCapture(temp120)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __element__->m_LambdaCaptures->push_back(temp120);
+                        }
+                    }
+                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp119);
+                    if(!read(token_BRACKET_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    beginTry();
+                    phantom::lang::ast::ArrowReturn* temp121=nullptr;
+                    readArrowReturn(temp121);
+                    if(endTry())
+                    {
+                        __element__->m_ArrowReturn=temp121;
+                    }
+                    if(!read(token_PAREN_START, __element__->m_PAREN_START)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    phantom::lang::ast::Parameter* temp122=nullptr;
+                    beginTry();
+                    readParameter(temp122);
+                    if(endTry())
+                    {
+                        __element__->m_Parameters = PHANTOM_LANG_CPPLITEGRAMMAR_NEW(phantom::SmallVector<phantom::lang::ast::Parameter*,4ull>);
+                        __element__->m_Parameters->push_back(temp122);
+                        while(token(token_COMMA, m_TokenPointer + 0))
+                        {
+                            consume();
+                            phantom::lang::ast::Parameter* temp123=nullptr;
+                            if(!readParameter(temp123)){ PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __element__->m_Parameters->push_back(temp123);
+                        }
+                    }
+                    else PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(temp122);
+                    if(!read(token_PAREN_END)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                    if(!readFunctionBlock(__element__->m_FunctionBlock)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                     output->__location.begin = pos_begin;
                     output->__location.end = (m_Tokens.size() > 1) ? m_Tokens[m_Tokens.size()-2].location.end : m_Tokens.back().location.end;
                     return true;
@@ -5664,6 +5951,25 @@ namespace phantom
                         case token_FUNCTION_PTR:
                         {
                             if(!readFunctionPtrExpression(__element__->m_FunctionPtrExpression)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                        }
+                        break;
+                        case token_UNSIGNED:
+                        case token_SIGNED:
+                        case token_BOOL:
+                        case token_SHORT:
+                        case token_INT:
+                        case token_LONG:
+                        case token_CHAR:
+                        case token_FLOATING_POINT_TYPE:
+                        case token_VOID:
+                        {
+                            if(!readFundamentalTypeFunctionCast(__element__->m_FundamentalTypeFunctionCast)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
+                            __reduction__ = &__element__->m_FundamentalTypeFunctionCast;
+                        }
+                        break;
+                        case token_BRACKET_START:
+                        {
+                            if(!readLambdaExpression(__element__->m_LambdaExpression)) { PHANTOM_LANG_CPPLITEGRAMMAR_DELETE(__element__); output = nullptr; return false; }
                         }
                         break;
                         default:

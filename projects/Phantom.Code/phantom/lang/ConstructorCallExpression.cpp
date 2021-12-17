@@ -56,9 +56,6 @@ void ConstructorCallExpression::initialize()
 {
     Expression::initialize();
 
-    if (!m_pConstructor->isNative())
-        m_pConstructor->buildBlock();
-
     addReferencedElement(m_pConstructor);
     addDependencyOn(m_pConstructor);
     PHANTOM_ASSERT(m_Arguments.size() >= m_pConstructor->getSignature()->getRequiredArgumentCount() &&

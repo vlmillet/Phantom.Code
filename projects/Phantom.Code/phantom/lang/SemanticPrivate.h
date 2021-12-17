@@ -9,67 +9,17 @@
 #include "Semantic.h"
 #include "phantom/lang/TemplateParameter.h"
 
+#include <phantom/lang/Message.h>
 #include <phantom/lang/Placeholder.h>
 #include <phantom/lang/TemplateSpecialization.h>
 #include <stdarg.h>
+
+#define PHANTOM_SEMANTIC_ASSERT PHANTOM_ASSERT
 
 namespace phantom
 {
 namespace lang
 {
-class TemplateSubstitution
-{
-public:
-    TemplateSubstitution() : m_pInstantiation(nullptr) {}
-    TemplateSubstitution(TemplateSpecialization* a_pInstantiation) : m_pInstantiation(a_pInstantiation)
-    {
-        for (auto& pair : a_pInstantiation->getPlaceholderSubstitutions())
-        {
-            insert(pair.first, pair.second);
-        }
-    }
-    void insert(Placeholder* a_pPlaceholder, LanguageElement* a_pArgument)
-    {
-        m_Placeholders.push_back(a_pPlaceholder);
-        m_Arguments.push_back(a_pArgument);
-    }
-    LanguageElement* getArgument(size_t i) const { return m_Arguments[i]; }
-
-    LanguageElements const& getArguments() const { return m_Arguments; }
-
-    LanguageElement* getArgument(Placeholder* a_pPlaceholder) const
-    {
-        // first check pure equality
-        for (size_t i = 0; i < m_Placeholders.size(); ++i)
-        {
-            if (a_pPlaceholder == m_Placeholders[i])
-                return m_Arguments[i];
-        }
-        // then check equivalence (can be runtime/native specializations having equivalent placeholders)
-        TemplateParameter* pTP1 = static_cast<TemplateParameter*>(a_pPlaceholder->asSymbol()->getOwner());
-        for (size_t i = 0; i < m_Placeholders.size(); ++i)
-        {
-            TemplateParameter* pTP2 = static_cast<TemplateParameter*>(m_Placeholders[i]->asSymbol()->getOwner());
-            if (pTP1->getTemplate() != pTP2->getTemplate())
-                return nullptr;
-            if (pTP1->getIndex() == pTP2->getIndex())
-                return m_Arguments[i];
-        }
-        return nullptr;
-    }
-
-    void setInstantiation(TemplateSpecialization* a_pSpec) { m_pInstantiation = a_pSpec; }
-
-    TemplateSpecialization* getInstantiation() const { return m_pInstantiation; }
-
-    size_t size() const { return m_Arguments.size(); }
-
-private:
-    TemplateSpecialization* m_pInstantiation;
-    Placeholders            m_Placeholders;
-    LanguageElements        m_Arguments;
-};
-
 static const char* _canBe = "can be";
 static const char* _or = "or";
 
@@ -104,7 +54,7 @@ inline StringView getAccessString(Access a_Access)
     case Access::Private:
         return "private";
     default:
-        PHANTOM_ASSERT(false);
+        PHANTOM_SEMANTIC_ASSERT(false);
         return "unknown";
     }
 }
@@ -183,9 +133,9 @@ inline StringView getAccessString(Access a_Access)
 
 #define in_Pass (*(EClassBuildState*)a_Data.in[1])
 
-#define PHANTOM_ASSERT_SEMANTIC_HAS_ERROR_REPORT(elem)                                                                 \
-    PHANTOM_ASSERT(elem || this->getMessage() == nullptr ||                                                            \
-                   this->getMessage()->getMostValuableMessageType() == MessageType::Error)
+#define PHANTOM_SEMANTIC_ASSERT_SEMANTIC_HAS_ERROR_REPORT(elem)                                                        \
+    PHANTOM_SEMANTIC_ASSERT(elem || this->getMessage() == nullptr ||                                                   \
+                            this->getMessage()->getMostValuableMessageType() == MessageType::Error)
 
 /// TEMPLATE INSTANCIATION
 
@@ -207,10 +157,8 @@ inline StringView getAccessString(Access a_Access)
 //#   define o_findT(...) PHANTOM_PP_CAT(o_findT_, PHANTOM_PP_ARGCOUNT(__VA_ARGS__))(__VA_ARGS__)
 #endif
 
-#define o_findT(type, primary)                                                                                         \
-    (in_TemplateSubstitution.getInstantiation()                                                                        \
-     ? static_cast<type*>(templateInstantiations()[in_TemplateSubstitution.getInstantiation()][primary])               \
-     : nullptr)
+#define o_findT(type, primary) static_cast<type*>(_findInstantiation(in_TemplateSubstitution, primary))
+
 #define o_mapT(primary, instance)                                                                                      \
     templateInstantiations()[in_TemplateSubstitution.getInstantiation()][primary] = instance
 
@@ -241,10 +189,9 @@ public:
                                                 Semantic::EClassBuildState a_uiPass, LanguageElement* a_pScope,
                                                 int a_Flags, T* (LanguageElement::*a_Func)() const)
     {
-        PHANTOM_ASSERT(a_pElement);
+        PHANTOM_SEMANTIC_ASSERT(a_pElement);
         LanguageElement* pResult =
         a_pSemantic->resolveTemplateDependency(a_pElement, a_TemplateSubstitution, a_uiPass, a_pScope, a_Flags);
-        PHANTOM_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
         return pResult ? (pResult->*a_Func)() : nullptr;
     }
     template<class T>
@@ -257,10 +204,33 @@ public:
             return nullptr;
         LanguageElement* pResult =
         a_pSemantic->instantiateTemplateElement(a_pElement, a_TemplateSubstitution, a_uiPass, a_pScope, a_Flags);
-        PHANTOM_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
         if (!pResult)
             return nullptr;
         T* pResT = (pResult->*a_Func)();
+        if (!pResT)
+        {
+            CxxCustomSemanticError(a_pSemantic, "'%s' : unexpected symbol", a_pSemantic->FormatCStr(pResult));
+        }
+        return pResT;
+    }
+
+    /// @off
+    inline static Expression*
+    SemanticInstantiateTemplateElement(Semantic* a_pSemantic, Expression* a_pElement,
+                                       const class TemplateSubstitution& a_TemplateSubstitution,
+                                       Semantic::EClassBuildState a_uiPass, LanguageElement* a_pScope, int a_Flags,
+                                       Expression* (LanguageElement::*a_Func)() const)
+    {
+        if (a_pElement == nullptr)
+            return nullptr;
+        if (!a_pElement->isTemplateDependant())
+            return a_pElement->clone(a_pSemantic->getSource());
+        LanguageElement* pResult =
+        a_pSemantic->instantiateTemplateElement(a_pElement, a_TemplateSubstitution, a_uiPass, a_pScope, a_Flags);
+        PHANTOM_SEMANTIC_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
+        if (!pResult)
+            return nullptr;
+        Expression* pResT = (pResult->*a_Func)();
         if (!pResT)
         {
             CxxCustomSemanticError(a_pSemantic, "'%s' : unexpected symbol", a_pSemantic->FormatCStr(pResult));
@@ -273,10 +243,12 @@ public:
                                                 Semantic::EClassBuildState a_uiPass, LanguageElement* a_pScope,
                                                 int a_Flags)
     {
-        PHANTOM_ASSERT(a_pElement);
+        PHANTOM_SEMANTIC_ASSERT(a_pElement);
+        if (!a_pElement->isTemplateDependant())
+            return static_cast<T*>(a_pElement);
         LanguageElement* pResult =
         a_pSemantic->resolveTemplateDependency(a_pElement, a_TemplateSubstitution, a_uiPass, a_pScope, a_Flags);
-        PHANTOM_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
+        PHANTOM_SEMANTIC_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
         return pResult ? phantom::Object::Cast<T>(pResult) : nullptr;
     }
     template<class T>
@@ -289,7 +261,7 @@ public:
             return nullptr;
         LanguageElement* pResult =
         a_pSemantic->instantiateTemplateElement(a_pElement, a_TemplateSubstitution, a_uiPass, a_pScope, a_Flags);
-        PHANTOM_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
+        PHANTOM_SEMANTIC_ASSERT(pResult == nullptr || !(pResult->isTemplateDependant()));
         return pResult ? phantom::Object::Cast<T>(pResult) : nullptr;
     }
 };

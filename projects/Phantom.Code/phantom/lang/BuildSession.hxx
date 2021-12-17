@@ -24,6 +24,7 @@
 
 #include <phantom/template-only-push>
 
+#include <phantom/utils/SmallString.hxx>
 #include <phantom/utils/SmallVector.hxx>
 #include <phantom/utils/StringView.hxx>
 
@@ -47,17 +48,19 @@ PHANTOM_PACKAGE("phantom.lang")
         }
         PHANTOM_STRUCT(BuildSession)
         {
+            using String = typedef_< phantom::String>;
             using StringView = typedef_< phantom::StringView>;
             this_()(PHANTOM_R_FLAG_NO_COPY)
         
         .public_()
             .method<bool() const>("isSuccessful", &_::isSuccessful)
-            .method<bool(StringView)>("addProject", &_::addProject)
-            .method<bool(StringView)>("addProjectPath", &_::addProjectPath)
-            .method<void(StringView)>("addSearchPath", &_::addSearchPath)
-            .method<void(StringView)>("loadSources", &_::loadSources)
-            .method<void(StringView)>("loadPackages", &_::loadPackages)
-            .method<void(StringView)>("loadSourcesOrPackages", &_::loadSourcesOrPackages)
+            .method<bool(StringView)>("addProject", &_::addProject)({"_name"})
+            .method<String(StringView) const>("findProjectPath", &_::findProjectPath)({"_projectName"})
+            .method<bool(StringView)>("addProjectPath", &_::addProjectPath)({"_path"})
+            .method<void(StringView)>("addSearchPath", &_::addSearchPath)({"_path"})
+            .method<void(StringView)>("loadSources", &_::loadSources)({"a_SourceUniqueName"})
+            .method<void(StringView)>("loadPackages", &_::loadPackages)({"a_PackageUniqueName"})
+            .method<void(StringView)>("loadSourcesOrPackages", &_::loadSourcesOrPackages)({"a_UniqueName"})
             .method<SmallVector<ProjectBuildSession const*>() const>("getBuiltProjectsSessions", &_::getBuiltProjectsSessions)
             ;
         }

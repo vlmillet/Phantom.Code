@@ -71,11 +71,14 @@ public:
 
     struct PHANTOM_EXPORT_PHANTOM_CODE SourcePrinter
     {
+        static String GetHppIncludePath(Source* _source);
+
         Source*                source;
         Printer&               hpp;
         Printer&               usingfile;
         bool                   enableModules;
         SmallMap<String, bool> includes;
+
         SourcePrinter(Source* _source, Printer& _hpp, Printer& _ufile, bool _enableModules);
 
         String ProtectQuote(StringView _str);
@@ -106,6 +109,8 @@ public:
 
         void PrintCppSymbols(Constant* _cst);
 
+        void PrintCppSymbols(TemplateSpecialization* _templateSpec);
+
         void PrintName(Symbol* _symbol);
 
         void PrintName(Symbol* _symbol, Printer& _printer);
@@ -134,6 +139,7 @@ public:
 
         void PrintNoRet(Subroutine* _input);
 
+        void PrintCppParameter(Parameter* _input, Printer& _printer);
         void PrintCppParameters(Subroutine* _input, Printer& _printer, size_t _firstIdx = 0, bool _append = false);
         void PrintCppSuffix(Subroutine* _input, Printer& _printer);
 
@@ -152,26 +158,34 @@ public:
         LanguageElement*             currentScope = Namespace::Global();
         SmallMap<String, Namespace*> forwards;
         String                       forwardContent;
+        SmallMap<Symbol*, Symbol*>   aliases;
+
+    private:
+        Symbol* getAlias(Symbol* _symbol)
+        {
+            auto found = aliases.find(_symbol);
+            if (found != aliases.end())
+                return found->second;
+            return nullptr;
+        }
+
+        int m_noAlias = 0;
+
+    private:
+        TemplateSpecialization* m_templatePlaceholderSpec{};
     };
 
     void PrintCppSymbols(Source* _input, StringView _dir, bool _enableModules);
 
     void PrintCppSymbols(Module* _input, StringView _dir, bool _enableModules);
-    //
-    // void AddProjectFiles(BuildSessionId a_Id, StringView _dir)
-    // {
-    // 	Vector<String> dirs;
-    // 	Directory::GetDirectories(dirs, _dir);
-    // 	for (auto& file : files)
-    // 	{
-    // 		String fullPath = Path::GetFullPath(_dir + '/' + file);
-    // 		Compiler::Get()->buildProject(a_Id, StringView(fullPath));
-    // 	}
-    // }
 
     void GenerateCppLiteNoExt(StringView _outDir, StringView _relDir, StringView _inputDir);
 
+    void PrintModules(ArrayView<StringView> _workspaces, bool _enableModules = false);
+
     int main(int argc, char** argv);
+
+    SmallMap<String, String> aliases;
 };
 
 } // namespace lang

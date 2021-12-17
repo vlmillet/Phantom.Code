@@ -43,6 +43,8 @@ public:
 
     Variable* getVariable() const { return m_pVariable; }
 
+    LanguageElement* removeExpression() const override;
+
 protected:
     virtual void* internalEvalAddress(ExecutionContext& a_Context) const;
 

@@ -34,21 +34,21 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::Expression>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
-            .constructor<void(Expression*, Expression*, ExpressionsView)>()
+            .constructor<void(Expression*, Expression*, ExpressionsView)>()({"a_pObjectExpression","a_pMemberExpression","a_Arguments"})
             .method<void()>("initialize", &_::initialize)
             .method<void(), virtual_|override_>("terminate", &_::terminate)
-            .method<void(ExecutionContext&) const, virtual_|override_>("eval", &_::eval)
+            .method<void(ExecutionContext&) const, virtual_|override_>("eval", &_::eval)({"a_Context"})
             .method<Expression*() const>("getObjectExpression", &_::getObjectExpression)
             .method<Expression*() const>("getMemberExpression", &_::getMemberExpression)
             .method<MethodPointer*() const>("getMethodPointer", &_::getMethodPointer)
             .method<ExpressionsView() const>("getArguments", &_::getArguments)
-            .method<::phantom::lang::MethodPointerCallExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)
+            .method<::phantom::lang::MethodPointerCallExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)({"a_pOwner"})
         
         .protected_()
-            .method<void(ExecutionContext&) const, virtual_|override_>("flush", &_::flush)
+            .method<void(ExecutionContext&) const, virtual_|override_>("flush", &_::flush)({"a_Context"})
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE

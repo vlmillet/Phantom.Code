@@ -42,22 +42,22 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
         
         .public_()
-            .constructor<void(Language*, Source*, Message*)>()
-            .method<::phantom::lang::Symbol *(StringView, LanguageElement*, Modifiers, uint), pure_virtual>("parseSymbolName", &_::parseSymbolName)["0"]
-            .method<::phantom::lang::Expression *(StringView, LanguageElement*), pure_virtual>("parseExpression", &_::parseExpression)
+            .constructor<void(Language*, Source*, Message*)>()({"a_pLanguage","a_pSource","a_pMessage"})
+            .method<::phantom::lang::Symbol *(StringView, LanguageElement*, Modifiers, uint), pure_virtual>("parseSymbolName", &_::parseSymbolName)({"a_strSymbol","a_pContextScope","a_Modifiers","a_uiFlags"})["0"]
+            .method<::phantom::lang::Expression *(StringView, LanguageElement*), pure_virtual>("parseExpression", &_::parseExpression)({"a_strExpression","a_pContextScope"})
             .method<const Options&() const>("getOptions", &_::getOptions)
-            .method<void(StringView, StringView)>("setOption", &_::setOption)
+            .method<void(StringView, StringView)>("setOption", &_::setOption)({"a_strKey","a_strValue"})
             .method<uint() const>("getPass", &_::getPass)
             .method<uint() const>("getPassCount", &_::getPassCount)
             .method<Language*() const>("getLanguage", &_::getLanguage)
             .method<Message*() const>("getMessage", &_::getMessage)
-            .method<StringView(StringView) const>("getOption", &_::getOption)
+            .method<StringView(StringView) const>("getOption", &_::getOption)({"a_Key"})
             .method<Source*() const>("getSource", &_::getSource)
             .method<Semantic*() const>("getSemantic", &_::getSemantic)
-            .method<void(BuildSession&), virtual_>("begin", &_::begin)
+            .method<void(BuildSession&), virtual_>("begin", &_::begin)({""})
             .method<void(), virtual_>("end", &_::end)
-            .method<int(uint), pure_virtual>("parse", &_::parse)
-            .method<int(uint)>("stepParse", &_::stepParse)
+            .method<int(uint), pure_virtual>("parse", &_::parse)({"a_uiPass"})
+            .method<int(uint)>("stepParse", &_::stepParse)({"a_uiPass"})
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE

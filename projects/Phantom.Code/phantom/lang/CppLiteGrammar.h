@@ -175,6 +175,7 @@ namespace phantom
                 e_RuleType_Constructor,
                 e_RuleType_Destructor,
                 e_RuleType_ConstructorInitializer,
+                e_RuleType_ArrowReturn,
                 e_RuleType_FunctionEnd,
                 e_RuleType_Operator,
                 e_RuleType_OperatorEnd,
@@ -194,7 +195,6 @@ namespace phantom
                 e_RuleType_TemplateArgumentNoAssign,
                 e_RuleType_TemplateArgumentAssign,
                 e_RuleType_TemplateArgumentList,
-                e_RuleType_FunctionPointerType,
                 e_RuleType_Name,
                 e_RuleType_FundamentalTypeBase,
                 e_RuleType_UnsignedType,
@@ -204,6 +204,8 @@ namespace phantom
                 e_RuleType_FundamentalType,
                 e_RuleType_QualifiedType,
                 e_RuleType_ExplicitType,
+                e_RuleType_TypeNoFunctionType,
+                e_RuleType_ExplicitTypeNoFunctionType,
                 e_RuleType_ExpressionType,
                 e_RuleType_Type,
                 e_RuleType_ExplicitTypeOrAuto,
@@ -215,7 +217,9 @@ namespace phantom
                 e_RuleType_IntegralConstant,
                 e_RuleType_ArrayExtentExpression,
                 e_RuleType_ArrayExtent,
+                e_RuleType_FunctionTypeExtent,
                 e_RuleType_DerivedExtent,
+                e_RuleType_TypeExtentNoFunction,
                 e_RuleType_TypeExtent,
                 e_RuleType_Enum,
                 e_RuleType_EnumConstant,
@@ -228,6 +232,7 @@ namespace phantom
                 e_RuleType_TemplateParameter,
                 e_RuleType_TemplateSignature,
                 e_RuleType_Template,
+                e_RuleType_TemplateFunction,
                 e_RuleType_FunctionBlock,
                 e_RuleType_QualifiedName,
                 e_RuleType_QualifiedDotName,
@@ -314,6 +319,9 @@ namespace phantom
                 e_RuleType_SizeofExpression,
                 e_RuleType_TypeofExpression,
                 e_RuleType_StringLiteralChain,
+                e_RuleType_FundamentalTypeFunctionCast,
+                e_RuleType_LambdaCapture,
+                e_RuleType_LambdaExpression,
                 e_RuleType_PrimaryExpression,
             };
             struct _BaseRule;
@@ -335,6 +343,7 @@ namespace phantom
             struct Constructor;
             struct Destructor;
             struct ConstructorInitializer;
+            struct ArrowReturn;
             struct FunctionEnd;
             struct Operator;
             struct OperatorEnd;
@@ -354,7 +363,6 @@ namespace phantom
             struct TemplateArgumentNoAssign;
             struct TemplateArgumentAssign;
             struct TemplateArgumentList;
-            struct FunctionPointerType;
             struct Name;
             struct FundamentalTypeBase;
             struct UnsignedType;
@@ -364,6 +372,8 @@ namespace phantom
             struct FundamentalType;
             struct QualifiedType;
             struct ExplicitType;
+            struct TypeNoFunctionType;
+            struct ExplicitTypeNoFunctionType;
             struct ExpressionType;
             struct Type;
             struct ExplicitTypeOrAuto;
@@ -375,7 +385,9 @@ namespace phantom
             struct IntegralConstant;
             struct ArrayExtentExpression;
             struct ArrayExtent;
+            struct FunctionTypeExtent;
             struct DerivedExtent;
+            struct TypeExtentNoFunction;
             struct TypeExtent;
             struct Enum;
             struct EnumConstant;
@@ -388,6 +400,7 @@ namespace phantom
             struct TemplateParameter;
             struct TemplateSignature;
             struct Template;
+            struct TemplateFunction;
             struct FunctionBlock;
             struct QualifiedName;
             struct QualifiedDotName;
@@ -474,6 +487,9 @@ namespace phantom
             struct SizeofExpression;
             struct TypeofExpression;
             struct StringLiteralChain;
+            struct FundamentalTypeFunctionCast;
+            struct LambdaCapture;
+            struct LambdaExpression;
             struct PrimaryExpression;
             typedef phantom::SmallVector<Source*> Sources;
             typedef phantom::SmallVector<ModuleDeclaration*> ModuleDeclarations;
@@ -493,6 +509,7 @@ namespace phantom
             typedef phantom::SmallVector<Constructor*> Constructors;
             typedef phantom::SmallVector<Destructor*> Destructors;
             typedef phantom::SmallVector<ConstructorInitializer*> ConstructorInitializers;
+            typedef phantom::SmallVector<ArrowReturn*> ArrowReturns;
             typedef phantom::SmallVector<FunctionEnd*> FunctionEnds;
             typedef phantom::SmallVector<Operator*> Operators;
             typedef phantom::SmallVector<OperatorEnd*> OperatorEnds;
@@ -512,7 +529,6 @@ namespace phantom
             typedef phantom::SmallVector<TemplateArgumentNoAssign*> TemplateArgumentNoAssigns;
             typedef phantom::SmallVector<TemplateArgumentAssign*> TemplateArgumentAssigns;
             typedef phantom::SmallVector<TemplateArgumentList*> TemplateArgumentLists;
-            typedef phantom::SmallVector<FunctionPointerType*> FunctionPointerTypes;
             typedef phantom::SmallVector<Name*> Names;
             typedef phantom::SmallVector<FundamentalTypeBase*> FundamentalTypeBases;
             typedef phantom::SmallVector<UnsignedType*> UnsignedTypes;
@@ -522,6 +538,8 @@ namespace phantom
             typedef phantom::SmallVector<FundamentalType*> FundamentalTypes;
             typedef phantom::SmallVector<QualifiedType*> QualifiedTypes;
             typedef phantom::SmallVector<ExplicitType*> ExplicitTypes;
+            typedef phantom::SmallVector<TypeNoFunctionType*> TypeNoFunctionTypes;
+            typedef phantom::SmallVector<ExplicitTypeNoFunctionType*> ExplicitTypeNoFunctionTypes;
             typedef phantom::SmallVector<ExpressionType*> ExpressionTypes;
             typedef phantom::SmallVector<Type*> Types;
             typedef phantom::SmallVector<ExplicitTypeOrAuto*> ExplicitTypeOrAutos;
@@ -533,7 +551,9 @@ namespace phantom
             typedef phantom::SmallVector<IntegralConstant*> IntegralConstants;
             typedef phantom::SmallVector<ArrayExtentExpression*> ArrayExtentExpressions;
             typedef phantom::SmallVector<ArrayExtent*> ArrayExtents;
+            typedef phantom::SmallVector<FunctionTypeExtent*> FunctionTypeExtents;
             typedef phantom::SmallVector<DerivedExtent*> DerivedExtents;
+            typedef phantom::SmallVector<TypeExtentNoFunction*> TypeExtentNoFunctions;
             typedef phantom::SmallVector<TypeExtent*> TypeExtents;
             typedef phantom::SmallVector<Enum*> Enums;
             typedef phantom::SmallVector<EnumConstant*> EnumConstants;
@@ -546,6 +566,7 @@ namespace phantom
             typedef phantom::SmallVector<TemplateParameter*> TemplateParameters;
             typedef phantom::SmallVector<TemplateSignature*> TemplateSignatures;
             typedef phantom::SmallVector<Template*> Templates;
+            typedef phantom::SmallVector<TemplateFunction*> TemplateFunctions;
             typedef phantom::SmallVector<FunctionBlock*> FunctionBlocks;
             typedef phantom::SmallVector<QualifiedName*> QualifiedNames;
             typedef phantom::SmallVector<QualifiedDotName*> QualifiedDotNames;
@@ -632,6 +653,9 @@ namespace phantom
             typedef phantom::SmallVector<SizeofExpression*> SizeofExpressions;
             typedef phantom::SmallVector<TypeofExpression*> TypeofExpressions;
             typedef phantom::SmallVector<StringLiteralChain*> StringLiteralChains;
+            typedef phantom::SmallVector<FundamentalTypeFunctionCast*> FundamentalTypeFunctionCasts;
+            typedef phantom::SmallVector<LambdaCapture*> LambdaCaptures;
+            typedef phantom::SmallVector<LambdaExpression*> LambdaExpressions;
             typedef phantom::SmallVector<PrimaryExpression*> PrimaryExpressions;
             struct _BaseRule
             {
@@ -806,28 +830,30 @@ namespace phantom
                 phantom::SmallVector<spell::any,4ull>* m_IDENTIFIERs;
                 phantom::SmallVector<phantom::lang::ast::Statement*,4ull>* m_Statements;
             };
-            struct ForInit : public _BaseRule
+            struct ForeachSignature : public _BaseRule
             {
-                ForInit(ERuleType t = e_RuleType_ForInit)
+                ForeachSignature(ERuleType t = e_RuleType_ForeachSignature)
                 : _BaseRule(t)
-                , m_LocalVariableDecl(nullptr)
+                , m_TypeOrAuto(nullptr)
+                , m_IDENTIFIER(nullptr)
                 , m_Expression(nullptr)
                 {
                 }
-                phantom::lang::ast::LocalVariableDecl* m_LocalVariableDecl;
+                phantom::lang::ast::Type* m_TypeOrAuto;
+                char const* m_IDENTIFIER;
                 phantom::lang::ast::Expression* m_Expression;
             };
             struct ConversionFunction : public _BaseRule
             {
                 ConversionFunction(ERuleType t = e_RuleType_ConversionFunction)
                 : _BaseRule(t)
-                , m_Type(nullptr)
+                , m_TypeNoFunctionType(nullptr)
                 , m_PAREN_START(nullptr)
                 , m_CONSTs(nullptr)
                 , m_FunctionBlock(nullptr)
                 {
                 }
-                phantom::lang::ast::Type* m_Type;
+                phantom::lang::ast::Type* m_TypeNoFunctionType;
                 char const* m_PAREN_START;
                 phantom::SmallVector<spell::any,4ull>* m_CONSTs;
                 phantom::lang::ast::FunctionBlock* m_FunctionBlock;
@@ -863,6 +889,7 @@ namespace phantom
                 , m_FunctionBlock(nullptr)
                 {
                 }
+                spell::any m_VIRTUAL;
                 char const* m_COMPL;
                 char const* m_IDENTIFIER;
                 char const* m_PAREN_START;
@@ -873,14 +900,25 @@ namespace phantom
             {
                 ConstructorInitializer(ERuleType t = e_RuleType_ConstructorInitializer)
                 : _BaseRule(t)
-                , m_Type(nullptr)
+                , m_BasicType(nullptr)
                 , m_CallList(nullptr)
                 , m_InitializerList(nullptr)
                 {
                 }
-                phantom::lang::ast::Type* m_Type;
+                phantom::lang::ast::Type* m_BasicType;
                 phantom::lang::ast::CallList* m_CallList;
                 phantom::lang::ast::Expression* m_InitializerList;
+            };
+            struct ArrowReturn : public _BaseRule
+            {
+                ArrowReturn(ERuleType t = e_RuleType_ArrowReturn)
+                : _BaseRule(t)
+                , m_ARROW(nullptr)
+                , m_Type(nullptr)
+                {
+                }
+                char const* m_ARROW;
+                phantom::lang::ast::Type* m_Type;
             };
             struct FunctionEnd : public _BaseRule
             {
@@ -889,6 +927,7 @@ namespace phantom
                 , m_PAREN_START(nullptr)
                 , m_Parameters(nullptr)
                 , m_CONSTs(nullptr)
+                , m_ArrowReturn(nullptr)
                 , m_OVERRIDEs(nullptr)
                 , m_FunctionBlock(nullptr)
                 {
@@ -896,6 +935,7 @@ namespace phantom
                 char const* m_PAREN_START;
                 phantom::SmallVector<phantom::lang::ast::Parameter*,4ull>* m_Parameters;
                 phantom::SmallVector<spell::any,4ull>* m_CONSTs;
+                phantom::lang::ast::ArrowReturn* m_ArrowReturn;
                 phantom::SmallVector<spell::any,4ull>* m_OVERRIDEs;
                 phantom::lang::ast::FunctionBlock* m_FunctionBlock;
                 spell::any m_Suffix;
@@ -1004,6 +1044,17 @@ namespace phantom
                 {
                 }
             };
+            struct ForInit : public _BaseRule
+            {
+                ForInit(ERuleType t = e_RuleType_ForInit)
+                : _BaseRule(t)
+                , m_LocalVariableDecl(nullptr)
+                , m_Expression(nullptr)
+                {
+                }
+                phantom::lang::ast::LocalVariableDecl* m_LocalVariableDecl;
+                phantom::lang::ast::Expression* m_Expression;
+            };
             struct Statement : public _BaseRule
             {
                 Statement(ERuleType t = e_RuleType_Statement)
@@ -1095,25 +1146,6 @@ namespace phantom
                 phantom::lang::ast::CallList* m_CallList;
                 phantom::lang::ast::Expression* m_InitializerList;
             };
-            struct AutoDeclarator : public _BaseRule
-            {
-                AutoDeclarator(ERuleType t = e_RuleType_AutoDeclarator)
-                : _BaseRule(t)
-                , m_TypeExtents(nullptr)
-                , m_IDENTIFIER(nullptr)
-                , m_CallList(nullptr)
-                , m_InitializerList(nullptr)
-                , m_ArrayExtents(nullptr)
-                , m_AssignExpressionOrInitializerList(nullptr)
-                {
-                }
-                phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>* m_TypeExtents;
-                char const* m_IDENTIFIER;
-                phantom::lang::ast::CallList* m_CallList;
-                phantom::lang::ast::Expression* m_InitializerList;
-                phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>* m_ArrayExtents;
-                phantom::lang::ast::Expression* m_AssignExpressionOrInitializerList;
-            };
             struct TemplateArgumentListSplit : public _BaseRule
             {
                 TemplateArgumentListSplit(ERuleType t = e_RuleType_TemplateArgumentListSplit)
@@ -1154,17 +1186,6 @@ namespace phantom
                 spell::any m_GT;
                 phantom::lang::ast::TemplateArgumentListSplit* m_TemplateArgumentListSplit;
             };
-            struct LocalVariableDecl : public _BaseRule
-            {
-                LocalVariableDecl(ERuleType t = e_RuleType_LocalVariableDecl)
-                : _BaseRule(t)
-                , m_AutoLocalVariableDecl(nullptr)
-                , m_ExplicitLocalVariableDecl(nullptr)
-                {
-                }
-                phantom::lang::ast::LocalVariableDecl* m_AutoLocalVariableDecl;
-                phantom::lang::ast::LocalVariableDecl* m_ExplicitLocalVariableDecl;
-            };
             struct Name : public _BaseRule
             {
                 Name(ERuleType t = e_RuleType_Name)
@@ -1186,6 +1207,36 @@ namespace phantom
                 {
                 }
                 char const* m_Typename;
+            };
+            struct AutoDeclarator : public _BaseRule
+            {
+                AutoDeclarator(ERuleType t = e_RuleType_AutoDeclarator)
+                : _BaseRule(t)
+                , m_TypeExtents(nullptr)
+                , m_IDENTIFIER(nullptr)
+                , m_CallList(nullptr)
+                , m_InitializerList(nullptr)
+                , m_ArrayExtents(nullptr)
+                , m_AssignExpressionOrInitializerList(nullptr)
+                {
+                }
+                phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>* m_TypeExtents;
+                char const* m_IDENTIFIER;
+                phantom::lang::ast::CallList* m_CallList;
+                phantom::lang::ast::Expression* m_InitializerList;
+                phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>* m_ArrayExtents;
+                phantom::lang::ast::Expression* m_AssignExpressionOrInitializerList;
+            };
+            struct LocalVariableDecl : public _BaseRule
+            {
+                LocalVariableDecl(ERuleType t = e_RuleType_LocalVariableDecl)
+                : _BaseRule(t)
+                , m_AutoLocalVariableDecl(nullptr)
+                , m_ExplicitLocalVariableDecl(nullptr)
+                {
+                }
+                phantom::lang::ast::LocalVariableDecl* m_AutoLocalVariableDecl;
+                phantom::lang::ast::LocalVariableDecl* m_ExplicitLocalVariableDecl;
             };
             struct Expression : public _BaseRule
             {
@@ -1371,6 +1422,7 @@ namespace phantom
                 phantom::lang::ast::Expression* m_InitializerList;
                 spell::any m_DOT;
                 phantom::lang::ast::Name* m_Name;
+                spell::any m_ELLIPSE;
                 spell::any m_INC;
             };
             struct ArrayExtentExpression : public _BaseRule
@@ -1407,15 +1459,45 @@ namespace phantom
                 char const* m_STRING_LIT;
                 phantom::SmallVector<spell::any,4ull>* m_STRING_LITs;
             };
+            struct LambdaCapture : public _BaseRule
+            {
+                LambdaCapture(ERuleType t = e_RuleType_LambdaCapture)
+                : _BaseRule(t)
+                {
+                }
+                spell::any m_IDENTIFIER;
+                spell::any m_ASSIGN;
+                spell::any m_BIN_AND;
+                spell::any m_THIS;
+            };
+            struct LambdaExpression : public _BaseRule
+            {
+                LambdaExpression(ERuleType t = e_RuleType_LambdaExpression)
+                : _BaseRule(t)
+                , m_LambdaCaptures(nullptr)
+                , m_ArrowReturn(nullptr)
+                , m_PAREN_START(nullptr)
+                , m_Parameters(nullptr)
+                , m_FunctionBlock(nullptr)
+                {
+                }
+                phantom::SmallVector<phantom::lang::ast::LambdaCapture*,4ull>* m_LambdaCaptures;
+                phantom::lang::ast::ArrowReturn* m_ArrowReturn;
+                char const* m_PAREN_START;
+                phantom::SmallVector<phantom::lang::ast::Parameter*,4ull>* m_Parameters;
+                phantom::lang::ast::FunctionBlock* m_FunctionBlock;
+            };
             struct TypeExtent : public _BaseRule
             {
                 TypeExtent(ERuleType t = e_RuleType_TypeExtent)
                 : _BaseRule(t)
                 , m_ArrayExtent(nullptr)
+                , m_FunctionTypeExtent(nullptr)
                 , m_DerivedExtent(nullptr)
                 {
                 }
                 phantom::lang::ast::TypeExtent* m_ArrayExtent;
+                phantom::lang::ast::TypeExtent* m_FunctionTypeExtent;
                 phantom::lang::ast::TypeExtent* m_DerivedExtent;
             };
             struct Enum : public _BaseRule
@@ -1496,6 +1578,7 @@ namespace phantom
                 }
                 phantom::lang::ast::QualifiedName* m_QualifiedName;
                 phantom::lang::ast::Type* m_FundamentalType;
+                spell::any m_ELLIPSE;
                 char const* m_IDENTIFIER;
             };
             struct TemplateTypeParameter : public _BaseRule
@@ -1505,6 +1588,7 @@ namespace phantom
                 , m_IDENTIFIER(nullptr)
                 {
                 }
+                spell::any m_ELLIPSE;
                 char const* m_IDENTIFIER;
             };
             struct TemplateParameter : public _BaseRule
@@ -1518,7 +1602,6 @@ namespace phantom
                 }
                 phantom::lang::ast::TemplateValueParameter* m_TemplateValueParameter;
                 phantom::lang::ast::TemplateTypeParameter* m_TemplateTypeParameter;
-                spell::any m_ELLIPSE;
                 phantom::lang::ast::TemplateParameterDefault* m_TemplateParameterDefault;
             };
             struct TemplateSignature : public _BaseRule
@@ -1538,12 +1621,30 @@ namespace phantom
                 , m_Class(nullptr)
                 , m_Union(nullptr)
                 , m_Alias(nullptr)
+                , m_TemplateFunction(nullptr)
+                , m_Constructor(nullptr)
                 {
                 }
                 phantom::lang::ast::TemplateSignature* m_TemplateSignature;
                 phantom::lang::ast::Class* m_Class;
                 phantom::lang::ast::Union* m_Union;
                 phantom::lang::ast::Alias* m_Alias;
+                phantom::lang::ast::TemplateFunction* m_TemplateFunction;
+                phantom::lang::ast::Constructor* m_Constructor;
+            };
+            struct TemplateFunction : public _BaseRule
+            {
+                TemplateFunction(ERuleType t = e_RuleType_TemplateFunction)
+                : _BaseRule(t)
+                , m_TypeOrAuto(nullptr)
+                , m_IDENTIFIER(nullptr)
+                , m_FunctionEnd(nullptr)
+                {
+                }
+                spell::any m_STATIC;
+                phantom::lang::ast::Type* m_TypeOrAuto;
+                char const* m_IDENTIFIER;
+                phantom::lang::ast::FunctionEnd* m_FunctionEnd;
             };
             struct FunctionBlock : public _BaseRule
             {
@@ -1733,19 +1834,6 @@ namespace phantom
                 phantom::lang::ast::IfOrWhileLocalVariableDecl* m_IfOrWhileLocalVariableDecl;
                 phantom::lang::ast::Expression* m_Expression;
             };
-            struct ForeachSignature : public _BaseRule
-            {
-                ForeachSignature(ERuleType t = e_RuleType_ForeachSignature)
-                : _BaseRule(t)
-                , m_TypeOrAuto(nullptr)
-                , m_IDENTIFIER(nullptr)
-                , m_Expression(nullptr)
-                {
-                }
-                phantom::lang::ast::Type* m_TypeOrAuto;
-                char const* m_IDENTIFIER;
-                phantom::lang::ast::Expression* m_Expression;
-            };
             struct BlockDeclaration : public Statement
             {
                 BlockDeclaration(ERuleType t = e_RuleType_BlockDeclaration)
@@ -1753,43 +1841,41 @@ namespace phantom
                 , m_Class(nullptr)
                 , m_Enum(nullptr)
                 , m_Typedef(nullptr)
+                , m_Alias(nullptr)
                 , m_Using(nullptr)
                 , m_StaticAssert(nullptr)
-                , m_Alias(nullptr)
+                , m_Alias0(nullptr)
                 {
                 }
                 phantom::lang::ast::Class* m_Class;
                 phantom::lang::ast::Enum* m_Enum;
                 phantom::lang::ast::Typedef* m_Typedef;
+                phantom::lang::ast::Alias* m_Alias;
                 phantom::lang::ast::Using* m_Using;
                 phantom::lang::ast::StaticAssert* m_StaticAssert;
-                phantom::lang::ast::Alias* m_Alias;
+                phantom::lang::ast::Alias* m_Alias0;
             };
-            struct SizeofExpression : public Expression
+            struct FundamentalTypeFunctionCast : public Expression
             {
-                SizeofExpression(ERuleType t = e_RuleType_SizeofExpression)
+                FundamentalTypeFunctionCast(ERuleType t = e_RuleType_FundamentalTypeFunctionCast)
                 : Expression(t)
-                , m_SIZEOF(nullptr)
+                , m_FundamentalType(nullptr)
                 , m_PAREN_START(nullptr)
-                , m_Type(nullptr)
+                , m_Expression(nullptr)
                 {
                 }
-                char const* m_SIZEOF;
+                phantom::lang::ast::Type* m_FundamentalType;
                 char const* m_PAREN_START;
-                phantom::lang::ast::Type* m_Type;
+                phantom::lang::ast::Expression* m_Expression;
             };
-            struct TypeofExpression : public Expression
+            struct ExpressionStatement : public Statement
             {
-                TypeofExpression(ERuleType t = e_RuleType_TypeofExpression)
-                : Expression(t)
-                , m_TYPEOF(nullptr)
-                , m_PAREN_START(nullptr)
-                , m_Type(nullptr)
+                ExpressionStatement(ERuleType t = e_RuleType_ExpressionStatement)
+                : Statement(t)
+                , m_Expression(nullptr)
                 {
                 }
-                char const* m_TYPEOF;
-                char const* m_PAREN_START;
-                phantom::lang::ast::Type* m_Type;
+                phantom::lang::ast::Expression* m_Expression;
             };
             struct LastTemplateArgument : public TemplateArgument
             {
@@ -1802,14 +1888,18 @@ namespace phantom
                 phantom::lang::ast::LastTemplateArgument* m_LastTemplateArgumentAssign;
                 phantom::lang::ast::LastTemplateArgument* m_LastTemplateArgumentNoAssign;
             };
-            struct LocalVariableStatement : public Statement
+            struct SwitchStatement : public Statement
             {
-                LocalVariableStatement(ERuleType t = e_RuleType_LocalVariableStatement)
+                SwitchStatement(ERuleType t = e_RuleType_SwitchStatement)
                 : Statement(t)
-                , m_LocalVariableDecl(nullptr)
+                , m_PAREN_START(nullptr)
+                , m_Expression(nullptr)
+                , m_StatementOrCases(nullptr)
                 {
                 }
-                phantom::lang::ast::LocalVariableDecl* m_LocalVariableDecl;
+                char const* m_PAREN_START;
+                phantom::lang::ast::Expression* m_Expression;
+                phantom::SmallVector<phantom::lang::ast::Statement*,4ull>* m_StatementOrCases;
             };
             struct PrimaryExpression : public Expression
             {
@@ -1825,6 +1915,8 @@ namespace phantom
                 , m_StringLiteralChain(nullptr)
                 , m_SpecialCastExpression(nullptr)
                 , m_FunctionPtrExpression(nullptr)
+                , m_FundamentalTypeFunctionCast(nullptr)
+                , m_LambdaExpression(nullptr)
                 {
                 }
                 phantom::lang::ast::Expression* m_KeywordExpression;
@@ -1838,6 +1930,8 @@ namespace phantom
                 phantom::lang::ast::StringLiteralChain* m_StringLiteralChain;
                 phantom::lang::ast::SpecialCastExpression* m_SpecialCastExpression;
                 phantom::lang::ast::FunctionPtrExpression* m_FunctionPtrExpression;
+                phantom::lang::ast::Expression* m_FundamentalTypeFunctionCast;
+                phantom::lang::ast::LambdaExpression* m_LambdaExpression;
                 spell::any m_INT_VALUE;
             };
             struct NotLastTemplateArgument : public TemplateArgument
@@ -1850,19 +1944,6 @@ namespace phantom
                 }
                 phantom::lang::ast::NotLastTemplateArgument* m_NotLastTemplateArgumentAssign;
                 phantom::lang::ast::NotLastTemplateArgument* m_NotLastTemplateArgumentNoAssign;
-            };
-            struct FunctionPointerType : public Type
-            {
-                FunctionPointerType(ERuleType t = e_RuleType_FunctionPointerType)
-                : Type(t)
-                , m_Type(nullptr)
-                , m_PAREN_START(nullptr)
-                , m_Types(nullptr)
-                {
-                }
-                phantom::lang::ast::Type* m_Type;
-                char const* m_PAREN_START;
-                phantom::SmallVector<phantom::lang::ast::Type*,4ull>* m_Types;
             };
             struct UnsignedType : public Type
             {
@@ -1928,11 +2009,9 @@ namespace phantom
                 QualifiedType(ERuleType t = e_RuleType_QualifiedType)
                 : Type(t)
                 , m_QualifiedName(nullptr)
-                , m_FunctionPointerType(nullptr)
                 {
                 }
                 phantom::lang::ast::QualifiedName* m_QualifiedName;
-                phantom::lang::ast::Type* m_FunctionPointerType;
             };
             struct ExplicitType : public Type
             {
@@ -1946,6 +2025,32 @@ namespace phantom
                 phantom::SmallVector<spell::any,4ull>* m_CONSTs;
                 phantom::lang::ast::Type* m_BasicType;
                 phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>* m_TypeExtents;
+                spell::any m_ELLIPSE;
+            };
+            struct TypeNoFunctionType : public Type
+            {
+                TypeNoFunctionType(ERuleType t = e_RuleType_TypeNoFunctionType)
+                : Type(t)
+                , m_ExplicitTypeNoFunctionType(nullptr)
+                , m_ExpressionType(nullptr)
+                {
+                }
+                phantom::lang::ast::Type* m_ExplicitTypeNoFunctionType;
+                phantom::lang::ast::Type* m_ExpressionType;
+            };
+            struct ExplicitTypeNoFunctionType : public Type
+            {
+                ExplicitTypeNoFunctionType(ERuleType t = e_RuleType_ExplicitTypeNoFunctionType)
+                : Type(t)
+                , m_CONSTs(nullptr)
+                , m_BasicType(nullptr)
+                , m_TypeExtentNoFunctions(nullptr)
+                {
+                }
+                phantom::SmallVector<spell::any,4ull>* m_CONSTs;
+                phantom::lang::ast::Type* m_BasicType;
+                phantom::SmallVector<phantom::lang::ast::TypeExtent*,4ull>* m_TypeExtentNoFunctions;
+                spell::any m_ELLIPSE;
             };
             struct ExpressionType : public Type
             {
@@ -1999,13 +2104,11 @@ namespace phantom
                 : Type(t)
                 , m_FundamentalType(nullptr)
                 , m_DeclType(nullptr)
-                , m_FunctionPointerType(nullptr)
                 , m_QualifiedType(nullptr)
                 {
                 }
                 phantom::lang::ast::Type* m_FundamentalType;
                 phantom::lang::ast::DeclType* m_DeclType;
-                phantom::lang::ast::Type* m_FunctionPointerType;
                 phantom::lang::ast::Type* m_QualifiedType;
             };
             struct Auto : public Type
@@ -2024,14 +2127,12 @@ namespace phantom
                 , m_FundamentalType(nullptr)
                 , m_Auto(nullptr)
                 , m_DeclType(nullptr)
-                , m_FunctionPointerType(nullptr)
                 , m_QualifiedType(nullptr)
                 {
                 }
                 phantom::lang::ast::Type* m_FundamentalType;
                 phantom::lang::ast::Type* m_Auto;
                 phantom::lang::ast::DeclType* m_DeclType;
-                phantom::lang::ast::Type* m_FunctionPointerType;
                 phantom::lang::ast::Type* m_QualifiedType;
             };
             struct IntegralConstant : public Expression
@@ -2051,6 +2152,17 @@ namespace phantom
                 }
                 phantom::lang::ast::ArrayExtentExpression* m_ArrayExtentExpression;
             };
+            struct FunctionTypeExtent : public TypeExtent
+            {
+                FunctionTypeExtent(ERuleType t = e_RuleType_FunctionTypeExtent)
+                : TypeExtent(t)
+                , m_PAREN_START(nullptr)
+                , m_Types(nullptr)
+                {
+                }
+                char const* m_PAREN_START;
+                phantom::SmallVector<phantom::lang::ast::Type*,4ull>* m_Types;
+            };
             struct DerivedExtent : public TypeExtent
             {
                 DerivedExtent(ERuleType t = e_RuleType_DerivedExtent)
@@ -2060,27 +2172,16 @@ namespace phantom
                 }
                 char const* m_BIN_AND;
             };
-            struct ExpressionStatement : public Statement
+            struct TypeExtentNoFunction : public TypeExtent
             {
-                ExpressionStatement(ERuleType t = e_RuleType_ExpressionStatement)
-                : Statement(t)
-                , m_Expression(nullptr)
+                TypeExtentNoFunction(ERuleType t = e_RuleType_TypeExtentNoFunction)
+                : TypeExtent(t)
+                , m_ArrayExtent(nullptr)
+                , m_DerivedExtent(nullptr)
                 {
                 }
-                phantom::lang::ast::Expression* m_Expression;
-            };
-            struct SwitchStatement : public Statement
-            {
-                SwitchStatement(ERuleType t = e_RuleType_SwitchStatement)
-                : Statement(t)
-                , m_PAREN_START(nullptr)
-                , m_Expression(nullptr)
-                , m_StatementOrCases(nullptr)
-                {
-                }
-                char const* m_PAREN_START;
-                phantom::lang::ast::Expression* m_Expression;
-                phantom::SmallVector<phantom::lang::ast::Statement*,4ull>* m_StatementOrCases;
+                phantom::lang::ast::TypeExtent* m_ArrayExtent;
+                phantom::lang::ast::TypeExtent* m_DerivedExtent;
             };
             struct AssignExpression : public Expression
             {
@@ -2144,22 +2245,26 @@ namespace phantom
                 BasicMember(ERuleType t = e_RuleType_BasicMember)
                 : Member(t)
                 , m_AccessSpecifier(nullptr)
+                , m_Destructor(nullptr)
                 , m_Method(nullptr)
+                , m_Method0(nullptr)
                 , m_FunctionOrVariable(nullptr)
                 , m_ConversionFunction(nullptr)
                 , m_Constructor(nullptr)
-                , m_Destructor(nullptr)
+                , m_Destructor0(nullptr)
                 , m_Friend(nullptr)
                 , m_BasicMemberWithMetaOrAnnotation(nullptr)
                 , m_Declaration(nullptr)
                 {
                 }
                 phantom::lang::ast::AccessSpecifier* m_AccessSpecifier;
+                phantom::lang::ast::Destructor* m_Destructor;
                 phantom::lang::ast::Method* m_Method;
+                phantom::lang::ast::Method* m_Method0;
                 phantom::lang::ast::FunctionOrVariable* m_FunctionOrVariable;
                 phantom::lang::ast::ConversionFunction* m_ConversionFunction;
                 phantom::lang::ast::Constructor* m_Constructor;
-                phantom::lang::ast::Destructor* m_Destructor;
+                phantom::lang::ast::Destructor* m_Destructor0;
                 phantom::lang::ast::Member* m_Friend;
                 phantom::lang::ast::Member* m_BasicMemberWithMetaOrAnnotation;
                 phantom::lang::ast::Declaration* m_Declaration;
@@ -2559,6 +2664,41 @@ namespace phantom
                 }
                 char const* m_CONTINUE;
             };
+            struct SizeofExpression : public Expression
+            {
+                SizeofExpression(ERuleType t = e_RuleType_SizeofExpression)
+                : Expression(t)
+                , m_SIZEOF(nullptr)
+                , m_PAREN_START(nullptr)
+                , m_Type(nullptr)
+                {
+                }
+                char const* m_SIZEOF;
+                char const* m_PAREN_START;
+                phantom::lang::ast::Type* m_Type;
+            };
+            struct TypeofExpression : public Expression
+            {
+                TypeofExpression(ERuleType t = e_RuleType_TypeofExpression)
+                : Expression(t)
+                , m_TYPEOF(nullptr)
+                , m_PAREN_START(nullptr)
+                , m_Type(nullptr)
+                {
+                }
+                char const* m_TYPEOF;
+                char const* m_PAREN_START;
+                phantom::lang::ast::Type* m_Type;
+            };
+            struct LocalVariableStatement : public Statement
+            {
+                LocalVariableStatement(ERuleType t = e_RuleType_LocalVariableStatement)
+                : Statement(t)
+                , m_LocalVariableDecl(nullptr)
+                {
+                }
+                phantom::lang::ast::LocalVariableDecl* m_LocalVariableDecl;
+            };
             struct LastTemplateArgumentAssign : public LastTemplateArgument
             {
                 LastTemplateArgumentAssign(ERuleType t = e_RuleType_LastTemplateArgumentAssign)
@@ -2909,27 +3049,27 @@ namespace phantom
                         if (input->m_Statements) if(!traverse(input->m_Statements)) return false;
                         return end(input);
                     }
-                    inline bool visit(ForInits* input) { return static_cast<T*>(this)->visitForInits(input); }
-                    inline bool end(ForInits* input) { return static_cast<T*>(this)->endForInits(input); }
-                    inline bool traverse(ForInits* input) { return static_cast<T*>(this)->traverseForInits(input); }
-                    inline bool visitForInits(ForInits* input) { return true; }
-                    inline bool endForInits(ForInits* input) { return true; }
-                    inline bool visit(ForInit* input) { return static_cast<T*>(this)->visitForInit(input); }
-                    inline bool end(ForInit* input) { return static_cast<T*>(this)->endForInit(input); }
-                    inline bool traverse(ForInit* input) { return static_cast<T*>(this)->traverseForInit(input); }
-                    inline bool visitForInit(ForInit* input) { return true; }
-                    inline bool endForInit(ForInit* input) { return true; }
-                    bool traverseForInits(ForInits* input)
+                    inline bool visit(ForeachSignatures* input) { return static_cast<T*>(this)->visitForeachSignatures(input); }
+                    inline bool end(ForeachSignatures* input) { return static_cast<T*>(this)->endForeachSignatures(input); }
+                    inline bool traverse(ForeachSignatures* input) { return static_cast<T*>(this)->traverseForeachSignatures(input); }
+                    inline bool visitForeachSignatures(ForeachSignatures* input) { return true; }
+                    inline bool endForeachSignatures(ForeachSignatures* input) { return true; }
+                    inline bool visit(ForeachSignature* input) { return static_cast<T*>(this)->visitForeachSignature(input); }
+                    inline bool end(ForeachSignature* input) { return static_cast<T*>(this)->endForeachSignature(input); }
+                    inline bool traverse(ForeachSignature* input) { return static_cast<T*>(this)->traverseForeachSignature(input); }
+                    inline bool visitForeachSignature(ForeachSignature* input) { return true; }
+                    inline bool endForeachSignature(ForeachSignature* input) { return true; }
+                    bool traverseForeachSignatures(ForeachSignatures* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseForInit(ForInit* input)
+                    bool traverseForeachSignature(ForeachSignature* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_LocalVariableDecl) if(!traverse(input->m_LocalVariableDecl)) return false;
+                        if (input->m_TypeOrAuto) if(!traverse(input->m_TypeOrAuto)) return false;
                         if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
                         return end(input);
                     }
@@ -2953,7 +3093,7 @@ namespace phantom
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_Type) if(!traverse(input->m_Type)) return false;
+                        if (input->m_TypeNoFunctionType) if(!traverse(input->m_TypeNoFunctionType)) return false;
                         if (input->m_FunctionBlock) if(!traverse(input->m_FunctionBlock)) return false;
                         return end(input);
                     }
@@ -3026,9 +3166,32 @@ namespace phantom
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_Type) if(!traverse(input->m_Type)) return false;
+                        if (input->m_BasicType) if(!traverse(input->m_BasicType)) return false;
                         if (input->m_CallList) if(!traverse(input->m_CallList)) return false;
                         if (input->m_InitializerList) if(!traverse(input->m_InitializerList)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(ArrowReturns* input) { return static_cast<T*>(this)->visitArrowReturns(input); }
+                    inline bool end(ArrowReturns* input) { return static_cast<T*>(this)->endArrowReturns(input); }
+                    inline bool traverse(ArrowReturns* input) { return static_cast<T*>(this)->traverseArrowReturns(input); }
+                    inline bool visitArrowReturns(ArrowReturns* input) { return true; }
+                    inline bool endArrowReturns(ArrowReturns* input) { return true; }
+                    inline bool visit(ArrowReturn* input) { return static_cast<T*>(this)->visitArrowReturn(input); }
+                    inline bool end(ArrowReturn* input) { return static_cast<T*>(this)->endArrowReturn(input); }
+                    inline bool traverse(ArrowReturn* input) { return static_cast<T*>(this)->traverseArrowReturn(input); }
+                    inline bool visitArrowReturn(ArrowReturn* input) { return true; }
+                    inline bool endArrowReturn(ArrowReturn* input) { return true; }
+                    bool traverseArrowReturns(ArrowReturns* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseArrowReturn(ArrowReturn* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_Type) if(!traverse(input->m_Type)) return false;
                         return end(input);
                     }
                     inline bool visit(FunctionEnds* input) { return static_cast<T*>(this)->visitFunctionEnds(input); }
@@ -3052,6 +3215,7 @@ namespace phantom
                         assert(input); 
                         if (!visit(input)) return false;
                         if (input->m_Parameters) if(!traverse(input->m_Parameters)) return false;
+                        if (input->m_ArrowReturn) if(!traverse(input->m_ArrowReturn)) return false;
                         if (input->m_FunctionBlock) if(!traverse(input->m_FunctionBlock)) return false;
                         return end(input);
                     }
@@ -3253,6 +3417,30 @@ namespace phantom
                             }
                         }
                     }
+                    inline bool visit(ForInits* input) { return static_cast<T*>(this)->visitForInits(input); }
+                    inline bool end(ForInits* input) { return static_cast<T*>(this)->endForInits(input); }
+                    inline bool traverse(ForInits* input) { return static_cast<T*>(this)->traverseForInits(input); }
+                    inline bool visitForInits(ForInits* input) { return true; }
+                    inline bool endForInits(ForInits* input) { return true; }
+                    inline bool visit(ForInit* input) { return static_cast<T*>(this)->visitForInit(input); }
+                    inline bool end(ForInit* input) { return static_cast<T*>(this)->endForInit(input); }
+                    inline bool traverse(ForInit* input) { return static_cast<T*>(this)->traverseForInit(input); }
+                    inline bool visitForInit(ForInit* input) { return true; }
+                    inline bool endForInit(ForInit* input) { return true; }
+                    bool traverseForInits(ForInits* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseForInit(ForInit* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_LocalVariableDecl) if(!traverse(input->m_LocalVariableDecl)) return false;
+                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
+                        return end(input);
+                    }
                     inline bool visit(Statements* input) { return static_cast<T*>(this)->visitStatements(input); }
                     inline bool end(Statements* input) { return static_cast<T*>(this)->endStatements(input); }
                     inline bool traverse(Statements* input) { return static_cast<T*>(this)->traverseStatements(input); }
@@ -3408,33 +3596,6 @@ namespace phantom
                         if (input->m_InitializerList) if(!traverse(input->m_InitializerList)) return false;
                         return end(input);
                     }
-                    inline bool visit(AutoDeclarators* input) { return static_cast<T*>(this)->visitAutoDeclarators(input); }
-                    inline bool end(AutoDeclarators* input) { return static_cast<T*>(this)->endAutoDeclarators(input); }
-                    inline bool traverse(AutoDeclarators* input) { return static_cast<T*>(this)->traverseAutoDeclarators(input); }
-                    inline bool visitAutoDeclarators(AutoDeclarators* input) { return true; }
-                    inline bool endAutoDeclarators(AutoDeclarators* input) { return true; }
-                    inline bool visit(AutoDeclarator* input) { return static_cast<T*>(this)->visitAutoDeclarator(input); }
-                    inline bool end(AutoDeclarator* input) { return static_cast<T*>(this)->endAutoDeclarator(input); }
-                    inline bool traverse(AutoDeclarator* input) { return static_cast<T*>(this)->traverseAutoDeclarator(input); }
-                    inline bool visitAutoDeclarator(AutoDeclarator* input) { return true; }
-                    inline bool endAutoDeclarator(AutoDeclarator* input) { return true; }
-                    bool traverseAutoDeclarators(AutoDeclarators* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseAutoDeclarator(AutoDeclarator* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_TypeExtents) if(!traverse(input->m_TypeExtents)) return false;
-                        if (input->m_CallList) if(!traverse(input->m_CallList)) return false;
-                        if (input->m_InitializerList) if(!traverse(input->m_InitializerList)) return false;
-                        if (input->m_ArrayExtents) if(!traverse(input->m_ArrayExtents)) return false;
-                        if (input->m_AssignExpressionOrInitializerList) if(!traverse(input->m_AssignExpressionOrInitializerList)) return false;
-                        return end(input);
-                    }
                     inline bool visit(TemplateArgumentListSplits* input) { return static_cast<T*>(this)->visitTemplateArgumentListSplits(input); }
                     inline bool end(TemplateArgumentListSplits* input) { return static_cast<T*>(this)->endTemplateArgumentListSplits(input); }
                     inline bool traverse(TemplateArgumentListSplits* input) { return static_cast<T*>(this)->traverseTemplateArgumentListSplits(input); }
@@ -3528,38 +3689,6 @@ namespace phantom
                         if (input->m_TemplateArgumentListSplit) if(!traverse(input->m_TemplateArgumentListSplit)) return false;
                         return end(input);
                     }
-                    inline bool visit(LocalVariableDecls* input) { return static_cast<T*>(this)->visitLocalVariableDecls(input); }
-                    inline bool end(LocalVariableDecls* input) { return static_cast<T*>(this)->endLocalVariableDecls(input); }
-                    inline bool traverse(LocalVariableDecls* input) { return static_cast<T*>(this)->traverseLocalVariableDecls(input); }
-                    inline bool visitLocalVariableDecls(LocalVariableDecls* input) { return true; }
-                    inline bool endLocalVariableDecls(LocalVariableDecls* input) { return true; }
-                    inline bool visit(LocalVariableDecl* input) { return static_cast<T*>(this)->visitLocalVariableDecl(input); }
-                    inline bool end(LocalVariableDecl* input) { return static_cast<T*>(this)->endLocalVariableDecl(input); }
-                    inline bool traverse(LocalVariableDecl* input) { return static_cast<T*>(this)->traverseLocalVariableDecl(input); }
-                    inline bool visitLocalVariableDecl(LocalVariableDecl* input) { return true; }
-                    inline bool endLocalVariableDecl(LocalVariableDecl* input) { return true; }
-                    bool traverseLocalVariableDecls(LocalVariableDecls* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseLocalVariableDecl(LocalVariableDecl* input)
-                    {
-                        assert(input); 
-                        switch (input->__type)
-                        {
-                            case e_RuleType_ExplicitLocalVariableDecl: return traverse(static_cast<ExplicitLocalVariableDecl*>(input));
-                            case e_RuleType_AutoLocalVariableDecl: return traverse(static_cast<AutoLocalVariableDecl*>(input));
-                            default:
-                            {
-                                if (!visit(input)) return false;
-                                if (input->m_AutoLocalVariableDecl) if(!traverse(input->m_AutoLocalVariableDecl)) return false;
-                                if (input->m_ExplicitLocalVariableDecl) if(!traverse(input->m_ExplicitLocalVariableDecl)) return false;
-                                return end(input);
-                            }
-                        }
-                    }
                     inline bool visit(Names* input) { return static_cast<T*>(this)->visitNames(input); }
                     inline bool end(Names* input) { return static_cast<T*>(this)->endNames(input); }
                     inline bool traverse(Names* input) { return static_cast<T*>(this)->traverseNames(input); }
@@ -3605,6 +3734,65 @@ namespace phantom
                         assert(input); 
                         if (!visit(input)) return false;
                         return end(input);
+                    }
+                    inline bool visit(AutoDeclarators* input) { return static_cast<T*>(this)->visitAutoDeclarators(input); }
+                    inline bool end(AutoDeclarators* input) { return static_cast<T*>(this)->endAutoDeclarators(input); }
+                    inline bool traverse(AutoDeclarators* input) { return static_cast<T*>(this)->traverseAutoDeclarators(input); }
+                    inline bool visitAutoDeclarators(AutoDeclarators* input) { return true; }
+                    inline bool endAutoDeclarators(AutoDeclarators* input) { return true; }
+                    inline bool visit(AutoDeclarator* input) { return static_cast<T*>(this)->visitAutoDeclarator(input); }
+                    inline bool end(AutoDeclarator* input) { return static_cast<T*>(this)->endAutoDeclarator(input); }
+                    inline bool traverse(AutoDeclarator* input) { return static_cast<T*>(this)->traverseAutoDeclarator(input); }
+                    inline bool visitAutoDeclarator(AutoDeclarator* input) { return true; }
+                    inline bool endAutoDeclarator(AutoDeclarator* input) { return true; }
+                    bool traverseAutoDeclarators(AutoDeclarators* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseAutoDeclarator(AutoDeclarator* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_TypeExtents) if(!traverse(input->m_TypeExtents)) return false;
+                        if (input->m_CallList) if(!traverse(input->m_CallList)) return false;
+                        if (input->m_InitializerList) if(!traverse(input->m_InitializerList)) return false;
+                        if (input->m_ArrayExtents) if(!traverse(input->m_ArrayExtents)) return false;
+                        if (input->m_AssignExpressionOrInitializerList) if(!traverse(input->m_AssignExpressionOrInitializerList)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(LocalVariableDecls* input) { return static_cast<T*>(this)->visitLocalVariableDecls(input); }
+                    inline bool end(LocalVariableDecls* input) { return static_cast<T*>(this)->endLocalVariableDecls(input); }
+                    inline bool traverse(LocalVariableDecls* input) { return static_cast<T*>(this)->traverseLocalVariableDecls(input); }
+                    inline bool visitLocalVariableDecls(LocalVariableDecls* input) { return true; }
+                    inline bool endLocalVariableDecls(LocalVariableDecls* input) { return true; }
+                    inline bool visit(LocalVariableDecl* input) { return static_cast<T*>(this)->visitLocalVariableDecl(input); }
+                    inline bool end(LocalVariableDecl* input) { return static_cast<T*>(this)->endLocalVariableDecl(input); }
+                    inline bool traverse(LocalVariableDecl* input) { return static_cast<T*>(this)->traverseLocalVariableDecl(input); }
+                    inline bool visitLocalVariableDecl(LocalVariableDecl* input) { return true; }
+                    inline bool endLocalVariableDecl(LocalVariableDecl* input) { return true; }
+                    bool traverseLocalVariableDecls(LocalVariableDecls* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseLocalVariableDecl(LocalVariableDecl* input)
+                    {
+                        assert(input); 
+                        switch (input->__type)
+                        {
+                            case e_RuleType_ExplicitLocalVariableDecl: return traverse(static_cast<ExplicitLocalVariableDecl*>(input));
+                            case e_RuleType_AutoLocalVariableDecl: return traverse(static_cast<AutoLocalVariableDecl*>(input));
+                            default:
+                            {
+                                if (!visit(input)) return false;
+                                if (input->m_AutoLocalVariableDecl) if(!traverse(input->m_AutoLocalVariableDecl)) return false;
+                                if (input->m_ExplicitLocalVariableDecl) if(!traverse(input->m_ExplicitLocalVariableDecl)) return false;
+                                return end(input);
+                            }
+                        }
                     }
                     inline bool visit(Expressions* input) { return static_cast<T*>(this)->visitExpressions(input); }
                     inline bool end(Expressions* input) { return static_cast<T*>(this)->endExpressions(input); }
@@ -3652,6 +3840,7 @@ namespace phantom
                             case e_RuleType_TypeTraitBinary: return traverse(static_cast<TypeTraitBinary*>(input));
                             case e_RuleType_SizeofExpression: return traverse(static_cast<SizeofExpression*>(input));
                             case e_RuleType_TypeofExpression: return traverse(static_cast<TypeofExpression*>(input));
+                            case e_RuleType_FundamentalTypeFunctionCast: return traverse(static_cast<FundamentalTypeFunctionCast*>(input));
                             case e_RuleType_PrimaryExpression: return traverse(static_cast<PrimaryExpression*>(input));
                             default:
                             {
@@ -3844,7 +4033,6 @@ namespace phantom
                         assert(input); 
                         switch (input->__type)
                         {
-                            case e_RuleType_FunctionPointerType: return traverse(static_cast<FunctionPointerType*>(input));
                             case e_RuleType_UnsignedType: return traverse(static_cast<UnsignedType*>(input));
                             case e_RuleType_SignedType: return traverse(static_cast<SignedType*>(input));
                             case e_RuleType_LongType: return traverse(static_cast<LongType*>(input));
@@ -3852,6 +4040,8 @@ namespace phantom
                             case e_RuleType_FundamentalType: return traverse(static_cast<FundamentalType*>(input));
                             case e_RuleType_QualifiedType: return traverse(static_cast<QualifiedType*>(input));
                             case e_RuleType_ExplicitType: return traverse(static_cast<ExplicitType*>(input));
+                            case e_RuleType_TypeNoFunctionType: return traverse(static_cast<TypeNoFunctionType*>(input));
+                            case e_RuleType_ExplicitTypeNoFunctionType: return traverse(static_cast<ExplicitTypeNoFunctionType*>(input));
                             case e_RuleType_ExpressionType: return traverse(static_cast<ExpressionType*>(input));
                             case e_RuleType_ExplicitTypeOrAuto: return traverse(static_cast<ExplicitTypeOrAuto*>(input));
                             case e_RuleType_TypeOrAuto: return traverse(static_cast<TypeOrAuto*>(input));
@@ -4102,6 +4292,54 @@ namespace phantom
                         if (!visit(input)) return false;
                         return end(input);
                     }
+                    inline bool visit(LambdaCaptures* input) { return static_cast<T*>(this)->visitLambdaCaptures(input); }
+                    inline bool end(LambdaCaptures* input) { return static_cast<T*>(this)->endLambdaCaptures(input); }
+                    inline bool traverse(LambdaCaptures* input) { return static_cast<T*>(this)->traverseLambdaCaptures(input); }
+                    inline bool visitLambdaCaptures(LambdaCaptures* input) { return true; }
+                    inline bool endLambdaCaptures(LambdaCaptures* input) { return true; }
+                    inline bool visit(LambdaCapture* input) { return static_cast<T*>(this)->visitLambdaCapture(input); }
+                    inline bool end(LambdaCapture* input) { return static_cast<T*>(this)->endLambdaCapture(input); }
+                    inline bool traverse(LambdaCapture* input) { return static_cast<T*>(this)->traverseLambdaCapture(input); }
+                    inline bool visitLambdaCapture(LambdaCapture* input) { return true; }
+                    inline bool endLambdaCapture(LambdaCapture* input) { return true; }
+                    bool traverseLambdaCaptures(LambdaCaptures* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseLambdaCapture(LambdaCapture* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(LambdaExpressions* input) { return static_cast<T*>(this)->visitLambdaExpressions(input); }
+                    inline bool end(LambdaExpressions* input) { return static_cast<T*>(this)->endLambdaExpressions(input); }
+                    inline bool traverse(LambdaExpressions* input) { return static_cast<T*>(this)->traverseLambdaExpressions(input); }
+                    inline bool visitLambdaExpressions(LambdaExpressions* input) { return true; }
+                    inline bool endLambdaExpressions(LambdaExpressions* input) { return true; }
+                    inline bool visit(LambdaExpression* input) { return static_cast<T*>(this)->visitLambdaExpression(input); }
+                    inline bool end(LambdaExpression* input) { return static_cast<T*>(this)->endLambdaExpression(input); }
+                    inline bool traverse(LambdaExpression* input) { return static_cast<T*>(this)->traverseLambdaExpression(input); }
+                    inline bool visitLambdaExpression(LambdaExpression* input) { return true; }
+                    inline bool endLambdaExpression(LambdaExpression* input) { return true; }
+                    bool traverseLambdaExpressions(LambdaExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseLambdaExpression(LambdaExpression* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_LambdaCaptures) if(!traverse(input->m_LambdaCaptures)) return false;
+                        if (input->m_ArrowReturn) if(!traverse(input->m_ArrowReturn)) return false;
+                        if (input->m_Parameters) if(!traverse(input->m_Parameters)) return false;
+                        if (input->m_FunctionBlock) if(!traverse(input->m_FunctionBlock)) return false;
+                        return end(input);
+                    }
                     inline bool visit(TypeExtents* input) { return static_cast<T*>(this)->visitTypeExtents(input); }
                     inline bool end(TypeExtents* input) { return static_cast<T*>(this)->endTypeExtents(input); }
                     inline bool traverse(TypeExtents* input) { return static_cast<T*>(this)->traverseTypeExtents(input); }
@@ -4124,11 +4362,14 @@ namespace phantom
                         switch (input->__type)
                         {
                             case e_RuleType_ArrayExtent: return traverse(static_cast<ArrayExtent*>(input));
+                            case e_RuleType_FunctionTypeExtent: return traverse(static_cast<FunctionTypeExtent*>(input));
                             case e_RuleType_DerivedExtent: return traverse(static_cast<DerivedExtent*>(input));
+                            case e_RuleType_TypeExtentNoFunction: return traverse(static_cast<TypeExtentNoFunction*>(input));
                             default:
                             {
                                 if (!visit(input)) return false;
                                 if (input->m_ArrayExtent) if(!traverse(input->m_ArrayExtent)) return false;
+                                if (input->m_FunctionTypeExtent) if(!traverse(input->m_FunctionTypeExtent)) return false;
                                 if (input->m_DerivedExtent) if(!traverse(input->m_DerivedExtent)) return false;
                                 return end(input);
                             }
@@ -4391,6 +4632,32 @@ namespace phantom
                         if (input->m_Class) if(!traverse(input->m_Class)) return false;
                         if (input->m_Union) if(!traverse(input->m_Union)) return false;
                         if (input->m_Alias) if(!traverse(input->m_Alias)) return false;
+                        if (input->m_TemplateFunction) if(!traverse(input->m_TemplateFunction)) return false;
+                        if (input->m_Constructor) if(!traverse(input->m_Constructor)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(TemplateFunctions* input) { return static_cast<T*>(this)->visitTemplateFunctions(input); }
+                    inline bool end(TemplateFunctions* input) { return static_cast<T*>(this)->endTemplateFunctions(input); }
+                    inline bool traverse(TemplateFunctions* input) { return static_cast<T*>(this)->traverseTemplateFunctions(input); }
+                    inline bool visitTemplateFunctions(TemplateFunctions* input) { return true; }
+                    inline bool endTemplateFunctions(TemplateFunctions* input) { return true; }
+                    inline bool visit(TemplateFunction* input) { return static_cast<T*>(this)->visitTemplateFunction(input); }
+                    inline bool end(TemplateFunction* input) { return static_cast<T*>(this)->endTemplateFunction(input); }
+                    inline bool traverse(TemplateFunction* input) { return static_cast<T*>(this)->traverseTemplateFunction(input); }
+                    inline bool visitTemplateFunction(TemplateFunction* input) { return true; }
+                    inline bool endTemplateFunction(TemplateFunction* input) { return true; }
+                    bool traverseTemplateFunctions(TemplateFunctions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseTemplateFunction(TemplateFunction* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_TypeOrAuto) if(!traverse(input->m_TypeOrAuto)) return false;
+                        if (input->m_FunctionEnd) if(!traverse(input->m_FunctionEnd)) return false;
                         return end(input);
                     }
                     inline bool visit(FunctionBlocks* input) { return static_cast<T*>(this)->visitFunctionBlocks(input); }
@@ -4761,30 +5028,6 @@ namespace phantom
                         if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
                         return end(input);
                     }
-                    inline bool visit(ForeachSignatures* input) { return static_cast<T*>(this)->visitForeachSignatures(input); }
-                    inline bool end(ForeachSignatures* input) { return static_cast<T*>(this)->endForeachSignatures(input); }
-                    inline bool traverse(ForeachSignatures* input) { return static_cast<T*>(this)->traverseForeachSignatures(input); }
-                    inline bool visitForeachSignatures(ForeachSignatures* input) { return true; }
-                    inline bool endForeachSignatures(ForeachSignatures* input) { return true; }
-                    inline bool visit(ForeachSignature* input) { return static_cast<T*>(this)->visitForeachSignature(input); }
-                    inline bool end(ForeachSignature* input) { return static_cast<T*>(this)->endForeachSignature(input); }
-                    inline bool traverse(ForeachSignature* input) { return static_cast<T*>(this)->traverseForeachSignature(input); }
-                    inline bool visitForeachSignature(ForeachSignature* input) { return true; }
-                    inline bool endForeachSignature(ForeachSignature* input) { return true; }
-                    bool traverseForeachSignatures(ForeachSignatures* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseForeachSignature(ForeachSignature* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_TypeOrAuto) if(!traverse(input->m_TypeOrAuto)) return false;
-                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
-                        return end(input);
-                    }
                     inline bool visit(BlockDeclarations* input) { return static_cast<T*>(this)->visitBlockDeclarations(input); }
                     inline bool end(BlockDeclarations* input) { return static_cast<T*>(this)->endBlockDeclarations(input); }
                     inline bool traverse(BlockDeclarations* input) { return static_cast<T*>(this)->traverseBlockDeclarations(input); }
@@ -4808,55 +5051,57 @@ namespace phantom
                         if (input->m_Class) if(!traverse(input->m_Class)) return false;
                         if (input->m_Enum) if(!traverse(input->m_Enum)) return false;
                         if (input->m_Typedef) if(!traverse(input->m_Typedef)) return false;
+                        if (input->m_Alias) if(!traverse(input->m_Alias)) return false;
                         if (input->m_Using) if(!traverse(input->m_Using)) return false;
                         if (input->m_StaticAssert) if(!traverse(input->m_StaticAssert)) return false;
-                        if (input->m_Alias) if(!traverse(input->m_Alias)) return false;
+                        if (input->m_Alias0) if(!traverse(input->m_Alias0)) return false;
                         return end(input);
                     }
-                    inline bool visit(SizeofExpressions* input) { return static_cast<T*>(this)->visitSizeofExpressions(input); }
-                    inline bool end(SizeofExpressions* input) { return static_cast<T*>(this)->endSizeofExpressions(input); }
-                    inline bool traverse(SizeofExpressions* input) { return static_cast<T*>(this)->traverseSizeofExpressions(input); }
-                    inline bool visitSizeofExpressions(SizeofExpressions* input) { return true; }
-                    inline bool endSizeofExpressions(SizeofExpressions* input) { return true; }
-                    inline bool visit(SizeofExpression* input) { return static_cast<T*>(this)->visitSizeofExpression(input); }
-                    inline bool end(SizeofExpression* input) { return static_cast<T*>(this)->endSizeofExpression(input); }
-                    inline bool traverse(SizeofExpression* input) { return static_cast<T*>(this)->traverseSizeofExpression(input); }
-                    inline bool visitSizeofExpression(SizeofExpression* input) { return true; }
-                    inline bool endSizeofExpression(SizeofExpression* input) { return true; }
-                    bool traverseSizeofExpressions(SizeofExpressions* input)
+                    inline bool visit(FundamentalTypeFunctionCasts* input) { return static_cast<T*>(this)->visitFundamentalTypeFunctionCasts(input); }
+                    inline bool end(FundamentalTypeFunctionCasts* input) { return static_cast<T*>(this)->endFundamentalTypeFunctionCasts(input); }
+                    inline bool traverse(FundamentalTypeFunctionCasts* input) { return static_cast<T*>(this)->traverseFundamentalTypeFunctionCasts(input); }
+                    inline bool visitFundamentalTypeFunctionCasts(FundamentalTypeFunctionCasts* input) { return true; }
+                    inline bool endFundamentalTypeFunctionCasts(FundamentalTypeFunctionCasts* input) { return true; }
+                    inline bool visit(FundamentalTypeFunctionCast* input) { return static_cast<T*>(this)->visitFundamentalTypeFunctionCast(input); }
+                    inline bool end(FundamentalTypeFunctionCast* input) { return static_cast<T*>(this)->endFundamentalTypeFunctionCast(input); }
+                    inline bool traverse(FundamentalTypeFunctionCast* input) { return static_cast<T*>(this)->traverseFundamentalTypeFunctionCast(input); }
+                    inline bool visitFundamentalTypeFunctionCast(FundamentalTypeFunctionCast* input) { return true; }
+                    inline bool endFundamentalTypeFunctionCast(FundamentalTypeFunctionCast* input) { return true; }
+                    bool traverseFundamentalTypeFunctionCasts(FundamentalTypeFunctionCasts* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseSizeofExpression(SizeofExpression* input)
+                    bool traverseFundamentalTypeFunctionCast(FundamentalTypeFunctionCast* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_Type) if(!traverse(input->m_Type)) return false;
+                        if (input->m_FundamentalType) if(!traverse(input->m_FundamentalType)) return false;
+                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
                         return end(input);
                     }
-                    inline bool visit(TypeofExpressions* input) { return static_cast<T*>(this)->visitTypeofExpressions(input); }
-                    inline bool end(TypeofExpressions* input) { return static_cast<T*>(this)->endTypeofExpressions(input); }
-                    inline bool traverse(TypeofExpressions* input) { return static_cast<T*>(this)->traverseTypeofExpressions(input); }
-                    inline bool visitTypeofExpressions(TypeofExpressions* input) { return true; }
-                    inline bool endTypeofExpressions(TypeofExpressions* input) { return true; }
-                    inline bool visit(TypeofExpression* input) { return static_cast<T*>(this)->visitTypeofExpression(input); }
-                    inline bool end(TypeofExpression* input) { return static_cast<T*>(this)->endTypeofExpression(input); }
-                    inline bool traverse(TypeofExpression* input) { return static_cast<T*>(this)->traverseTypeofExpression(input); }
-                    inline bool visitTypeofExpression(TypeofExpression* input) { return true; }
-                    inline bool endTypeofExpression(TypeofExpression* input) { return true; }
-                    bool traverseTypeofExpressions(TypeofExpressions* input)
+                    inline bool visit(ExpressionStatements* input) { return static_cast<T*>(this)->visitExpressionStatements(input); }
+                    inline bool end(ExpressionStatements* input) { return static_cast<T*>(this)->endExpressionStatements(input); }
+                    inline bool traverse(ExpressionStatements* input) { return static_cast<T*>(this)->traverseExpressionStatements(input); }
+                    inline bool visitExpressionStatements(ExpressionStatements* input) { return true; }
+                    inline bool endExpressionStatements(ExpressionStatements* input) { return true; }
+                    inline bool visit(ExpressionStatement* input) { return static_cast<T*>(this)->visitExpressionStatement(input); }
+                    inline bool end(ExpressionStatement* input) { return static_cast<T*>(this)->endExpressionStatement(input); }
+                    inline bool traverse(ExpressionStatement* input) { return static_cast<T*>(this)->traverseExpressionStatement(input); }
+                    inline bool visitExpressionStatement(ExpressionStatement* input) { return true; }
+                    inline bool endExpressionStatement(ExpressionStatement* input) { return true; }
+                    bool traverseExpressionStatements(ExpressionStatements* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseTypeofExpression(TypeofExpression* input)
+                    bool traverseExpressionStatement(ExpressionStatement* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_Type) if(!traverse(input->m_Type)) return false;
+                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
                         return end(input);
                     }
                     inline bool visit(LastTemplateArguments* input) { return static_cast<T*>(this)->visitLastTemplateArguments(input); }
@@ -4891,27 +5136,28 @@ namespace phantom
                             }
                         }
                     }
-                    inline bool visit(LocalVariableStatements* input) { return static_cast<T*>(this)->visitLocalVariableStatements(input); }
-                    inline bool end(LocalVariableStatements* input) { return static_cast<T*>(this)->endLocalVariableStatements(input); }
-                    inline bool traverse(LocalVariableStatements* input) { return static_cast<T*>(this)->traverseLocalVariableStatements(input); }
-                    inline bool visitLocalVariableStatements(LocalVariableStatements* input) { return true; }
-                    inline bool endLocalVariableStatements(LocalVariableStatements* input) { return true; }
-                    inline bool visit(LocalVariableStatement* input) { return static_cast<T*>(this)->visitLocalVariableStatement(input); }
-                    inline bool end(LocalVariableStatement* input) { return static_cast<T*>(this)->endLocalVariableStatement(input); }
-                    inline bool traverse(LocalVariableStatement* input) { return static_cast<T*>(this)->traverseLocalVariableStatement(input); }
-                    inline bool visitLocalVariableStatement(LocalVariableStatement* input) { return true; }
-                    inline bool endLocalVariableStatement(LocalVariableStatement* input) { return true; }
-                    bool traverseLocalVariableStatements(LocalVariableStatements* input)
+                    inline bool visit(SwitchStatements* input) { return static_cast<T*>(this)->visitSwitchStatements(input); }
+                    inline bool end(SwitchStatements* input) { return static_cast<T*>(this)->endSwitchStatements(input); }
+                    inline bool traverse(SwitchStatements* input) { return static_cast<T*>(this)->traverseSwitchStatements(input); }
+                    inline bool visitSwitchStatements(SwitchStatements* input) { return true; }
+                    inline bool endSwitchStatements(SwitchStatements* input) { return true; }
+                    inline bool visit(SwitchStatement* input) { return static_cast<T*>(this)->visitSwitchStatement(input); }
+                    inline bool end(SwitchStatement* input) { return static_cast<T*>(this)->endSwitchStatement(input); }
+                    inline bool traverse(SwitchStatement* input) { return static_cast<T*>(this)->traverseSwitchStatement(input); }
+                    inline bool visitSwitchStatement(SwitchStatement* input) { return true; }
+                    inline bool endSwitchStatement(SwitchStatement* input) { return true; }
+                    bool traverseSwitchStatements(SwitchStatements* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseLocalVariableStatement(LocalVariableStatement* input)
+                    bool traverseSwitchStatement(SwitchStatement* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_LocalVariableDecl) if(!traverse(input->m_LocalVariableDecl)) return false;
+                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
+                        if (input->m_StatementOrCases) if(!traverse(input->m_StatementOrCases)) return false;
                         return end(input);
                     }
                     inline bool visit(PrimaryExpressions* input) { return static_cast<T*>(this)->visitPrimaryExpressions(input); }
@@ -4944,6 +5190,8 @@ namespace phantom
                         if (input->m_StringLiteralChain) if(!traverse(input->m_StringLiteralChain)) return false;
                         if (input->m_SpecialCastExpression) if(!traverse(input->m_SpecialCastExpression)) return false;
                         if (input->m_FunctionPtrExpression) if(!traverse(input->m_FunctionPtrExpression)) return false;
+                        if (input->m_FundamentalTypeFunctionCast) if(!traverse(input->m_FundamentalTypeFunctionCast)) return false;
+                        if (input->m_LambdaExpression) if(!traverse(input->m_LambdaExpression)) return false;
                         return end(input);
                     }
                     inline bool visit(NotLastTemplateArguments* input) { return static_cast<T*>(this)->visitNotLastTemplateArguments(input); }
@@ -4977,30 +5225,6 @@ namespace phantom
                                 return end(input);
                             }
                         }
-                    }
-                    inline bool visit(FunctionPointerTypes* input) { return static_cast<T*>(this)->visitFunctionPointerTypes(input); }
-                    inline bool end(FunctionPointerTypes* input) { return static_cast<T*>(this)->endFunctionPointerTypes(input); }
-                    inline bool traverse(FunctionPointerTypes* input) { return static_cast<T*>(this)->traverseFunctionPointerTypes(input); }
-                    inline bool visitFunctionPointerTypes(FunctionPointerTypes* input) { return true; }
-                    inline bool endFunctionPointerTypes(FunctionPointerTypes* input) { return true; }
-                    inline bool visit(FunctionPointerType* input) { return static_cast<T*>(this)->visitFunctionPointerType(input); }
-                    inline bool end(FunctionPointerType* input) { return static_cast<T*>(this)->endFunctionPointerType(input); }
-                    inline bool traverse(FunctionPointerType* input) { return static_cast<T*>(this)->traverseFunctionPointerType(input); }
-                    inline bool visitFunctionPointerType(FunctionPointerType* input) { return true; }
-                    inline bool endFunctionPointerType(FunctionPointerType* input) { return true; }
-                    bool traverseFunctionPointerTypes(FunctionPointerTypes* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseFunctionPointerType(FunctionPointerType* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_Type) if(!traverse(input->m_Type)) return false;
-                        if (input->m_Types) if(!traverse(input->m_Types)) return false;
-                        return end(input);
                     }
                     inline bool visit(UnsignedTypes* input) { return static_cast<T*>(this)->visitUnsignedTypes(input); }
                     inline bool end(UnsignedTypes* input) { return static_cast<T*>(this)->endUnsignedTypes(input); }
@@ -5141,7 +5365,6 @@ namespace phantom
                         assert(input); 
                         if (!visit(input)) return false;
                         if (input->m_QualifiedName) if(!traverse(input->m_QualifiedName)) return false;
-                        if (input->m_FunctionPointerType) if(!traverse(input->m_FunctionPointerType)) return false;
                         return end(input);
                     }
                     inline bool visit(ExplicitTypes* input) { return static_cast<T*>(this)->visitExplicitTypes(input); }
@@ -5166,6 +5389,54 @@ namespace phantom
                         if (!visit(input)) return false;
                         if (input->m_BasicType) if(!traverse(input->m_BasicType)) return false;
                         if (input->m_TypeExtents) if(!traverse(input->m_TypeExtents)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(TypeNoFunctionTypes* input) { return static_cast<T*>(this)->visitTypeNoFunctionTypes(input); }
+                    inline bool end(TypeNoFunctionTypes* input) { return static_cast<T*>(this)->endTypeNoFunctionTypes(input); }
+                    inline bool traverse(TypeNoFunctionTypes* input) { return static_cast<T*>(this)->traverseTypeNoFunctionTypes(input); }
+                    inline bool visitTypeNoFunctionTypes(TypeNoFunctionTypes* input) { return true; }
+                    inline bool endTypeNoFunctionTypes(TypeNoFunctionTypes* input) { return true; }
+                    inline bool visit(TypeNoFunctionType* input) { return static_cast<T*>(this)->visitTypeNoFunctionType(input); }
+                    inline bool end(TypeNoFunctionType* input) { return static_cast<T*>(this)->endTypeNoFunctionType(input); }
+                    inline bool traverse(TypeNoFunctionType* input) { return static_cast<T*>(this)->traverseTypeNoFunctionType(input); }
+                    inline bool visitTypeNoFunctionType(TypeNoFunctionType* input) { return true; }
+                    inline bool endTypeNoFunctionType(TypeNoFunctionType* input) { return true; }
+                    bool traverseTypeNoFunctionTypes(TypeNoFunctionTypes* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseTypeNoFunctionType(TypeNoFunctionType* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_ExplicitTypeNoFunctionType) if(!traverse(input->m_ExplicitTypeNoFunctionType)) return false;
+                        if (input->m_ExpressionType) if(!traverse(input->m_ExpressionType)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(ExplicitTypeNoFunctionTypes* input) { return static_cast<T*>(this)->visitExplicitTypeNoFunctionTypes(input); }
+                    inline bool end(ExplicitTypeNoFunctionTypes* input) { return static_cast<T*>(this)->endExplicitTypeNoFunctionTypes(input); }
+                    inline bool traverse(ExplicitTypeNoFunctionTypes* input) { return static_cast<T*>(this)->traverseExplicitTypeNoFunctionTypes(input); }
+                    inline bool visitExplicitTypeNoFunctionTypes(ExplicitTypeNoFunctionTypes* input) { return true; }
+                    inline bool endExplicitTypeNoFunctionTypes(ExplicitTypeNoFunctionTypes* input) { return true; }
+                    inline bool visit(ExplicitTypeNoFunctionType* input) { return static_cast<T*>(this)->visitExplicitTypeNoFunctionType(input); }
+                    inline bool end(ExplicitTypeNoFunctionType* input) { return static_cast<T*>(this)->endExplicitTypeNoFunctionType(input); }
+                    inline bool traverse(ExplicitTypeNoFunctionType* input) { return static_cast<T*>(this)->traverseExplicitTypeNoFunctionType(input); }
+                    inline bool visitExplicitTypeNoFunctionType(ExplicitTypeNoFunctionType* input) { return true; }
+                    inline bool endExplicitTypeNoFunctionType(ExplicitTypeNoFunctionType* input) { return true; }
+                    bool traverseExplicitTypeNoFunctionTypes(ExplicitTypeNoFunctionTypes* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseExplicitTypeNoFunctionType(ExplicitTypeNoFunctionType* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_BasicType) if(!traverse(input->m_BasicType)) return false;
+                        if (input->m_TypeExtentNoFunctions) if(!traverse(input->m_TypeExtentNoFunctions)) return false;
                         return end(input);
                     }
                     inline bool visit(ExpressionTypes* input) { return static_cast<T*>(this)->visitExpressionTypes(input); }
@@ -5285,7 +5556,6 @@ namespace phantom
                         if (!visit(input)) return false;
                         if (input->m_FundamentalType) if(!traverse(input->m_FundamentalType)) return false;
                         if (input->m_DeclType) if(!traverse(input->m_DeclType)) return false;
-                        if (input->m_FunctionPointerType) if(!traverse(input->m_FunctionPointerType)) return false;
                         if (input->m_QualifiedType) if(!traverse(input->m_QualifiedType)) return false;
                         return end(input);
                     }
@@ -5334,7 +5604,6 @@ namespace phantom
                         if (input->m_FundamentalType) if(!traverse(input->m_FundamentalType)) return false;
                         if (input->m_Auto) if(!traverse(input->m_Auto)) return false;
                         if (input->m_DeclType) if(!traverse(input->m_DeclType)) return false;
-                        if (input->m_FunctionPointerType) if(!traverse(input->m_FunctionPointerType)) return false;
                         if (input->m_QualifiedType) if(!traverse(input->m_QualifiedType)) return false;
                         return end(input);
                     }
@@ -5383,6 +5652,29 @@ namespace phantom
                         if (input->m_ArrayExtentExpression) if(!traverse(input->m_ArrayExtentExpression)) return false;
                         return end(input);
                     }
+                    inline bool visit(FunctionTypeExtents* input) { return static_cast<T*>(this)->visitFunctionTypeExtents(input); }
+                    inline bool end(FunctionTypeExtents* input) { return static_cast<T*>(this)->endFunctionTypeExtents(input); }
+                    inline bool traverse(FunctionTypeExtents* input) { return static_cast<T*>(this)->traverseFunctionTypeExtents(input); }
+                    inline bool visitFunctionTypeExtents(FunctionTypeExtents* input) { return true; }
+                    inline bool endFunctionTypeExtents(FunctionTypeExtents* input) { return true; }
+                    inline bool visit(FunctionTypeExtent* input) { return static_cast<T*>(this)->visitFunctionTypeExtent(input); }
+                    inline bool end(FunctionTypeExtent* input) { return static_cast<T*>(this)->endFunctionTypeExtent(input); }
+                    inline bool traverse(FunctionTypeExtent* input) { return static_cast<T*>(this)->traverseFunctionTypeExtent(input); }
+                    inline bool visitFunctionTypeExtent(FunctionTypeExtent* input) { return true; }
+                    inline bool endFunctionTypeExtent(FunctionTypeExtent* input) { return true; }
+                    bool traverseFunctionTypeExtents(FunctionTypeExtents* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseFunctionTypeExtent(FunctionTypeExtent* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_Types) if(!traverse(input->m_Types)) return false;
+                        return end(input);
+                    }
                     inline bool visit(DerivedExtents* input) { return static_cast<T*>(this)->visitDerivedExtents(input); }
                     inline bool end(DerivedExtents* input) { return static_cast<T*>(this)->endDerivedExtents(input); }
                     inline bool traverse(DerivedExtents* input) { return static_cast<T*>(this)->traverseDerivedExtents(input); }
@@ -5405,51 +5697,28 @@ namespace phantom
                         if (!visit(input)) return false;
                         return end(input);
                     }
-                    inline bool visit(ExpressionStatements* input) { return static_cast<T*>(this)->visitExpressionStatements(input); }
-                    inline bool end(ExpressionStatements* input) { return static_cast<T*>(this)->endExpressionStatements(input); }
-                    inline bool traverse(ExpressionStatements* input) { return static_cast<T*>(this)->traverseExpressionStatements(input); }
-                    inline bool visitExpressionStatements(ExpressionStatements* input) { return true; }
-                    inline bool endExpressionStatements(ExpressionStatements* input) { return true; }
-                    inline bool visit(ExpressionStatement* input) { return static_cast<T*>(this)->visitExpressionStatement(input); }
-                    inline bool end(ExpressionStatement* input) { return static_cast<T*>(this)->endExpressionStatement(input); }
-                    inline bool traverse(ExpressionStatement* input) { return static_cast<T*>(this)->traverseExpressionStatement(input); }
-                    inline bool visitExpressionStatement(ExpressionStatement* input) { return true; }
-                    inline bool endExpressionStatement(ExpressionStatement* input) { return true; }
-                    bool traverseExpressionStatements(ExpressionStatements* input)
+                    inline bool visit(TypeExtentNoFunctions* input) { return static_cast<T*>(this)->visitTypeExtentNoFunctions(input); }
+                    inline bool end(TypeExtentNoFunctions* input) { return static_cast<T*>(this)->endTypeExtentNoFunctions(input); }
+                    inline bool traverse(TypeExtentNoFunctions* input) { return static_cast<T*>(this)->traverseTypeExtentNoFunctions(input); }
+                    inline bool visitTypeExtentNoFunctions(TypeExtentNoFunctions* input) { return true; }
+                    inline bool endTypeExtentNoFunctions(TypeExtentNoFunctions* input) { return true; }
+                    inline bool visit(TypeExtentNoFunction* input) { return static_cast<T*>(this)->visitTypeExtentNoFunction(input); }
+                    inline bool end(TypeExtentNoFunction* input) { return static_cast<T*>(this)->endTypeExtentNoFunction(input); }
+                    inline bool traverse(TypeExtentNoFunction* input) { return static_cast<T*>(this)->traverseTypeExtentNoFunction(input); }
+                    inline bool visitTypeExtentNoFunction(TypeExtentNoFunction* input) { return true; }
+                    inline bool endTypeExtentNoFunction(TypeExtentNoFunction* input) { return true; }
+                    bool traverseTypeExtentNoFunctions(TypeExtentNoFunctions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverseExpressionStatement(ExpressionStatement* input)
+                    bool traverseTypeExtentNoFunction(TypeExtentNoFunction* input)
                     {
                         assert(input); 
                         if (!visit(input)) return false;
-                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
-                        return end(input);
-                    }
-                    inline bool visit(SwitchStatements* input) { return static_cast<T*>(this)->visitSwitchStatements(input); }
-                    inline bool end(SwitchStatements* input) { return static_cast<T*>(this)->endSwitchStatements(input); }
-                    inline bool traverse(SwitchStatements* input) { return static_cast<T*>(this)->traverseSwitchStatements(input); }
-                    inline bool visitSwitchStatements(SwitchStatements* input) { return true; }
-                    inline bool endSwitchStatements(SwitchStatements* input) { return true; }
-                    inline bool visit(SwitchStatement* input) { return static_cast<T*>(this)->visitSwitchStatement(input); }
-                    inline bool end(SwitchStatement* input) { return static_cast<T*>(this)->endSwitchStatement(input); }
-                    inline bool traverse(SwitchStatement* input) { return static_cast<T*>(this)->traverseSwitchStatement(input); }
-                    inline bool visitSwitchStatement(SwitchStatement* input) { return true; }
-                    inline bool endSwitchStatement(SwitchStatement* input) { return true; }
-                    bool traverseSwitchStatements(SwitchStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverseSwitchStatement(SwitchStatement* input)
-                    {
-                        assert(input); 
-                        if (!visit(input)) return false;
-                        if (input->m_Expression) if(!traverse(input->m_Expression)) return false;
-                        if (input->m_StatementOrCases) if(!traverse(input->m_StatementOrCases)) return false;
+                        if (input->m_ArrayExtent) if(!traverse(input->m_ArrayExtent)) return false;
+                        if (input->m_DerivedExtent) if(!traverse(input->m_DerivedExtent)) return false;
                         return end(input);
                     }
                     inline bool visit(AssignExpressions* input) { return static_cast<T*>(this)->visitAssignExpressions(input); }
@@ -5572,11 +5841,13 @@ namespace phantom
                         assert(input); 
                         if (!visit(input)) return false;
                         if (input->m_AccessSpecifier) if(!traverse(input->m_AccessSpecifier)) return false;
+                        if (input->m_Destructor) if(!traverse(input->m_Destructor)) return false;
                         if (input->m_Method) if(!traverse(input->m_Method)) return false;
+                        if (input->m_Method0) if(!traverse(input->m_Method0)) return false;
                         if (input->m_FunctionOrVariable) if(!traverse(input->m_FunctionOrVariable)) return false;
                         if (input->m_ConversionFunction) if(!traverse(input->m_ConversionFunction)) return false;
                         if (input->m_Constructor) if(!traverse(input->m_Constructor)) return false;
-                        if (input->m_Destructor) if(!traverse(input->m_Destructor)) return false;
+                        if (input->m_Destructor0) if(!traverse(input->m_Destructor0)) return false;
                         if (input->m_Friend) if(!traverse(input->m_Friend)) return false;
                         if (input->m_BasicMemberWithMetaOrAnnotation) if(!traverse(input->m_BasicMemberWithMetaOrAnnotation)) return false;
                         if (input->m_Declaration) if(!traverse(input->m_Declaration)) return false;
@@ -6410,6 +6681,75 @@ namespace phantom
                         if (!visit(input)) return false;
                         return end(input);
                     }
+                    inline bool visit(SizeofExpressions* input) { return static_cast<T*>(this)->visitSizeofExpressions(input); }
+                    inline bool end(SizeofExpressions* input) { return static_cast<T*>(this)->endSizeofExpressions(input); }
+                    inline bool traverse(SizeofExpressions* input) { return static_cast<T*>(this)->traverseSizeofExpressions(input); }
+                    inline bool visitSizeofExpressions(SizeofExpressions* input) { return true; }
+                    inline bool endSizeofExpressions(SizeofExpressions* input) { return true; }
+                    inline bool visit(SizeofExpression* input) { return static_cast<T*>(this)->visitSizeofExpression(input); }
+                    inline bool end(SizeofExpression* input) { return static_cast<T*>(this)->endSizeofExpression(input); }
+                    inline bool traverse(SizeofExpression* input) { return static_cast<T*>(this)->traverseSizeofExpression(input); }
+                    inline bool visitSizeofExpression(SizeofExpression* input) { return true; }
+                    inline bool endSizeofExpression(SizeofExpression* input) { return true; }
+                    bool traverseSizeofExpressions(SizeofExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseSizeofExpression(SizeofExpression* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_Type) if(!traverse(input->m_Type)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(TypeofExpressions* input) { return static_cast<T*>(this)->visitTypeofExpressions(input); }
+                    inline bool end(TypeofExpressions* input) { return static_cast<T*>(this)->endTypeofExpressions(input); }
+                    inline bool traverse(TypeofExpressions* input) { return static_cast<T*>(this)->traverseTypeofExpressions(input); }
+                    inline bool visitTypeofExpressions(TypeofExpressions* input) { return true; }
+                    inline bool endTypeofExpressions(TypeofExpressions* input) { return true; }
+                    inline bool visit(TypeofExpression* input) { return static_cast<T*>(this)->visitTypeofExpression(input); }
+                    inline bool end(TypeofExpression* input) { return static_cast<T*>(this)->endTypeofExpression(input); }
+                    inline bool traverse(TypeofExpression* input) { return static_cast<T*>(this)->traverseTypeofExpression(input); }
+                    inline bool visitTypeofExpression(TypeofExpression* input) { return true; }
+                    inline bool endTypeofExpression(TypeofExpression* input) { return true; }
+                    bool traverseTypeofExpressions(TypeofExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseTypeofExpression(TypeofExpression* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_Type) if(!traverse(input->m_Type)) return false;
+                        return end(input);
+                    }
+                    inline bool visit(LocalVariableStatements* input) { return static_cast<T*>(this)->visitLocalVariableStatements(input); }
+                    inline bool end(LocalVariableStatements* input) { return static_cast<T*>(this)->endLocalVariableStatements(input); }
+                    inline bool traverse(LocalVariableStatements* input) { return static_cast<T*>(this)->traverseLocalVariableStatements(input); }
+                    inline bool visitLocalVariableStatements(LocalVariableStatements* input) { return true; }
+                    inline bool endLocalVariableStatements(LocalVariableStatements* input) { return true; }
+                    inline bool visit(LocalVariableStatement* input) { return static_cast<T*>(this)->visitLocalVariableStatement(input); }
+                    inline bool end(LocalVariableStatement* input) { return static_cast<T*>(this)->endLocalVariableStatement(input); }
+                    inline bool traverse(LocalVariableStatement* input) { return static_cast<T*>(this)->traverseLocalVariableStatement(input); }
+                    inline bool visitLocalVariableStatement(LocalVariableStatement* input) { return true; }
+                    inline bool endLocalVariableStatement(LocalVariableStatement* input) { return true; }
+                    bool traverseLocalVariableStatements(LocalVariableStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverseLocalVariableStatement(LocalVariableStatement* input)
+                    {
+                        assert(input); 
+                        if (!visit(input)) return false;
+                        if (input->m_LocalVariableDecl) if(!traverse(input->m_LocalVariableDecl)) return false;
+                        return end(input);
+                    }
                     inline bool visit(LastTemplateArgumentAssigns* input) { return static_cast<T*>(this)->visitLastTemplateArgumentAssigns(input); }
                     inline bool end(LastTemplateArgumentAssigns* input) { return static_cast<T*>(this)->endLastTemplateArgumentAssigns(input); }
                     inline bool traverse(LastTemplateArgumentAssigns* input) { return static_cast<T*>(this)->traverseLastTemplateArgumentAssigns(input); }
@@ -6982,18 +7322,20 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(ForInits* input)
+                    bool traverse(ForeachSignatures* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(ForInit* input)
+                    bool traverse(ForeachSignature* input)
                     {
                         assert(input); 
-                        line("[ForInit]");
+                        line("[ForeachSignature]");
                         indent();
-                        if (input->m_LocalVariableDecl) traverse(input->m_LocalVariableDecl);
+                        if (input->m_TypeOrAuto) traverse(input->m_TypeOrAuto);
+                        if(input->m_IDENTIFIER)
+                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
                         if (input->m_Expression) traverse(input->m_Expression);
                         unindent();
                         return true;
@@ -7009,7 +7351,7 @@ namespace phantom
                         assert(input); 
                         line("[ConversionFunction]");
                         indent();
-                        if (input->m_Type) traverse(input->m_Type);
+                        if (input->m_TypeNoFunctionType) traverse(input->m_TypeNoFunctionType);
                         if(input->m_PAREN_START)
                         line(phantom::lexical_cast<String>(input->m_PAREN_START));
                         if(input->m_CONSTs) for(auto v : *input->m_CONSTs)
@@ -7088,6 +7430,25 @@ namespace phantom
                         assert(input); 
                         line("[Destructor]");
                         indent();
+                        switch(input->m_VIRTUAL.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_VIRTUAL.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_VIRTUAL.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_VIRTUAL.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_VIRTUAL.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_VIRTUAL.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_VIRTUAL.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_VIRTUAL.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_VIRTUAL.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_VIRTUAL.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_VIRTUAL.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_VIRTUAL.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_VIRTUAL.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_VIRTUAL.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_VIRTUAL.as_bool())); break;
+                            default: assert(false); break;
+                        }
                         if(input->m_COMPL)
                         line(phantom::lexical_cast<String>(input->m_COMPL));
                         if(input->m_IDENTIFIER)
@@ -7129,9 +7490,26 @@ namespace phantom
                         assert(input); 
                         line("[ConstructorInitializer]");
                         indent();
-                        if (input->m_Type) traverse(input->m_Type);
+                        if (input->m_BasicType) traverse(input->m_BasicType);
                         if (input->m_CallList) traverse(input->m_CallList);
                         if (input->m_InitializerList) traverse(input->m_InitializerList);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(ArrowReturns* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(ArrowReturn* input)
+                    {
+                        assert(input); 
+                        line("[ArrowReturn]");
+                        indent();
+                        if(input->m_ARROW)
+                        line(phantom::lexical_cast<String>(input->m_ARROW));
+                        if (input->m_Type) traverse(input->m_Type);
                         unindent();
                         return true;
                     }
@@ -7169,6 +7547,7 @@ namespace phantom
                             case spell::any::e_bool: line(phantom::lexical_cast<String>(v.as_bool())); break;
                             default: assert(false); break;
                         }
+                        if (input->m_ArrowReturn) traverse(input->m_ArrowReturn);
                         if(input->m_OVERRIDEs) for(auto v : *input->m_OVERRIDEs)
                         switch(v.type())
                         {
@@ -7509,6 +7888,22 @@ namespace phantom
                         }
                         return true;
                     }
+                    bool traverse(ForInits* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(ForInit* input)
+                    {
+                        assert(input); 
+                        line("[ForInit]");
+                        indent();
+                        if (input->m_LocalVariableDecl) traverse(input->m_LocalVariableDecl);
+                        if (input->m_Expression) traverse(input->m_Expression);
+                        unindent();
+                        return true;
+                    }
                     bool traverse(Statements* input)
                     {
                         assert(input);
@@ -7634,27 +8029,6 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(AutoDeclarators* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(AutoDeclarator* input)
-                    {
-                        assert(input); 
-                        line("[AutoDeclarator]");
-                        indent();
-                        if (input->m_TypeExtents) traverse(input->m_TypeExtents);
-                        if(input->m_IDENTIFIER)
-                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
-                        if (input->m_CallList) traverse(input->m_CallList);
-                        if (input->m_InitializerList) traverse(input->m_InitializerList);
-                        if (input->m_ArrayExtents) traverse(input->m_ArrayExtents);
-                        if (input->m_AssignExpressionOrInitializerList) traverse(input->m_AssignExpressionOrInitializerList);
-                        unindent();
-                        return true;
-                    }
                     bool traverse(TemplateArgumentListSplits* input)
                     {
                         assert(input);
@@ -7754,30 +8128,6 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(LocalVariableDecls* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(LocalVariableDecl* input)
-                    {
-                        assert(input); 
-                        switch (input->__type)
-                        {
-                            case e_RuleType_ExplicitLocalVariableDecl: return traverse(static_cast<ExplicitLocalVariableDecl*>(input));
-                            case e_RuleType_AutoLocalVariableDecl: return traverse(static_cast<AutoLocalVariableDecl*>(input));
-                            default:
-                            {
-                                line("[LocalVariableDecl]");
-                                indent();
-                                if (input->m_AutoLocalVariableDecl) traverse(input->m_AutoLocalVariableDecl);
-                                if (input->m_ExplicitLocalVariableDecl) traverse(input->m_ExplicitLocalVariableDecl);
-                            }
-                            unindent();
-                        }
-                        return true;
-                    }
                     bool traverse(Names* input)
                     {
                         assert(input);
@@ -7848,6 +8198,51 @@ namespace phantom
                         unindent();
                         return true;
                     }
+                    bool traverse(AutoDeclarators* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(AutoDeclarator* input)
+                    {
+                        assert(input); 
+                        line("[AutoDeclarator]");
+                        indent();
+                        if (input->m_TypeExtents) traverse(input->m_TypeExtents);
+                        if(input->m_IDENTIFIER)
+                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
+                        if (input->m_CallList) traverse(input->m_CallList);
+                        if (input->m_InitializerList) traverse(input->m_InitializerList);
+                        if (input->m_ArrayExtents) traverse(input->m_ArrayExtents);
+                        if (input->m_AssignExpressionOrInitializerList) traverse(input->m_AssignExpressionOrInitializerList);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(LocalVariableDecls* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(LocalVariableDecl* input)
+                    {
+                        assert(input); 
+                        switch (input->__type)
+                        {
+                            case e_RuleType_ExplicitLocalVariableDecl: return traverse(static_cast<ExplicitLocalVariableDecl*>(input));
+                            case e_RuleType_AutoLocalVariableDecl: return traverse(static_cast<AutoLocalVariableDecl*>(input));
+                            default:
+                            {
+                                line("[LocalVariableDecl]");
+                                indent();
+                                if (input->m_AutoLocalVariableDecl) traverse(input->m_AutoLocalVariableDecl);
+                                if (input->m_ExplicitLocalVariableDecl) traverse(input->m_ExplicitLocalVariableDecl);
+                            }
+                            unindent();
+                        }
+                        return true;
+                    }
                     bool traverse(Expressions* input)
                     {
                         assert(input);
@@ -7884,6 +8279,7 @@ namespace phantom
                             case e_RuleType_TypeTraitBinary: return traverse(static_cast<TypeTraitBinary*>(input));
                             case e_RuleType_SizeofExpression: return traverse(static_cast<SizeofExpression*>(input));
                             case e_RuleType_TypeofExpression: return traverse(static_cast<TypeofExpression*>(input));
+                            case e_RuleType_FundamentalTypeFunctionCast: return traverse(static_cast<FundamentalTypeFunctionCast*>(input));
                             case e_RuleType_PrimaryExpression: return traverse(static_cast<PrimaryExpression*>(input));
                             default:
                             {
@@ -8063,7 +8459,6 @@ namespace phantom
                         assert(input); 
                         switch (input->__type)
                         {
-                            case e_RuleType_FunctionPointerType: return traverse(static_cast<FunctionPointerType*>(input));
                             case e_RuleType_UnsignedType: return traverse(static_cast<UnsignedType*>(input));
                             case e_RuleType_SignedType: return traverse(static_cast<SignedType*>(input));
                             case e_RuleType_LongType: return traverse(static_cast<LongType*>(input));
@@ -8071,6 +8466,8 @@ namespace phantom
                             case e_RuleType_FundamentalType: return traverse(static_cast<FundamentalType*>(input));
                             case e_RuleType_QualifiedType: return traverse(static_cast<QualifiedType*>(input));
                             case e_RuleType_ExplicitType: return traverse(static_cast<ExplicitType*>(input));
+                            case e_RuleType_TypeNoFunctionType: return traverse(static_cast<TypeNoFunctionType*>(input));
+                            case e_RuleType_ExplicitTypeNoFunctionType: return traverse(static_cast<ExplicitTypeNoFunctionType*>(input));
                             case e_RuleType_ExpressionType: return traverse(static_cast<ExpressionType*>(input));
                             case e_RuleType_ExplicitTypeOrAuto: return traverse(static_cast<ExplicitTypeOrAuto*>(input));
                             case e_RuleType_TypeOrAuto: return traverse(static_cast<TypeOrAuto*>(input));
@@ -8263,6 +8660,25 @@ namespace phantom
                             default: assert(false); break;
                         }
                         if (input->m_Name) traverse(input->m_Name);
+                        switch(input->m_ELLIPSE.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_ELLIPSE.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_ELLIPSE.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_bool())); break;
+                            default: assert(false); break;
+                        }
                         switch(input->m_INC.type())
                         {
                             case spell::any::e_undefined: break;
@@ -8373,6 +8789,116 @@ namespace phantom
                         unindent();
                         return true;
                     }
+                    bool traverse(LambdaCaptures* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(LambdaCapture* input)
+                    {
+                        assert(input); 
+                        line("[LambdaCapture]");
+                        indent();
+                        switch(input->m_IDENTIFIER.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_IDENTIFIER.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_IDENTIFIER.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_IDENTIFIER.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        switch(input->m_ASSIGN.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_ASSIGN.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_ASSIGN.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_ASSIGN.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        switch(input->m_BIN_AND.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_BIN_AND.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_BIN_AND.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_BIN_AND.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        switch(input->m_THIS.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_THIS.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_THIS.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_THIS.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_THIS.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_THIS.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_THIS.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_THIS.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_THIS.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_THIS.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_THIS.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_THIS.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_THIS.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_THIS.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_THIS.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(LambdaExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(LambdaExpression* input)
+                    {
+                        assert(input); 
+                        line("[LambdaExpression]");
+                        indent();
+                        if (input->m_LambdaCaptures) traverse(input->m_LambdaCaptures);
+                        if (input->m_ArrowReturn) traverse(input->m_ArrowReturn);
+                        if(input->m_PAREN_START)
+                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
+                        if (input->m_Parameters) traverse(input->m_Parameters);
+                        if (input->m_FunctionBlock) traverse(input->m_FunctionBlock);
+                        unindent();
+                        return true;
+                    }
                     bool traverse(TypeExtents* input)
                     {
                         assert(input);
@@ -8385,12 +8911,15 @@ namespace phantom
                         switch (input->__type)
                         {
                             case e_RuleType_ArrayExtent: return traverse(static_cast<ArrayExtent*>(input));
+                            case e_RuleType_FunctionTypeExtent: return traverse(static_cast<FunctionTypeExtent*>(input));
                             case e_RuleType_DerivedExtent: return traverse(static_cast<DerivedExtent*>(input));
+                            case e_RuleType_TypeExtentNoFunction: return traverse(static_cast<TypeExtentNoFunction*>(input));
                             default:
                             {
                                 line("[TypeExtent]");
                                 indent();
                                 if (input->m_ArrayExtent) traverse(input->m_ArrayExtent);
+                                if (input->m_FunctionTypeExtent) traverse(input->m_FunctionTypeExtent);
                                 if (input->m_DerivedExtent) traverse(input->m_DerivedExtent);
                             }
                             unindent();
@@ -8530,40 +9059,6 @@ namespace phantom
                         indent();
                         if (input->m_QualifiedName) traverse(input->m_QualifiedName);
                         if (input->m_FundamentalType) traverse(input->m_FundamentalType);
-                        if(input->m_IDENTIFIER)
-                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(TemplateTypeParameters* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(TemplateTypeParameter* input)
-                    {
-                        assert(input); 
-                        line("[TemplateTypeParameter]");
-                        indent();
-                        if(input->m_IDENTIFIER)
-                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(TemplateParameters* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(TemplateParameter* input)
-                    {
-                        assert(input); 
-                        line("[TemplateParameter]");
-                        indent();
-                        if (input->m_TemplateValueParameter) traverse(input->m_TemplateValueParameter);
-                        if (input->m_TemplateTypeParameter) traverse(input->m_TemplateTypeParameter);
                         switch(input->m_ELLIPSE.type())
                         {
                             case spell::any::e_undefined: break;
@@ -8583,6 +9078,59 @@ namespace phantom
                             case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_bool())); break;
                             default: assert(false); break;
                         }
+                        if(input->m_IDENTIFIER)
+                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(TemplateTypeParameters* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(TemplateTypeParameter* input)
+                    {
+                        assert(input); 
+                        line("[TemplateTypeParameter]");
+                        indent();
+                        switch(input->m_ELLIPSE.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_ELLIPSE.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_ELLIPSE.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        if(input->m_IDENTIFIER)
+                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(TemplateParameters* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(TemplateParameter* input)
+                    {
+                        assert(input); 
+                        line("[TemplateParameter]");
+                        indent();
+                        if (input->m_TemplateValueParameter) traverse(input->m_TemplateValueParameter);
+                        if (input->m_TemplateTypeParameter) traverse(input->m_TemplateTypeParameter);
                         if (input->m_TemplateParameterDefault) traverse(input->m_TemplateParameterDefault);
                         unindent();
                         return true;
@@ -8617,6 +9165,45 @@ namespace phantom
                         if (input->m_Class) traverse(input->m_Class);
                         if (input->m_Union) traverse(input->m_Union);
                         if (input->m_Alias) traverse(input->m_Alias);
+                        if (input->m_TemplateFunction) traverse(input->m_TemplateFunction);
+                        if (input->m_Constructor) traverse(input->m_Constructor);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(TemplateFunctions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(TemplateFunction* input)
+                    {
+                        assert(input); 
+                        line("[TemplateFunction]");
+                        indent();
+                        switch(input->m_STATIC.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_STATIC.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_STATIC.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_STATIC.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_STATIC.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_STATIC.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_STATIC.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_STATIC.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_STATIC.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_STATIC.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_STATIC.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_STATIC.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_STATIC.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_STATIC.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_STATIC.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        if (input->m_TypeOrAuto) traverse(input->m_TypeOrAuto);
+                        if(input->m_IDENTIFIER)
+                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
+                        if (input->m_FunctionEnd) traverse(input->m_FunctionEnd);
                         unindent();
                         return true;
                     }
@@ -9057,24 +9644,6 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(ForeachSignatures* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(ForeachSignature* input)
-                    {
-                        assert(input); 
-                        line("[ForeachSignature]");
-                        indent();
-                        if (input->m_TypeOrAuto) traverse(input->m_TypeOrAuto);
-                        if(input->m_IDENTIFIER)
-                        line(phantom::lexical_cast<String>(input->m_IDENTIFIER));
-                        if (input->m_Expression) traverse(input->m_Expression);
-                        unindent();
-                        return true;
-                    }
                     bool traverse(BlockDeclarations* input)
                     {
                         assert(input);
@@ -9089,47 +9658,43 @@ namespace phantom
                         if (input->m_Class) traverse(input->m_Class);
                         if (input->m_Enum) traverse(input->m_Enum);
                         if (input->m_Typedef) traverse(input->m_Typedef);
+                        if (input->m_Alias) traverse(input->m_Alias);
                         if (input->m_Using) traverse(input->m_Using);
                         if (input->m_StaticAssert) traverse(input->m_StaticAssert);
-                        if (input->m_Alias) traverse(input->m_Alias);
+                        if (input->m_Alias0) traverse(input->m_Alias0);
                         unindent();
                         return true;
                     }
-                    bool traverse(SizeofExpressions* input)
+                    bool traverse(FundamentalTypeFunctionCasts* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(SizeofExpression* input)
+                    bool traverse(FundamentalTypeFunctionCast* input)
                     {
                         assert(input); 
-                        line("[SizeofExpression]");
+                        line("[FundamentalTypeFunctionCast]");
                         indent();
-                        if(input->m_SIZEOF)
-                        line(phantom::lexical_cast<String>(input->m_SIZEOF));
+                        if (input->m_FundamentalType) traverse(input->m_FundamentalType);
                         if(input->m_PAREN_START)
                         line(phantom::lexical_cast<String>(input->m_PAREN_START));
-                        if (input->m_Type) traverse(input->m_Type);
+                        if (input->m_Expression) traverse(input->m_Expression);
                         unindent();
                         return true;
                     }
-                    bool traverse(TypeofExpressions* input)
+                    bool traverse(ExpressionStatements* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(TypeofExpression* input)
+                    bool traverse(ExpressionStatement* input)
                     {
                         assert(input); 
-                        line("[TypeofExpression]");
+                        line("[ExpressionStatement]");
                         indent();
-                        if(input->m_TYPEOF)
-                        line(phantom::lexical_cast<String>(input->m_TYPEOF));
-                        if(input->m_PAREN_START)
-                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
-                        if (input->m_Type) traverse(input->m_Type);
+                        if (input->m_Expression) traverse(input->m_Expression);
                         unindent();
                         return true;
                     }
@@ -9157,18 +9722,21 @@ namespace phantom
                         }
                         return true;
                     }
-                    bool traverse(LocalVariableStatements* input)
+                    bool traverse(SwitchStatements* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(LocalVariableStatement* input)
+                    bool traverse(SwitchStatement* input)
                     {
                         assert(input); 
-                        line("[LocalVariableStatement]");
+                        line("[SwitchStatement]");
                         indent();
-                        if (input->m_LocalVariableDecl) traverse(input->m_LocalVariableDecl);
+                        if(input->m_PAREN_START)
+                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
+                        if (input->m_Expression) traverse(input->m_Expression);
+                        if (input->m_StatementOrCases) traverse(input->m_StatementOrCases);
                         unindent();
                         return true;
                     }
@@ -9212,6 +9780,8 @@ namespace phantom
                         if (input->m_StringLiteralChain) traverse(input->m_StringLiteralChain);
                         if (input->m_SpecialCastExpression) traverse(input->m_SpecialCastExpression);
                         if (input->m_FunctionPtrExpression) traverse(input->m_FunctionPtrExpression);
+                        if (input->m_FundamentalTypeFunctionCast) traverse(input->m_FundamentalTypeFunctionCast);
+                        if (input->m_LambdaExpression) traverse(input->m_LambdaExpression);
                         switch(input->m_INT_VALUE.type())
                         {
                             case spell::any::e_undefined: break;
@@ -9256,24 +9826,6 @@ namespace phantom
                             }
                             unindent();
                         }
-                        return true;
-                    }
-                    bool traverse(FunctionPointerTypes* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(FunctionPointerType* input)
-                    {
-                        assert(input); 
-                        line("[FunctionPointerType]");
-                        indent();
-                        if (input->m_Type) traverse(input->m_Type);
-                        if(input->m_PAREN_START)
-                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
-                        if (input->m_Types) traverse(input->m_Types);
-                        unindent();
                         return true;
                     }
                     bool traverse(UnsignedTypes* input)
@@ -9374,7 +9926,6 @@ namespace phantom
                         line("[QualifiedType]");
                         indent();
                         if (input->m_QualifiedName) traverse(input->m_QualifiedName);
-                        if (input->m_FunctionPointerType) traverse(input->m_FunctionPointerType);
                         unindent();
                         return true;
                     }
@@ -9411,6 +9962,96 @@ namespace phantom
                         }
                         if (input->m_BasicType) traverse(input->m_BasicType);
                         if (input->m_TypeExtents) traverse(input->m_TypeExtents);
+                        switch(input->m_ELLIPSE.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_ELLIPSE.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_ELLIPSE.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(TypeNoFunctionTypes* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(TypeNoFunctionType* input)
+                    {
+                        assert(input); 
+                        line("[TypeNoFunctionType]");
+                        indent();
+                        if (input->m_ExplicitTypeNoFunctionType) traverse(input->m_ExplicitTypeNoFunctionType);
+                        if (input->m_ExpressionType) traverse(input->m_ExpressionType);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(ExplicitTypeNoFunctionTypes* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(ExplicitTypeNoFunctionType* input)
+                    {
+                        assert(input); 
+                        line("[ExplicitTypeNoFunctionType]");
+                        indent();
+                        if(input->m_CONSTs) for(auto v : *input->m_CONSTs)
+                        switch(v.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(v.as_string()); break;
+                            case spell::any::e_char: line(String(&v.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(v.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(v.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(v.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(v.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(v.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(v.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(v.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(v.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(v.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(v.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(v.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(v.as_bool())); break;
+                            default: assert(false); break;
+                        }
+                        if (input->m_BasicType) traverse(input->m_BasicType);
+                        if (input->m_TypeExtentNoFunctions) traverse(input->m_TypeExtentNoFunctions);
+                        switch(input->m_ELLIPSE.type())
+                        {
+                            case spell::any::e_undefined: break;
+                            case spell::any::e_cstring:line(input->m_ELLIPSE.as_string()); break;
+                            case spell::any::e_char: line(String(&input->m_ELLIPSE.ref_char(), 1)); break;
+                            case spell::any::e_uchar: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_uchar())); break;
+                            case spell::any::e_int: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_int())); break;
+                            case spell::any::e_uint: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_uint())); break;
+                            case spell::any::e_short: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_short())); break;
+                            case spell::any::e_ushort: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ushort())); break;
+                            case spell::any::e_long: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_long())); break;
+                            case spell::any::e_ulong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ulong())); break;
+                            case spell::any::e_longlong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_longlong())); break;
+                            case spell::any::e_ulonglong: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_ulonglong())); break;
+                            case spell::any::e_double: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_double())); break;
+                            case spell::any::e_float: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_float())); break;
+                            case spell::any::e_bool: line(phantom::lexical_cast<String>(input->m_ELLIPSE.as_bool())); break;
+                            default: assert(false); break;
+                        }
                         unindent();
                         return true;
                     }
@@ -9530,7 +10171,6 @@ namespace phantom
                         indent();
                         if (input->m_FundamentalType) traverse(input->m_FundamentalType);
                         if (input->m_DeclType) traverse(input->m_DeclType);
-                        if (input->m_FunctionPointerType) traverse(input->m_FunctionPointerType);
                         if (input->m_QualifiedType) traverse(input->m_QualifiedType);
                         unindent();
                         return true;
@@ -9565,7 +10205,6 @@ namespace phantom
                         if (input->m_FundamentalType) traverse(input->m_FundamentalType);
                         if (input->m_Auto) traverse(input->m_Auto);
                         if (input->m_DeclType) traverse(input->m_DeclType);
-                        if (input->m_FunctionPointerType) traverse(input->m_FunctionPointerType);
                         if (input->m_QualifiedType) traverse(input->m_QualifiedType);
                         unindent();
                         return true;
@@ -9618,6 +10257,23 @@ namespace phantom
                         unindent();
                         return true;
                     }
+                    bool traverse(FunctionTypeExtents* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(FunctionTypeExtent* input)
+                    {
+                        assert(input); 
+                        line("[FunctionTypeExtent]");
+                        indent();
+                        if(input->m_PAREN_START)
+                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
+                        if (input->m_Types) traverse(input->m_Types);
+                        unindent();
+                        return true;
+                    }
                     bool traverse(DerivedExtents* input)
                     {
                         assert(input);
@@ -9634,36 +10290,19 @@ namespace phantom
                         unindent();
                         return true;
                     }
-                    bool traverse(ExpressionStatements* input)
+                    bool traverse(TypeExtentNoFunctions* input)
                     {
                         assert(input);
                         for (auto elem : *input) { if (!traverse(elem)) return false; }
                         return true; 
                     }
-                    bool traverse(ExpressionStatement* input)
+                    bool traverse(TypeExtentNoFunction* input)
                     {
                         assert(input); 
-                        line("[ExpressionStatement]");
+                        line("[TypeExtentNoFunction]");
                         indent();
-                        if (input->m_Expression) traverse(input->m_Expression);
-                        unindent();
-                        return true;
-                    }
-                    bool traverse(SwitchStatements* input)
-                    {
-                        assert(input);
-                        for (auto elem : *input) { if (!traverse(elem)) return false; }
-                        return true; 
-                    }
-                    bool traverse(SwitchStatement* input)
-                    {
-                        assert(input); 
-                        line("[SwitchStatement]");
-                        indent();
-                        if(input->m_PAREN_START)
-                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
-                        if (input->m_Expression) traverse(input->m_Expression);
-                        if (input->m_StatementOrCases) traverse(input->m_StatementOrCases);
+                        if (input->m_ArrayExtent) traverse(input->m_ArrayExtent);
+                        if (input->m_DerivedExtent) traverse(input->m_DerivedExtent);
                         unindent();
                         return true;
                     }
@@ -9843,11 +10482,13 @@ namespace phantom
                         line("[BasicMember]");
                         indent();
                         if (input->m_AccessSpecifier) traverse(input->m_AccessSpecifier);
+                        if (input->m_Destructor) traverse(input->m_Destructor);
                         if (input->m_Method) traverse(input->m_Method);
+                        if (input->m_Method0) traverse(input->m_Method0);
                         if (input->m_FunctionOrVariable) traverse(input->m_FunctionOrVariable);
                         if (input->m_ConversionFunction) traverse(input->m_ConversionFunction);
                         if (input->m_Constructor) traverse(input->m_Constructor);
-                        if (input->m_Destructor) traverse(input->m_Destructor);
+                        if (input->m_Destructor0) traverse(input->m_Destructor0);
                         if (input->m_Friend) traverse(input->m_Friend);
                         if (input->m_BasicMemberWithMetaOrAnnotation) traverse(input->m_BasicMemberWithMetaOrAnnotation);
                         if (input->m_Declaration) traverse(input->m_Declaration);
@@ -10503,6 +11144,59 @@ namespace phantom
                         indent();
                         if(input->m_CONTINUE)
                         line(phantom::lexical_cast<String>(input->m_CONTINUE));
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(SizeofExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(SizeofExpression* input)
+                    {
+                        assert(input); 
+                        line("[SizeofExpression]");
+                        indent();
+                        if(input->m_SIZEOF)
+                        line(phantom::lexical_cast<String>(input->m_SIZEOF));
+                        if(input->m_PAREN_START)
+                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
+                        if (input->m_Type) traverse(input->m_Type);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(TypeofExpressions* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(TypeofExpression* input)
+                    {
+                        assert(input); 
+                        line("[TypeofExpression]");
+                        indent();
+                        if(input->m_TYPEOF)
+                        line(phantom::lexical_cast<String>(input->m_TYPEOF));
+                        if(input->m_PAREN_START)
+                        line(phantom::lexical_cast<String>(input->m_PAREN_START));
+                        if (input->m_Type) traverse(input->m_Type);
+                        unindent();
+                        return true;
+                    }
+                    bool traverse(LocalVariableStatements* input)
+                    {
+                        assert(input);
+                        for (auto elem : *input) { if (!traverse(elem)) return false; }
+                        return true; 
+                    }
+                    bool traverse(LocalVariableStatement* input)
+                    {
+                        assert(input); 
+                        line("[LocalVariableStatement]");
+                        indent();
+                        if (input->m_LocalVariableDecl) traverse(input->m_LocalVariableDecl);
                         unindent();
                         return true;
                     }

@@ -34,14 +34,14 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::Expression>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
-            .constructor<void(Type*, bool)>()["false"]
-            .constructor<void(Type*, Expression*, bool)>()["false"]
+            .constructor<void(Type*, bool)>()({"a_pType","a_bOnStack"})["false"]
+            .constructor<void(Type*, Expression*, bool)>()({"a_pType","a_pSizeExpression","a_bOnStack"})["false"]
             .method<void()>("initialize", &_::initialize)
-            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)
-            .method<::phantom::lang::AllocateExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)
+            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)({"a_Context"})
+            .method<::phantom::lang::AllocateExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)({"a_pOwner"})
             .method<Expression*() const>("getSizeExpression", &_::getSizeExpression)
             .method<Type*() const>("getType", &_::getType)
             .method<bool() const>("isOnStack", &_::isOnStack)

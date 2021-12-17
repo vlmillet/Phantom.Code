@@ -97,15 +97,15 @@ public:
     typedef SmallVector<Conversion*> ConversionList;
     ConversionResults() {}
     ConversionResults(ConversionResults&& rvalue) : content(std::move(rvalue.content)) {}
-    ConversionResults(const ConversionResults& rvalue) : content(rvalue.content) {}
+    ConversionResults(const ConversionResults&) { PHANTOM_ASSERT(false); }
     ConversionResults& operator=(ConversionResults&& rvalue)
     {
         content = std::move(rvalue.content);
         return *this;
     }
-    ConversionResults& operator=(const ConversionResults& rvalue)
+    ConversionResults& operator=(const ConversionResults&)
     {
-        content = rvalue.content;
+        PHANTOM_ASSERT(false);
         return *this;
     }
 
@@ -133,6 +133,8 @@ public:
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     Conversion* takeBest(size_t* a_pIndex);
+
+    Conversion* takeAt(size_t a_uiIndex);
 
     Conversion* const& operator[](size_t index) const { return content[index]; }
 

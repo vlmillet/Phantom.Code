@@ -36,6 +36,7 @@ public:
     virtual void visit(CallExpression* a_pInput, VisitorData a_Data);
     virtual void visit(ClassListInitializationExpression* a_pInput, VisitorData a_Data);
     virtual void visit(ClassTypeListInitializationExpression* a_pInput, VisitorData a_Data);
+    virtual void visit(CommaExpression* a_pInput, VisitorData a_Data);
     virtual void visit(ConditionalExpression* a_pInput, VisitorData a_Data);
     virtual void visit(ConstantExpression* a_pInput, VisitorData a_Data);
     virtual void visit(ConstructorCallExpression* a_pInput, VisitorData a_Data);
@@ -78,6 +79,10 @@ public:
     virtual void visit(TemplateDependantDeclType* a_pInput, VisitorData a_Data);
     virtual void visit(TemplateDependantExpression* a_pInput, VisitorData a_Data);
     virtual void visit(TemplateDependantTypeOfExpression* a_pInput, VisitorData a_Data);
+    virtual void visit(TemplateParameterPackExpansion* a_pInput, VisitorData a_Data);
+    virtual void visit(TemplateParameterPackTypeExpansion* a_pInput, VisitorData a_Data);
+    virtual void visit(TemplateParameterPackExpressionExpansion* a_pInput, VisitorData a_Data);
+    virtual void visit(ParameterPackExpressionExpansion* a_pInput, VisitorData a_Data);
     virtual void visit(TemporaryObjectDestructionExpression* a_pInput, VisitorData a_Data);
     virtual void visit(TypeTraitExpression* a_pInput, VisitorData a_Data);
     virtual void visit(VarArgCallExpression* a_pInput, VisitorData a_Data);

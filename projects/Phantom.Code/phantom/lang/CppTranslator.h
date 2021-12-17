@@ -9,6 +9,7 @@
 
 /* ****************** Includes ******************* */
 #include "LanguageElementVisitorEx.h"
+#include "lang.h"
 #include "phantom/lang/TypeIndex.h"
 
 #include <phantom/utils/Flags.h>
@@ -68,6 +69,34 @@ public:
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     StringView getOption(StringView a_Key) const;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// \brief  Adds alias to replace complex symbols by simpler ones (as typedefs are not memorised by reflection).
+    ///
+    /// \param  a_pOriginal    The symbol to replace.
+    /// \param  a_pAlias  The replacing symbol.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    void addAlias(Symbol* a_pOriginal, Symbol* a_pAlias);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// \brief  Adds alias to replace complex symbols by simpler ones (as typedefs are not memorised by reflection).
+    ///
+    /// \param  a_pOriginal    The symbol to replace.
+    /// \param  a_pAlias  The replacing symbol.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    bool addAlias(StringView a_Original, StringView a_Alias);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// \brief  Gets an option matching the given key.
+    ///
+    /// \param  a_Key   The key.
+    ///
+    /// \return The option.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    Symbol* getAlias(Symbol* a_pOriginal) const;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Gets the source being translated with multipass.
@@ -146,6 +175,7 @@ public:
     virtual void visit(ClassListInitializationExpression* a_pInput, VisitorData a_Data);
     virtual void visit(ClassTypeListInitializationExpression* a_pInput, VisitorData a_Data);
     virtual void visit(ClassType* a_pInput, VisitorData a_Data);
+    virtual void visit(CommaExpression* a_pInput, VisitorData a_Data);
     virtual void visit(ConditionalExpression* a_pInput, VisitorData a_Data);
     virtual void visit(Constant* a_pInput, VisitorData a_Data);
     virtual void visit(ConstantExpression* a_pInput, VisitorData a_Data);
@@ -278,6 +308,9 @@ protected:
     void _addInclude(SmallMap<String, Source*>& a_Includes, Source* a_pSource);
     void translateTyped(Type* a_pType, const String& a_Identifier);
 
+    Alias* _findAliasOf(Type* a_pType);
+    Alias* _findAliasOf(Module* a_pModule, Type* a_pType);
+
     inline void newLine() { *m_pTranslation += '\n'; }
     inline void indent()
     {
@@ -386,7 +419,31 @@ protected:
 
     void beginDo() { append("do"); }
 
-    void appendExpressionWithPrecedenceSafety(Expression* a_pExpression, Expression* a_pEmbedder, VisitorData a_Data);
+    void beginParen(bool _a)
+    {
+        if (_a)
+            append('(');
+    }
+    void endParen(bool _a)
+    {
+        if (_a)
+            append(')');
+    }
+
+    void appendExpression(Expression* a_pExpression, Expression*, VisitorData a_Data);
+
+    struct Operation
+    {
+        Operation() = default;
+        Operation(Operator op, bool lhs) : op(op), lhs(lhs) {}
+        Operator op;
+        bool     lhs = false;
+    };
+    bool requiresParenthesis(Operation _left, Operator _right) const;
+    bool requiresParenthesis(Operator _right) const
+    {
+        return !m_OperatorStack.empty() && requiresParenthesis(m_OperatorStack.back(), _right);
+    }
 
 protected:
     int                                m_uiFile = 0;
@@ -400,12 +457,18 @@ protected:
     SmallMap<String, Source*>          m_IncludesCPP;
     SmallMap<String, Type*>            m_ForwardsH;
     SmallMap<String, Type*>            m_ForwardsCPP;
+    SmallMap<Symbol*, Symbol*>         m_Aliases;
     Flags                              m_Flags;
     char                               m_cIndentChar;
     int                                m_iIndentCharCount;
     SmallMap<size_t, SmallSet<String>> m_ForceIncludeTemplateArguments;
     bool                               m_bEndif;
     int                                m_noAlias = 0;
+    int                                m_ForceQualifiedName = 0;
+    StringView                         m_NoKeywordChars = "$";
+    SmallMap<Type*, Alias*>            m_AliasCache;
+
+    SmallVector<Operation> m_OperatorStack;
 
 private:
     void addForwardIfRequired(Type* a_pType);

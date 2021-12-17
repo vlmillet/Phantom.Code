@@ -6,54 +6,53 @@ import phantom.String;
 class MyClass
 {
 public:
-	const char* HelloWorld()
-	{
-		helloWorldTriggered = true;
-		return "HelloWorld !";
-	}
+    const char* HelloWorld()
+    {
+        helloWorldTriggered = true;
+        return "HelloWorld !";
+    }
 
 protected:
-	bool helloWorldTriggered = false;
+    bool helloWorldTriggered = false;
 };
 
 int main(int argc, char** argv)
 {
-	// find the class by full qualified name through the Application singleton (which exists only during Main scope)
-	auto metaClass = classof(MyClass);
+    // find the class by full qualified name through the Application singleton (which exists only during Main scope)
+    auto metaClass = classof(MyClass);
 
-	// use RAII + meta class to build a temporary instance on the stack
+    // use RAII + meta class to build a temporary instance on the stack
 
-	auto instance = metaClass->allocate(); // alloc instance memory
+    auto instance = metaClass->allocate(); // alloc instance memory
 
-	metaClass->construct(instance); // construct instance
+    metaClass->construct(instance); // construct instance
 
-	// get the value of the 'helloWorldTriggered' field
+    // get the value of the 'helloWorldTriggered' field
 
-	bool result = false;
+    bool result = false;
 
+    while (!result)
+    {
+        const char* helloWorldTxt = nullptr;
+         
+        // invoke the 'HelloWorld()' method
+        metaClass->getMethod("HelloWorld()")->invoke(instance, nullptr, &helloWorldTxt);
 
-	while (!result)
-	{
-		const char* helloWorldTxt = nullptr;
+        // get the 'helloWorldTriggered' field value to 'result'
+        metaClass->getField("helloWorldTriggered")->getValue(instance, &result);
 
-		// invoke the 'HelloWorld()' method
-		metaClass->getMethod("HelloWorld()")->invoke(instance, nullptr, &helloWorldTxt);
+        // use runtime expression evaluation to build some C++ expression ..
+        auto cppexp = CppLite::Get()->expression(String("HelloWorldPrint(\"") + helloWorldTxt + "\")");
+        
+        // .. and evaluate it
+        assert(cppexp);
 
-		// get the 'helloWorldTriggered' field value to 'result'
-		metaClass->getField("helloWorldTriggered")->getValue(instance, &result);
+        cppexp->eval();
+    }
 
-		// use runtime expression evaluation to build some C++ expression ..
-		auto cppexp = CppLite::Get()->expression(String("HelloWorldPrint(\"") + helloWorldTxt + "\")");
-		
-		// .. and evaluate it
-		assert(cppexp);
+    metaClass->destroy(instance); // construct instance
 
-		cppexp->eval();
-	}
+    metaClass->deallocate(instance); // free instance memory
 
-	metaClass->destroy(instance); // construct instance
-
-	metaClass->deallocate(instance); // free instance memory
-
-	return 0;
+    return 0;
 }

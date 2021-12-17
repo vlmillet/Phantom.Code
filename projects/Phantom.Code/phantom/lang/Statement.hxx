@@ -36,14 +36,14 @@ PHANTOM_PACKAGE("phantom.lang")
         .public_()
         
         .public_()
-            .constructor<void(uint)>()["0"]
-            .method<void(ExecutionContext&) const, pure_virtual>("eval", &_::eval)
+            .constructor<void(uint)>()({"a_uiFlags"})["0"]
+            .method<void(ExecutionContext&) const, pure_virtual>("eval", &_::eval)({"a_Context"})
             .method<::phantom::lang::Statement *() const, virtual_>("asStatement", &_::asStatement)
             .method<Block*() const>("getBlock", &_::getBlock)
             .method<Block*() const>("getRootBlock", &_::getRootBlock)
             .method<Subroutine*() const>("getSubroutine", &_::getSubroutine)
             .method<Statement*() const>("getNextStatement", &_::getNextStatement)
-            .method<Evaluable*(Expression*) const, virtual_|override_>("evaluateExpressionLifeTime", &_::evaluateExpressionLifeTime)
+            .method<Evaluable*(Expression*) const, virtual_|override_>("evaluateExpressionLifeTime", &_::evaluateExpressionLifeTime)({""})
             .method<::phantom::lang::LocalVariableInitializationStatement *() const, virtual_>("asLocalVariableInitializationStatement", &_::asLocalVariableInitializationStatement)
             .method<::phantom::lang::BranchIfNotStatement *() const, virtual_>("asBranchIfNotStatement", &_::asBranchIfNotStatement)
             .method<::phantom::lang::BranchIfStatement *() const, virtual_>("asBranchIfStatement", &_::asBranchIfStatement)
@@ -56,7 +56,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<Statement*() const>("getNextNonBlockStatement", &_::getNextNonBlockStatement)
         
         .protected_()
-            .method<void(Block*), virtual_>("onAttachedToBlock", &_::onAttachedToBlock)
+            .method<void(Block*), virtual_>("onAttachedToBlock", &_::onAttachedToBlock)({""})
             .method<void(), virtual_>("restore", &_::restore)
             ;
         }

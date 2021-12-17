@@ -70,14 +70,14 @@ PHANTOM_PACKAGE("phantom.lang")
                 {"e_Pass_Count",_::e_Pass_Count}})
             .end()
             .typedef_<Flags>("Flags")
-            .constructor<void(Source*, Message*, Flags)>()["e_Flag_None"]
+            .constructor<void(Source*, Message*, Flags)>()({"a_pSource","a_pMessage","a_Flags"})["e_Flag_None"]
             .method<Flags() const>("getFlags", &_::getFlags)
-            .method<void(Flags)>("setFlags", &_::setFlags)
-            .method<bool(EFlag) const>("hasFlag", &_::hasFlag)
-            .method<::phantom::lang::Symbol *(StringView, LanguageElement*, Modifiers, uint), virtual_>("parseSymbolName", &_::parseSymbolName)
-            .method<::phantom::lang::Expression *(StringView, LanguageElement*), virtual_>("parseExpression", &_::parseExpression)
+            .method<void(Flags)>("setFlags", &_::setFlags)({"flags"})
+            .method<bool(EFlag) const>("hasFlag", &_::hasFlag)({"flag"})
+            .method<::phantom::lang::Symbol *(StringView, LanguageElement*, Modifiers, uint), virtual_>("parseSymbolName", &_::parseSymbolName)({"a_strSymbol","a_pScope","a_Modifiers","a_uiFlags"})
+            .method<::phantom::lang::Expression *(StringView, LanguageElement*), virtual_>("parseExpression", &_::parseExpression)({"a_strName","a_pScope"})
             .method<CppLite*() const>("getLanguage", &_::getLanguage)
-            .method<bool(StringView) const, virtual_>("checkSymbolSyntax", &_::checkSymbolSyntax)
+            .method<bool(StringView) const, virtual_>("checkSymbolSyntax", &_::checkSymbolSyntax)({"a_strSymbol"})
             .method<size_t() const>("getErrorCount", &_::getErrorCount)
             ;
         }

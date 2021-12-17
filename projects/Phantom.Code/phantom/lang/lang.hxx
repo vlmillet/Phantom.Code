@@ -79,7 +79,7 @@ PHANTOM_PACKAGE("phantom.lang")
         PHANTOM_STRUCT(Lang)
         {
             this_()
-            .staticMethod<bool(Type*, void*, Type*, void const*)>("CppTypeConverter", &_::CppTypeConverter)
+            .staticMethod<bool(Type*, void*, Type*, void const*)>("CppTypeConverter", &_::CppTypeConverter)({"a_pDestType","a_pDest","a_pSrcType","a_pSrc"})
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE

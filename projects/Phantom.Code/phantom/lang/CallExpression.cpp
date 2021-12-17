@@ -38,9 +38,6 @@ void CallExpression::initialize()
 
     PHANTOM_ASSERT(m_pSubroutine);
 
-    if (!m_pSubroutine->isNative())
-        m_pSubroutine->buildBlock();
-
     addDependencyOn(m_pSubroutine);
     addReferencedElement(m_pSubroutine);
     for (auto pArg : m_Arguments)

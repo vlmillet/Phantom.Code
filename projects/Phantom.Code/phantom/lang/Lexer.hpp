@@ -32,51 +32,21 @@ struct any
         e_bool,
     };
 
-    any(const char* v) : _cstring(v), _type(e_cstring)
-    {
-    }
-    any(char v) : _char(v), _type(e_char)
-    {
-    }
-    any(unsigned char v) : _uchar(v), _type(e_uchar)
-    {
-    }
-    any(int v) : _int(v), _type(e_int)
-    {
-    }
-    any(unsigned int v) : _uint(v), _type(e_uint)
-    {
-    }
-    any(short v) : _short(v), _type(e_short)
-    {
-    }
-    any(unsigned short v) : _ushort(v), _type(e_ushort)
-    {
-    }
-    any(long v) : _long(v), _type(e_long)
-    {
-    }
-    any(unsigned long v) : _ulong(v), _type(e_ulong)
-    {
-    }
-    any(long long v) : _longlong(v), _type(e_longlong)
-    {
-    }
-    any(unsigned long long v) : _ulonglong(v), _type(e_ulonglong)
-    {
-    }
-    any(double v) : _double(v), _type(e_double)
-    {
-    }
-    any(float v) : _float(v), _type(e_float)
-    {
-    }
-    any(bool v) : _bool(v), _type(e_bool)
-    {
-    }
-    any() : _type(e_undefined)
-    {
-    }
+    any(const char* v) : _cstring(v), _type(e_cstring) {}
+    any(char v) : _char(v), _type(e_char) {}
+    any(unsigned char v) : _uchar(v), _type(e_uchar) {}
+    any(int v) : _int(v), _type(e_int) {}
+    any(unsigned int v) : _uint(v), _type(e_uint) {}
+    any(short v) : _short(v), _type(e_short) {}
+    any(unsigned short v) : _ushort(v), _type(e_ushort) {}
+    any(long v) : _long(v), _type(e_long) {}
+    any(unsigned long v) : _ulong(v), _type(e_ulong) {}
+    any(long long v) : _longlong(v), _type(e_longlong) {}
+    any(unsigned long long v) : _ulonglong(v), _type(e_ulonglong) {}
+    any(double v) : _double(v), _type(e_double) {}
+    any(float v) : _float(v), _type(e_float) {}
+    any(bool v) : _bool(v), _type(e_bool) {}
+    any() : _type(e_undefined) {}
 
     any& operator=(const char* v)
     {
@@ -163,10 +133,7 @@ struct any
         return *this;
     }
 
-    bool hasValue() const
-    {
-        return _type != e_undefined;
-    }
+    bool hasValue() const { return _type != e_undefined; }
     bool as(any& v)
     {
         v = *this;
@@ -299,10 +266,7 @@ struct any
         return false;
     }
 
-    any(const any& other)
-    {
-        memcpy(this, &other, sizeof(any));
-    }
+    any(const any& other) { memcpy(this, &other, sizeof(any)); }
     any& operator=(const any& other)
     {
         memcpy(this, &other, sizeof(any));
@@ -451,17 +415,11 @@ struct any
         return _bool;
     }
 
-    EType type() const
-    {
-        return _type;
-    }
-    void reset()
-    {
-        _type = e_undefined;
-    }
+    EType type() const { return _type; }
+    void  reset() { _type = e_undefined; }
 
 protected:
-    EType _type;
+    EType _type = e_undefined;
     union {
         const char*        _cstring;
         char               _char;
@@ -482,22 +440,16 @@ protected:
 
 struct Position
 {
-    inline bool isValid() const
-    {
-        return line >= 0 && column >= 0;
-    }
-    int line;
-    int column;
+    inline bool isValid() const { return line >= 0 && column >= 0; }
+    int         line;
+    int         column;
 };
 
 struct Location
 {
-    inline bool isValid() const
-    {
-        return begin.isValid() && end.isValid();
-    }
-    Position begin{-1, -1};
-    Position end{-1, -1};
+    inline bool isValid() const { return begin.isValid() && end.isValid(); }
+    Position    begin{-1, -1};
+    Position    end{-1, -1};
 };
 
 struct Token
@@ -537,66 +489,21 @@ class Lexer
     friend struct LexerPrivate;
 
 public:
-    inline static char* as_char()
-    {
-        return nullptr;
-    }
-    inline static bool* as_bool()
-    {
-        return nullptr;
-    }
-    inline static unsigned long* as_unsigned_long()
-    {
-        return nullptr;
-    }
-    inline static unsigned int* as_unsigned_int()
-    {
-        return nullptr;
-    }
-    inline static unsigned long long* as_unsigned_long_long()
-    {
-        return nullptr;
-    }
-    inline static unsigned long* as_ulong()
-    {
-        return nullptr;
-    }
-    inline static unsigned int* as_uint()
-    {
-        return nullptr;
-    }
-    inline static unsigned long long* as_ulonglong()
-    {
-        return nullptr;
-    }
-    inline static long* as_long()
-    {
-        return nullptr;
-    }
-    inline static int* as_int()
-    {
-        return nullptr;
-    }
-    inline static long long* as_longlong()
-    {
-        return nullptr;
-    }
-    inline static long long* as_long_long()
-    {
-        return nullptr;
-    }
-    inline static float* as_float()
-    {
-        return nullptr;
-    }
-    inline static double* as_double()
-    {
-        return nullptr;
-    }
-    inline static const char** as_string()
-    {
-        return nullptr;
-    }
+    inline static char*               as_char() { return nullptr; }
+    inline static bool*               as_bool() { return nullptr; }
+    inline static unsigned long*      as_unsigned_long() { return nullptr; }
+    inline static unsigned int*       as_unsigned_int() { return nullptr; }
+    inline static unsigned long long* as_unsigned_long_long() { return nullptr; }
+    inline static unsigned long*      as_ulong() { return nullptr; }
+    inline static unsigned int*       as_uint() { return nullptr; }
+    inline static unsigned long long* as_ulonglong() { return nullptr; }
+    inline static long*               as_long() { return nullptr; }
+    inline static int*                as_int() { return nullptr; }
+    inline static long long*          as_longlong() { return nullptr; }
+    inline static long long*          as_long_long() { return nullptr; }
+    inline static float*              as_float() { return nullptr; }
+    inline static double*             as_double() { return nullptr; }
+    inline static const char**        as_string() { return nullptr; }
 
     struct Allocator
     {
@@ -635,13 +542,8 @@ protected:
                 break;
             }
         }
-        RuleType(const char* str) : str(str)
-        {
-        }
-        operator const char*() const
-        {
-            return str;
-        }
+        RuleType(const char* str) : str(str) {}
+        operator const char*() const { return str; }
 
     private:
         char        cstr[3] = {0, 0, 0};
@@ -650,9 +552,7 @@ protected:
 
     struct adder
     {
-        adder(Lexer& lex) : m_lex(lex)
-        {
-        }
+        adder(Lexer& lex) : m_lex(lex) {}
         adder& operator()(RuleType rule, int tokId);
         adder& operator()(RuleType rule, int tokId, const char* nextState);
         adder& operator()(RuleType rule, const char* nextState);
@@ -696,18 +596,9 @@ public:
         e_Status_Finished,
     };
 
-    adder& addRule(RuleType rule, int tokId)
-    {
-        return m_adder(rule, tokId);
-    }
-    adder& addRule(RuleType rule, const char* nextState)
-    {
-        return m_adder(rule, nextState);
-    }
-    adder& addRule(RuleType rule, int tokId, const char* nextState)
-    {
-        return m_adder(rule, tokId, nextState);
-    }
+    adder& addRule(RuleType rule, int tokId) { return m_adder(rule, tokId); }
+    adder& addRule(RuleType rule, const char* nextState) { return m_adder(rule, nextState); }
+    adder& addRule(RuleType rule, int tokId, const char* nextState) { return m_adder(rule, tokId, nextState); }
     adder& addRule(const char* currentState, RuleType rule, const char* nextState)
     {
         return m_adder(currentState, rule, nextState);
@@ -716,54 +607,18 @@ public:
     {
         return m_adder(currentState, rule, tokId, nextState);
     }
-    adder& addRule(const char* currentState, RuleType rule, int tokId)
-    {
-        return m_adder(currentState, rule, tokId);
-    }
-    adder& addRule(char* v, RuleType rule, int tokId)
-    {
-        return m_adder(v, rule, tokId);
-    }
-    adder& addRule(bool* v, RuleType rule, int tokId)
-    {
-        return m_adder(v, rule, tokId);
-    }
-    adder& addRule(unsigned long* v, RuleType rule, int tokId)
-    {
-        return m_adder(v, rule, tokId);
-    }
-    adder& addRule(unsigned int* v, RuleType rule, int tokId)
-    {
-        return m_adder(v, rule, tokId);
-    }
-    adder& addRule(unsigned long long* v, RuleType rule, int tokId)
-    {
-        return m_adder(v, rule, tokId);
-    }
-    adder& addRule(long* v, RuleType rule, int tokId)
-    {
-        return m_adder(v, rule, tokId);
-    }
-    adder& addRule(int* v, RuleType rule, int tokId)
-    {
-        return m_adder(v, rule, tokId);
-    }
-    adder& addRule(long long* v, RuleType rule, int tokId)
-    {
-        return m_adder(v, rule, tokId);
-    }
-    adder& addRule(float* v, RuleType rule, int tokId)
-    {
-        return m_adder(v, rule, tokId);
-    }
-    adder& addRule(double* v, RuleType rule, int tokId)
-    {
-        return m_adder(v, rule, tokId);
-    }
-    adder& addRule(const char** v, RuleType rule, int tokId)
-    {
-        return m_adder(v, rule, tokId);
-    }
+    adder& addRule(const char* currentState, RuleType rule, int tokId) { return m_adder(currentState, rule, tokId); }
+    adder& addRule(char* v, RuleType rule, int tokId) { return m_adder(v, rule, tokId); }
+    adder& addRule(bool* v, RuleType rule, int tokId) { return m_adder(v, rule, tokId); }
+    adder& addRule(unsigned long* v, RuleType rule, int tokId) { return m_adder(v, rule, tokId); }
+    adder& addRule(unsigned int* v, RuleType rule, int tokId) { return m_adder(v, rule, tokId); }
+    adder& addRule(unsigned long long* v, RuleType rule, int tokId) { return m_adder(v, rule, tokId); }
+    adder& addRule(long* v, RuleType rule, int tokId) { return m_adder(v, rule, tokId); }
+    adder& addRule(int* v, RuleType rule, int tokId) { return m_adder(v, rule, tokId); }
+    adder& addRule(long long* v, RuleType rule, int tokId) { return m_adder(v, rule, tokId); }
+    adder& addRule(float* v, RuleType rule, int tokId) { return m_adder(v, rule, tokId); }
+    adder& addRule(double* v, RuleType rule, int tokId) { return m_adder(v, rule, tokId); }
+    adder& addRule(const char** v, RuleType rule, int tokId) { return m_adder(v, rule, tokId); }
 
     void skip(const char* regex);
 
@@ -809,13 +664,8 @@ typedef unsigned long long ulonglong;
 typedef long long          longlong;
 struct hex
 {
-    explicit hex(unsigned long v) : value(v)
-    {
-    }
-    explicit operator unsigned long long()
-    {
-        return value;
-    }
+    explicit hex(unsigned long v) : value(v) {}
+    explicit operator unsigned long long() { return value; }
 
 protected:
     unsigned long value;
@@ -826,18 +676,10 @@ static const char* null_base_iterator_type;
 struct base_iterator_type
 {
     base_iterator_type() = default;
-    base_iterator_type(const char*& input, const char* end) : input(input), end(end)
-    {
-    }
+    base_iterator_type(const char*& input, const char* end) : input(input), end(end) {}
 
-    char const& operator*() const
-    {
-        return *input;
-    }
-    char const* operator->() const
-    {
-        return input;
-    }
+    char const&         operator*() const { return *input; }
+    char const*         operator->() const { return input; }
     base_iterator_type& operator++()
     {
         input++;
@@ -856,10 +698,7 @@ struct base_iterator_type
         (&input == &null_base_iterator_type && other.input == other.end) ||
         (&other.input == &null_base_iterator_type && input == end);
     }
-    bool operator!=(base_iterator_type const& other) const
-    {
-        return !operator==(other);
-    }
+    bool operator!=(base_iterator_type const& other) const { return !operator==(other); }
 
     const char*& input = null_base_iterator_type;
     const char*  end = 0;
@@ -887,66 +726,31 @@ public:
     using value_type = char;
 
     position_iterator() = default;
-    position_iterator(const char* base) : base(base)
-    {
-    }
+    position_iterator(const char* base) : base(base) {}
 
     position_iterator& operator++()
     {
         _increment();
         return *this;
     }
-    void operator++(int)
-    {
-        _increment();
-    }
+    void operator++(int) { _increment(); }
 
-    char const& operator*() const
-    {
-        return *base;
-    }
+    char const& operator*() const { return *base; }
 
-    char const* operator->() const
-    {
-        return base;
-    }
+    char const* operator->() const { return base; }
 
-    bool operator==(position_iterator const& other) const
-    {
-        return other.base == base;
-    }
-    bool operator!=(position_iterator const& other) const
-    {
-        return !operator==(other);
-    }
+    bool operator==(position_iterator const& other) const { return other.base == base; }
+    bool operator!=(position_iterator const& other) const { return !operator==(other); }
 
-    bool operator<(position_iterator const& other) const
-    {
-        return other.base < base;
-    }
-    bool operator>(position_iterator const& other) const
-    {
-        return other.base > base;
-    }
+    bool operator<(position_iterator const& other) const { return other.base < base; }
+    bool operator>(position_iterator const& other) const { return other.base > base; }
 
-    int get_line() const
-    {
-        return line;
-    }
-    int get_col() const
-    {
-        return col;
-    }
+    int get_line() const { return line; }
+    int get_col() const { return col; }
 
-    ptrdiff_t operator-(position_iterator other) const
-    {
-        return base - other.base;
-    }
+    ptrdiff_t operator-(position_iterator other) const { return base - other.base; }
 
-    operator const char*() const
-    {
-        return base;
-    }
+    operator const char*() const { return base; }
 
 private:
     void _increment()
@@ -1064,15 +868,9 @@ struct LexerPrivate
         lexer.currentToken->location.end.line = end.get_line();
     }
 
-    void error(Token::EError err)
-    {
-        currentToken->errors |= err;
-    }
+    void error(Token::EError err) { currentToken->errors |= err; }
 
-    void warning(Token::EWarning warn)
-    {
-        currentToken->warnings |= warn;
-    }
+    void warning(Token::EWarning warn) { currentToken->warnings |= warn; }
 
     static void parse_bool(LexerPrivate& lexer, position_iterator const& begin, position_iterator const& end)
     {
@@ -1285,9 +1083,7 @@ _defined_op(float);
 _defined_op(double);
 _defined_op(cstring);
 
-inline Lexer::Lexer() : Lexer(Allocator())
-{
-}
+inline Lexer::Lexer() : Lexer(Allocator()) {}
 inline Lexer::Lexer(Allocator allocator) : m_adder(*this)
 {
     _this = new (allocator.alloc(sizeof(LexerPrivate))) LexerPrivate(allocator);

@@ -60,6 +60,7 @@ class LoadExpression;
 class ReturnStatement;
 class CallExpression;
 class BuiltInConversionExpression;
+class CommaExpression;
 class ConstantExpression;
 class BinaryOperationExpression;
 class UnaryPreOperationExpression;
@@ -102,6 +103,10 @@ class TemplateDependantExpression;
 class TemplateDependantTemplateInstance;
 class TemplateDependantType;
 class TemplateDependantTypeOfExpression;
+class TemplateParameterPackExpansion;
+class TemplateParameterPackExpressionExpansion;
+class TemplateParameterPackTypeExpansion;
+class ParameterPackExpressionExpansion;
 } // namespace lang
 
 namespace lang

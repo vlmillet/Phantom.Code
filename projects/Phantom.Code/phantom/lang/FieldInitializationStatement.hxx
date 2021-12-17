@@ -34,13 +34,13 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::Statement>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
-            .constructor<void(Field*, Expression*, size_t)>()["0"]
+            .constructor<void(Field*, Expression*, size_t)>()({"a_pField","a_pValueExpression","a_uiArrayIndex"})["0"]
             .method<void()>("initialize", &_::initialize)
             .method<::phantom::lang::FieldInitializationStatement *() const, virtual_>("asFieldInitializationStatement", &_::asFieldInitializationStatement)
-            .method<void(ExecutionContext&) const, virtual_|override_>("eval", &_::eval)
+            .method<void(ExecutionContext&) const, virtual_|override_>("eval", &_::eval)({"a_Context"})
             .method<Field*() const>("getField", &_::getField)
             .method<Expression*() const>("getInitializationExpression", &_::getInitializationExpression)
             .method<size_t() const>("getArrayIndex", &_::getArrayIndex)

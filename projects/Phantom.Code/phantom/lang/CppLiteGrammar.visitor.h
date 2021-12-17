@@ -30,8 +30,8 @@ namespace phantom
             bool endDeclaration(ast::Declaration* input);
             bool visitMixinStatementDefinition(ast::MixinStatementDefinition* input);
             bool endMixinStatementDefinition(ast::MixinStatementDefinition* input);
-            bool visitForInit(ast::ForInit* input);
-            bool endForInit(ast::ForInit* input);
+            bool visitForeachSignature(ast::ForeachSignature* input);
+            bool endForeachSignature(ast::ForeachSignature* input);
             bool visitConversionFunction(ast::ConversionFunction* input);
             bool endConversionFunction(ast::ConversionFunction* input);
             bool visitConstructor(ast::Constructor* input);
@@ -40,6 +40,8 @@ namespace phantom
             bool endDestructor(ast::Destructor* input);
             bool visitConstructorInitializer(ast::ConstructorInitializer* input);
             bool endConstructorInitializer(ast::ConstructorInitializer* input);
+            bool visitArrowReturn(ast::ArrowReturn* input);
+            bool endArrowReturn(ast::ArrowReturn* input);
             bool visitFunctionEnd(ast::FunctionEnd* input);
             bool endFunctionEnd(ast::FunctionEnd* input);
             bool visitOperator(ast::Operator* input);
@@ -58,6 +60,8 @@ namespace phantom
             bool endDeclType(ast::DeclType* input);
             bool visitTemplateArgument(ast::TemplateArgument* input);
             bool endTemplateArgument(ast::TemplateArgument* input);
+            bool visitForInit(ast::ForInit* input);
+            bool endForInit(ast::ForInit* input);
             bool visitStatement(ast::Statement* input);
             bool endStatement(ast::Statement* input);
             bool visitMixinStatement(ast::MixinStatement* input);
@@ -68,8 +72,6 @@ namespace phantom
             bool endGotoStatement(ast::GotoStatement* input);
             bool visitDeclarator(ast::Declarator* input);
             bool endDeclarator(ast::Declarator* input);
-            bool visitAutoDeclarator(ast::AutoDeclarator* input);
-            bool endAutoDeclarator(ast::AutoDeclarator* input);
             bool visitTemplateArgumentListSplit(ast::TemplateArgumentListSplit* input);
             bool endTemplateArgumentListSplit(ast::TemplateArgumentListSplit* input);
             bool visitTemplateArgumentNoAssign(ast::TemplateArgumentNoAssign* input);
@@ -78,12 +80,14 @@ namespace phantom
             bool endTemplateArgumentAssign(ast::TemplateArgumentAssign* input);
             bool visitTemplateArgumentList(ast::TemplateArgumentList* input);
             bool endTemplateArgumentList(ast::TemplateArgumentList* input);
-            bool visitLocalVariableDecl(ast::LocalVariableDecl* input);
-            bool endLocalVariableDecl(ast::LocalVariableDecl* input);
             bool visitName(ast::Name* input);
             bool endName(ast::Name* input);
             bool visitFundamentalTypeBase(ast::FundamentalTypeBase* input);
             bool endFundamentalTypeBase(ast::FundamentalTypeBase* input);
+            bool visitAutoDeclarator(ast::AutoDeclarator* input);
+            bool endAutoDeclarator(ast::AutoDeclarator* input);
+            bool visitLocalVariableDecl(ast::LocalVariableDecl* input);
+            bool endLocalVariableDecl(ast::LocalVariableDecl* input);
             bool visitExpression(ast::Expression* input);
             bool endExpression(ast::Expression* input);
             bool visitLogicalOrExpressionRight(ast::LogicalOrExpressionRight* input);
@@ -122,6 +126,10 @@ namespace phantom
             bool endStaticAssert(ast::StaticAssert* input);
             bool visitStringLiteralChain(ast::StringLiteralChain* input);
             bool endStringLiteralChain(ast::StringLiteralChain* input);
+            bool visitLambdaCapture(ast::LambdaCapture* input);
+            bool endLambdaCapture(ast::LambdaCapture* input);
+            bool visitLambdaExpression(ast::LambdaExpression* input);
+            bool endLambdaExpression(ast::LambdaExpression* input);
             bool visitTypeExtent(ast::TypeExtent* input);
             bool endTypeExtent(ast::TypeExtent* input);
             bool visitEnum(ast::Enum* input);
@@ -146,6 +154,8 @@ namespace phantom
             bool endTemplateSignature(ast::TemplateSignature* input);
             bool visitTemplate(ast::Template* input);
             bool endTemplate(ast::Template* input);
+            bool visitTemplateFunction(ast::TemplateFunction* input);
+            bool endTemplateFunction(ast::TemplateFunction* input);
             bool visitFunctionBlock(ast::FunctionBlock* input);
             bool endFunctionBlock(ast::FunctionBlock* input);
             bool visitQualifiedName(ast::QualifiedName* input);
@@ -176,24 +186,20 @@ namespace phantom
             bool endIfOrWhileLocalVariableDecl(ast::IfOrWhileLocalVariableDecl* input);
             bool visitIfOrWhileCondition(ast::IfOrWhileCondition* input);
             bool endIfOrWhileCondition(ast::IfOrWhileCondition* input);
-            bool visitForeachSignature(ast::ForeachSignature* input);
-            bool endForeachSignature(ast::ForeachSignature* input);
             bool visitBlockDeclaration(ast::BlockDeclaration* input);
             bool endBlockDeclaration(ast::BlockDeclaration* input);
-            bool visitSizeofExpression(ast::SizeofExpression* input);
-            bool endSizeofExpression(ast::SizeofExpression* input);
-            bool visitTypeofExpression(ast::TypeofExpression* input);
-            bool endTypeofExpression(ast::TypeofExpression* input);
+            bool visitFundamentalTypeFunctionCast(ast::FundamentalTypeFunctionCast* input);
+            bool endFundamentalTypeFunctionCast(ast::FundamentalTypeFunctionCast* input);
+            bool visitExpressionStatement(ast::ExpressionStatement* input);
+            bool endExpressionStatement(ast::ExpressionStatement* input);
             bool visitLastTemplateArgument(ast::LastTemplateArgument* input);
             bool endLastTemplateArgument(ast::LastTemplateArgument* input);
-            bool visitLocalVariableStatement(ast::LocalVariableStatement* input);
-            bool endLocalVariableStatement(ast::LocalVariableStatement* input);
+            bool visitSwitchStatement(ast::SwitchStatement* input);
+            bool endSwitchStatement(ast::SwitchStatement* input);
             bool visitPrimaryExpression(ast::PrimaryExpression* input);
             bool endPrimaryExpression(ast::PrimaryExpression* input);
             bool visitNotLastTemplateArgument(ast::NotLastTemplateArgument* input);
             bool endNotLastTemplateArgument(ast::NotLastTemplateArgument* input);
-            bool visitFunctionPointerType(ast::FunctionPointerType* input);
-            bool endFunctionPointerType(ast::FunctionPointerType* input);
             bool visitUnsignedType(ast::UnsignedType* input);
             bool endUnsignedType(ast::UnsignedType* input);
             bool visitSignedType(ast::SignedType* input);
@@ -208,6 +214,10 @@ namespace phantom
             bool endQualifiedType(ast::QualifiedType* input);
             bool visitExplicitType(ast::ExplicitType* input);
             bool endExplicitType(ast::ExplicitType* input);
+            bool visitTypeNoFunctionType(ast::TypeNoFunctionType* input);
+            bool endTypeNoFunctionType(ast::TypeNoFunctionType* input);
+            bool visitExplicitTypeNoFunctionType(ast::ExplicitTypeNoFunctionType* input);
+            bool endExplicitTypeNoFunctionType(ast::ExplicitTypeNoFunctionType* input);
             bool visitExpressionType(ast::ExpressionType* input);
             bool endExpressionType(ast::ExpressionType* input);
             bool visitExplicitTypeOrAuto(ast::ExplicitTypeOrAuto* input);
@@ -226,12 +236,12 @@ namespace phantom
             bool endIntegralConstant(ast::IntegralConstant* input);
             bool visitArrayExtent(ast::ArrayExtent* input);
             bool endArrayExtent(ast::ArrayExtent* input);
+            bool visitFunctionTypeExtent(ast::FunctionTypeExtent* input);
+            bool endFunctionTypeExtent(ast::FunctionTypeExtent* input);
             bool visitDerivedExtent(ast::DerivedExtent* input);
             bool endDerivedExtent(ast::DerivedExtent* input);
-            bool visitExpressionStatement(ast::ExpressionStatement* input);
-            bool endExpressionStatement(ast::ExpressionStatement* input);
-            bool visitSwitchStatement(ast::SwitchStatement* input);
-            bool endSwitchStatement(ast::SwitchStatement* input);
+            bool visitTypeExtentNoFunction(ast::TypeExtentNoFunction* input);
+            bool endTypeExtentNoFunction(ast::TypeExtentNoFunction* input);
             bool visitAssignExpression(ast::AssignExpression* input);
             bool endAssignExpression(ast::AssignExpression* input);
             bool visitConditionalExpression(ast::ConditionalExpression* input);
@@ -312,6 +322,12 @@ namespace phantom
             bool endBreakStatement(ast::BreakStatement* input);
             bool visitContinueStatement(ast::ContinueStatement* input);
             bool endContinueStatement(ast::ContinueStatement* input);
+            bool visitSizeofExpression(ast::SizeofExpression* input);
+            bool endSizeofExpression(ast::SizeofExpression* input);
+            bool visitTypeofExpression(ast::TypeofExpression* input);
+            bool endTypeofExpression(ast::TypeofExpression* input);
+            bool visitLocalVariableStatement(ast::LocalVariableStatement* input);
+            bool endLocalVariableStatement(ast::LocalVariableStatement* input);
             bool visitLastTemplateArgumentAssign(ast::LastTemplateArgumentAssign* input);
             bool endLastTemplateArgumentAssign(ast::LastTemplateArgumentAssign* input);
             bool visitLastTemplateArgumentNoAssign(ast::LastTemplateArgumentNoAssign* input);
@@ -425,11 +441,11 @@ namespace phantom
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::visitForInit(ast::ForInit* input)
+        bool CppLiteGrammarVisitor::visitForeachSignature(ast::ForeachSignature* input)
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::endForInit(ast::ForInit* input)
+        bool CppLiteGrammarVisitor::endForeachSignature(ast::ForeachSignature* input)
         {
             return true;
         }
@@ -462,6 +478,14 @@ namespace phantom
             return true;
         }
         bool CppLiteGrammarVisitor::endConstructorInitializer(ast::ConstructorInitializer* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::visitArrowReturn(ast::ArrowReturn* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endArrowReturn(ast::ArrowReturn* input)
         {
             return true;
         }
@@ -537,6 +561,14 @@ namespace phantom
         {
             return true;
         }
+        bool CppLiteGrammarVisitor::visitForInit(ast::ForInit* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endForInit(ast::ForInit* input)
+        {
+            return true;
+        }
         bool CppLiteGrammarVisitor::visitStatement(ast::Statement* input)
         {
             return true;
@@ -577,14 +609,6 @@ namespace phantom
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::visitAutoDeclarator(ast::AutoDeclarator* input)
-        {
-            return true;
-        }
-        bool CppLiteGrammarVisitor::endAutoDeclarator(ast::AutoDeclarator* input)
-        {
-            return true;
-        }
         bool CppLiteGrammarVisitor::visitTemplateArgumentListSplit(ast::TemplateArgumentListSplit* input)
         {
             return true;
@@ -617,14 +641,6 @@ namespace phantom
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::visitLocalVariableDecl(ast::LocalVariableDecl* input)
-        {
-            return true;
-        }
-        bool CppLiteGrammarVisitor::endLocalVariableDecl(ast::LocalVariableDecl* input)
-        {
-            return true;
-        }
         bool CppLiteGrammarVisitor::visitName(ast::Name* input)
         {
             return true;
@@ -638,6 +654,22 @@ namespace phantom
             return true;
         }
         bool CppLiteGrammarVisitor::endFundamentalTypeBase(ast::FundamentalTypeBase* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::visitAutoDeclarator(ast::AutoDeclarator* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endAutoDeclarator(ast::AutoDeclarator* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::visitLocalVariableDecl(ast::LocalVariableDecl* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endLocalVariableDecl(ast::LocalVariableDecl* input)
         {
             return true;
         }
@@ -793,6 +825,22 @@ namespace phantom
         {
             return true;
         }
+        bool CppLiteGrammarVisitor::visitLambdaCapture(ast::LambdaCapture* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endLambdaCapture(ast::LambdaCapture* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::visitLambdaExpression(ast::LambdaExpression* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endLambdaExpression(ast::LambdaExpression* input)
+        {
+            return true;
+        }
         bool CppLiteGrammarVisitor::visitTypeExtent(ast::TypeExtent* input)
         {
             return true;
@@ -886,6 +934,14 @@ namespace phantom
             return true;
         }
         bool CppLiteGrammarVisitor::endTemplate(ast::Template* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::visitTemplateFunction(ast::TemplateFunction* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endTemplateFunction(ast::TemplateFunction* input)
         {
             return true;
         }
@@ -1009,14 +1065,6 @@ namespace phantom
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::visitForeachSignature(ast::ForeachSignature* input)
-        {
-            return true;
-        }
-        bool CppLiteGrammarVisitor::endForeachSignature(ast::ForeachSignature* input)
-        {
-            return true;
-        }
         bool CppLiteGrammarVisitor::visitBlockDeclaration(ast::BlockDeclaration* input)
         {
             return true;
@@ -1025,19 +1073,19 @@ namespace phantom
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::visitSizeofExpression(ast::SizeofExpression* input)
+        bool CppLiteGrammarVisitor::visitFundamentalTypeFunctionCast(ast::FundamentalTypeFunctionCast* input)
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::endSizeofExpression(ast::SizeofExpression* input)
+        bool CppLiteGrammarVisitor::endFundamentalTypeFunctionCast(ast::FundamentalTypeFunctionCast* input)
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::visitTypeofExpression(ast::TypeofExpression* input)
+        bool CppLiteGrammarVisitor::visitExpressionStatement(ast::ExpressionStatement* input)
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::endTypeofExpression(ast::TypeofExpression* input)
+        bool CppLiteGrammarVisitor::endExpressionStatement(ast::ExpressionStatement* input)
         {
             return true;
         }
@@ -1049,11 +1097,11 @@ namespace phantom
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::visitLocalVariableStatement(ast::LocalVariableStatement* input)
+        bool CppLiteGrammarVisitor::visitSwitchStatement(ast::SwitchStatement* input)
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::endLocalVariableStatement(ast::LocalVariableStatement* input)
+        bool CppLiteGrammarVisitor::endSwitchStatement(ast::SwitchStatement* input)
         {
             return true;
         }
@@ -1070,14 +1118,6 @@ namespace phantom
             return true;
         }
         bool CppLiteGrammarVisitor::endNotLastTemplateArgument(ast::NotLastTemplateArgument* input)
-        {
-            return true;
-        }
-        bool CppLiteGrammarVisitor::visitFunctionPointerType(ast::FunctionPointerType* input)
-        {
-            return true;
-        }
-        bool CppLiteGrammarVisitor::endFunctionPointerType(ast::FunctionPointerType* input)
         {
             return true;
         }
@@ -1134,6 +1174,22 @@ namespace phantom
             return true;
         }
         bool CppLiteGrammarVisitor::endExplicitType(ast::ExplicitType* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::visitTypeNoFunctionType(ast::TypeNoFunctionType* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endTypeNoFunctionType(ast::TypeNoFunctionType* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::visitExplicitTypeNoFunctionType(ast::ExplicitTypeNoFunctionType* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endExplicitTypeNoFunctionType(ast::ExplicitTypeNoFunctionType* input)
         {
             return true;
         }
@@ -1209,6 +1265,14 @@ namespace phantom
         {
             return true;
         }
+        bool CppLiteGrammarVisitor::visitFunctionTypeExtent(ast::FunctionTypeExtent* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endFunctionTypeExtent(ast::FunctionTypeExtent* input)
+        {
+            return true;
+        }
         bool CppLiteGrammarVisitor::visitDerivedExtent(ast::DerivedExtent* input)
         {
             return true;
@@ -1217,19 +1281,11 @@ namespace phantom
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::visitExpressionStatement(ast::ExpressionStatement* input)
+        bool CppLiteGrammarVisitor::visitTypeExtentNoFunction(ast::TypeExtentNoFunction* input)
         {
             return true;
         }
-        bool CppLiteGrammarVisitor::endExpressionStatement(ast::ExpressionStatement* input)
-        {
-            return true;
-        }
-        bool CppLiteGrammarVisitor::visitSwitchStatement(ast::SwitchStatement* input)
-        {
-            return true;
-        }
-        bool CppLiteGrammarVisitor::endSwitchStatement(ast::SwitchStatement* input)
+        bool CppLiteGrammarVisitor::endTypeExtentNoFunction(ast::TypeExtentNoFunction* input)
         {
             return true;
         }
@@ -1550,6 +1606,30 @@ namespace phantom
             return true;
         }
         bool CppLiteGrammarVisitor::endContinueStatement(ast::ContinueStatement* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::visitSizeofExpression(ast::SizeofExpression* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endSizeofExpression(ast::SizeofExpression* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::visitTypeofExpression(ast::TypeofExpression* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endTypeofExpression(ast::TypeofExpression* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::visitLocalVariableStatement(ast::LocalVariableStatement* input)
+        {
+            return true;
+        }
+        bool CppLiteGrammarVisitor::endLocalVariableStatement(ast::LocalVariableStatement* input)
         {
             return true;
         }

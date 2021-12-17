@@ -34,19 +34,19 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::Expression>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
-            .staticMethod<::phantom::lang::Expression *(Semantic*, LanguageElement*, Symbol*, Class*)>("Create", &_::Create)
+            .staticMethod<::phantom::lang::Expression *(Semantic*, LanguageElement*, Symbol*, Class*)>("Create", &_::Create)({"a_pSemantic","a_pOwner","a_pSymbol","a_pCastSymbolClass"})
         
         .public_()
-            .constructor<void(Symbol*)>()
+            .constructor<void(Symbol*)>()({"a_pSymbol"})
             .method<void()>("initialize", &_::initialize)
             .method<Symbol*() const>("getSymbol", &_::getSymbol)
-            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)
+            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)({"a_Context"})
         
         .protected_()
-            .method<::phantom::lang::SymbolReferenceExpression *(LanguageElement*) const, virtual_>("cloneImpl", &_::cloneImpl)
+            .method<::phantom::lang::SymbolReferenceExpression *(LanguageElement*) const, virtual_>("cloneImpl", &_::cloneImpl)({"a_pOwner"})
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE

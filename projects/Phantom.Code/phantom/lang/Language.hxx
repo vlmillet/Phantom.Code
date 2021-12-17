@@ -45,35 +45,35 @@ PHANTOM_PACKAGE("phantom.lang")
             .inherits<::phantom::Object>()
         
         .public_()
-            .constructor<void(StringView, StringView, uint)>()
+            .constructor<void(StringView, StringView, uint)>()({"a_strName","a_strExt","a_uiParserPassCount"})
             .staticMethod<::phantom::lang::Language *()>("GetDefault", &_::GetDefault)
-            .staticMethod<void(Language*)>("SetDefault", &_::SetDefault)
-            .staticMethod<::phantom::lang::Language *(StringView)>("GetLanguage", &_::GetLanguage)
+            .staticMethod<void(Language*)>("SetDefault", &_::SetDefault)({"a_pLanguage"})
+            .staticMethod<::phantom::lang::Language *(StringView)>("GetLanguage", &_::GetLanguage)({"a_Name"})
             .staticMethod<const Languages&()>("GetLanguages", &_::GetLanguages)
-            .staticMethod<::phantom::lang::Language *(StringView)>("GetFromFileExtension", &_::GetFromFileExtension)
+            .staticMethod<::phantom::lang::Language *(StringView)>("GetFromFileExtension", &_::GetFromFileExtension)({"a_Extension"})
             .method<StringView() const>("getName", &_::getName)
-            .method<bool(StringView) const, pure_virtual>("checkSymbolSyntax", &_::checkSymbolSyntax)
-            .method<::phantom::lang::Symbol *(StringView, LanguageElement*, Modifiers, uint), pure_virtual>("findSymbol", &_::findSymbol)["nullptr"]["0"]["0"]
-            .method<void(StringView, Symbols&, LanguageElement*), pure_virtual>("findSymbols", &_::findSymbols)["nullptr"]
-            .method<::phantom::lang::Symbol *(StringView, LanguageElement*, Modifiers, uint), virtual_>("parseSymbol", &_::parseSymbol)["nullptr"]["0"]["0"]
-            .method<::phantom::lang::Type *(StringView, LanguageElement*, Modifiers, uint), virtual_>("findType", &_::findType)["nullptr"]["0"]["0"]
-            .method<::phantom::lang::Class *(StringView, LanguageElement*, Modifiers, uint), virtual_>("findClass", &_::findClass)["nullptr"]["0"]["0"]
-            .method<::phantom::lang::Function *(StringView, LanguageElement*, Modifiers, uint), virtual_>("findFunction", &_::findFunction)["nullptr"]["0"]["0"]
-            .method<::phantom::lang::Expression *(StringView, LanguageElement*), virtual_>("parseExpression", &_::parseExpression)["nullptr"]
-            .method<::phantom::lang::Expression *(StringView, LanguageElement*), pure_virtual>("expression", &_::expression)["nullptr"]
-            .method<void(Expression*), virtual_>("release", &_::release)
+            .method<bool(StringView) const, pure_virtual>("checkSymbolSyntax", &_::checkSymbolSyntax)({"a_strSymbol"})
+            .method<::phantom::lang::Symbol *(StringView, LanguageElement*, Modifiers, uint), pure_virtual>("findSymbol", &_::findSymbol)({"a_strSymbol","a_pContextScope","a_Modifiers","a_uiFlags"})["nullptr"]["0"]["0"]
+            .method<void(StringView, Symbols&, LanguageElement*), pure_virtual>("findSymbols", &_::findSymbols)({"a_strSymbolsName","a_Symbols","a_pContextScope"})["nullptr"]
+            .method<::phantom::lang::Symbol *(StringView, LanguageElement*, Modifiers, uint), virtual_>("parseSymbol", &_::parseSymbol)({"a_strSymbol","a_pContextScope","a_Modifiers","a_uiFlags"})["nullptr"]["0"]["0"]
+            .method<::phantom::lang::Type *(StringView, LanguageElement*, Modifiers, uint), virtual_>("findType", &_::findType)({"a_strType","a_pContextScope","a_Modifiers","a_uiFlags"})["nullptr"]["0"]["0"]
+            .method<::phantom::lang::Class *(StringView, LanguageElement*, Modifiers, uint), virtual_>("findClass", &_::findClass)({"a_strClass","a_pContextScope","a_Modifiers","a_uiFlags"})["nullptr"]["0"]["0"]
+            .method<::phantom::lang::Function *(StringView, LanguageElement*, Modifiers, uint), virtual_>("findFunction", &_::findFunction)({"a_strFunction","a_pContextScope","a_Modifiers","a_uiFlags"})["nullptr"]["0"]["0"]
+            .method<::phantom::lang::Expression *(StringView, LanguageElement*), virtual_>("parseExpression", &_::parseExpression)({"a_strExpression","a_pContextScope"})["nullptr"]
+            .method<::phantom::lang::Expression *(StringView, LanguageElement*), pure_virtual>("expression", &_::expression)({"a_strExpression","a_pContextScope"})["nullptr"]
+            .method<void(Expression*), virtual_>("release", &_::release)({"a_pExpression"})
             .method<StringView() const>("getSourceFileExtension", &_::getSourceFileExtension)
             .method<uint() const>("getParserPassCount", &_::getParserPassCount)
-            .method<uint(uint) const, virtual_>("getParserPassPriority", &_::getParserPassPriority)
-            .method<bool(StringView, Variant const&)>("setOption", &_::setOption)
-            .method<Variant const&(StringView) const>("getOption", &_::getOption)
-            .method<::phantom::lang::Parser *(Source*, Message*) const, pure_virtual>("createParser", &_::createParser)
-            .method<void(Parser*) const, pure_virtual>("destroyParser", &_::destroyParser)
-            .method<::phantom::lang::Semantic *(Source*, Message*) const, pure_virtual>("createSemantic", &_::createSemantic)
-            .method<void(Semantic*) const, pure_virtual>("destroySemantic", &_::destroySemantic)
+            .method<uint(uint) const, virtual_>("getParserPassPriority", &_::getParserPassPriority)({"a_uiPass"})
+            .method<bool(StringView, Variant const&)>("setOption", &_::setOption)({"a_OptionName","a_Value"})
+            .method<Variant const&(StringView) const>("getOption", &_::getOption)({"a_OptionName"})
+            .method<::phantom::lang::Parser *(Source*, Message*) const, pure_virtual>("createParser", &_::createParser)({"a_pSource","a_pMessage"})
+            .method<void(Parser*) const, pure_virtual>("destroyParser", &_::destroyParser)({"a_pParser"})
+            .method<::phantom::lang::Semantic *(Source*, Message*) const, pure_virtual>("createSemantic", &_::createSemantic)({"a_pSource","a_pMessage"})
+            .method<void(Semantic*) const, pure_virtual>("destroySemantic", &_::destroySemantic)({"a_pSemantic"})
         
         .protected_()
-            .method<void(StringView, Variant const&)>("addOption", &_::addOption)
+            .method<void(StringView, Variant const&)>("addOption", &_::addOption)({"a_OptionName","a_DefaultValue"})
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE

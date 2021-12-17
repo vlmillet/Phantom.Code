@@ -50,6 +50,19 @@ Conversion* ConversionResults::takeBest(size_t* a_pIndex)
     return nullptr;
 }
 
+phantom::lang::Conversion* ConversionResults::takeAt(size_t a_uiIndex)
+{
+    if (content.size() == 1)
+    {
+        Conversion* conv = content.back();
+        content.clear();
+        return conv;
+    }
+    auto conv = content[a_uiIndex];
+    content.erase(content.begin() + a_uiIndex);
+    return conv;
+}
+
 TemplateDependantConversion::TemplateDependantConversion(LanguageElement* a_pOwner, ConversionVal i, ConversionVal o)
     : Conversion(a_pOwner, i, o)
 {

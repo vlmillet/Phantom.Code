@@ -19,17 +19,30 @@ bool BuildSession::isSuccessful() const
     return true;
 }
 
-bool BuildSession::addProject(StringView _name)
+bool BuildSession::addProject(StringView _projectName)
 {
     for (auto sp : searchPaths)
     {
-        auto p = Path(sp).childPath(_name);
+        auto p = Path(sp).childPath(_projectName);
         if (p.exists() && p.isDirectory())
         {
             return addProjectPath(p.genericString());
         }
     }
     return false;
+}
+
+String BuildSession::findProjectPath(StringView _projectName) const
+{
+    for (auto sp : searchPaths)
+    {
+        auto p = Path(sp).childPath(_projectName);
+        if (p.exists() && p.isDirectory())
+        {
+            return p.genericString();
+        }
+    }
+    return {};
 }
 
 bool BuildSession::addProjectPath(StringView a_Path)

@@ -42,11 +42,11 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::LanguageElement>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
-            .constructor<void(uint)>()["0"]
-            .constructor<void(Type*, uint)>()["0"]
+            .constructor<void(uint)>()({"a_uiFlags"})["0"]
+            .constructor<void(Type*, uint)>()({"a_pEvalType","a_uiFlags"})["0"]
             .method<void()>("initialize", &_::initialize)
             .method<::phantom::lang::Evaluable *() const, virtual_>("asEvaluable", &_::asEvaluable)
             .method<CompiledSource*() const>("getCompiledSource", &_::getCompiledSource)
@@ -55,27 +55,27 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void()>("setImplicit", &_::setImplicit)
             .method<bool() const>("isImplicit", &_::isImplicit)
             .method<void() const>("eval", &_::eval)
-            .method<void(void*) const>("eval", &_::eval)
-            .method<void(ExecutionContext&) const, pure_virtual>("eval", &_::eval)
-            .method<::phantom::lang::Evaluable *(Expression*) const, virtual_>("evaluateExpressionLifeTime", &_::evaluateExpressionLifeTime)
-            .method<void(Expression*)>("addScopedDestruction", &_::addScopedDestruction)
+            .method<void(void*) const>("eval", &_::eval)({"a_pResultAddress"})
+            .method<void(ExecutionContext&) const, pure_virtual>("eval", &_::eval)({"a_Context"})
+            .method<::phantom::lang::Evaluable *(Expression*) const, virtual_>("evaluateExpressionLifeTime", &_::evaluateExpressionLifeTime)({"a_pExpression"})
+            .method<void(Expression*)>("addScopedDestruction", &_::addScopedDestruction)({"a_pExpression"})
             .method<Expressions const&() const>("getScopedDestructions", &_::getScopedDestructions)
             .method<Type*() const>("getEvalType", &_::getEvalType)
             .method<bool() const, virtual_>("hasStorage", &_::hasStorage)
             .method<bool() const>("hasStorageCascade", &_::hasStorageCascade)
             .method<ExpressionsView() const>("getSubExpressions", &_::getSubExpressions)
             /// missing symbol(s) reflection (std::ostream) -> use the 'haunt.bind' to bind symbols with your custom haunt files
-            // .method<void(::std::ostream &, int) const, virtual_>("dump", &_::dump)["0"]
+            // .method<void(::std::ostream &, int) const, virtual_>("dump", &_::dump)({"_out","a_Lvl"})["0"]
         
         .protected_()
-            .method<void(ExecutionContext&) const, virtual_>("flush", &_::flush)
-            .method<void(ExecutionContext&, Type*, void*) const>("pushTempDestruction", &_::pushTempDestruction)
-            .method<void(ExecutionContext&, ExpressionsView, VoidPtrs&) const>("evaluateArguments", &_::evaluateArguments)
-            .method<void(Expression*&)>("addSubExpression", &_::addSubExpression)
-            .method<void(Expression*)>("removeSubExpression", &_::removeSubExpression)
+            .method<void(ExecutionContext&) const, virtual_>("flush", &_::flush)({""})
+            .method<void(ExecutionContext&, Type*, void*) const>("pushTempDestruction", &_::pushTempDestruction)({"a_Context","a_pType","a_pBuffer"})
+            .method<void(ExecutionContext&, ExpressionsView, VoidPtrs&) const>("evaluateArguments", &_::evaluateArguments)({"a_Context","a_Arguments","a_Addresses"})
+            .method<void(Expression*&)>("addSubExpression", &_::addSubExpression)({"a_prExpression"})
+            .method<void(Expression*)>("removeSubExpression", &_::removeSubExpression)({"a_pExp"})
         
         .protected_()
-            .method<void(ExecutionContext&) const>("evalScopedDestructions", &_::evalScopedDestructions)
+            .method<void(ExecutionContext&) const>("evalScopedDestructions", &_::evalScopedDestructions)({"a_Context"})
             .method<::phantom::lang::Evaluable *() const, virtual_>("evaluateLifeTime", &_::evaluateLifeTime)
             ;
         }

@@ -34,13 +34,13 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::CallExpression>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
-            .constructor<void(Subroutine*, ExpressionsView)>()
-            .constructor<void(Subroutine*, Expression*)>()
-            .constructor<void(Subroutine*)>()
-            .method<void(ExecutionContext&) const, virtual_|override_>("eval", &_::eval)
+            .constructor<void(Subroutine*, ExpressionsView)>()({"a_pSubroutine","a_Arguments"})
+            .constructor<void(Subroutine*, Expression*)>()({"a_pSubroutine","a_pArgument"})
+            .constructor<void(Subroutine*)>()({"a_pSubroutine"})
+            .method<void(ExecutionContext&) const, virtual_|override_>("eval", &_::eval)({"a_Context"})
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE

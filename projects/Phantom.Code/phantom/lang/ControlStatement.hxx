@@ -34,14 +34,14 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::Statement>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
             .method<Expressions const&() const>("getRAIIDestructions", &_::getRAIIDestructions)
             .method<::phantom::lang::Statement *() const, pure_virtual>("getTargetStatement", &_::getTargetStatement)
         
         .protected_()
-            .method<void(ExecutionContext&) const, virtual_|override_>("eval", &_::eval)
+            .method<void(ExecutionContext&) const, virtual_|override_>("eval", &_::eval)({"a_Context"})
             .method<void()>("finish", &_::finish)
             .method<void()>("stripRAIIDestructions", &_::stripRAIIDestructions)
         

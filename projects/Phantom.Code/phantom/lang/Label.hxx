@@ -46,7 +46,7 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::Statement>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
             .enum_<ETag>().values({
@@ -58,20 +58,20 @@ PHANTOM_PACKAGE("phantom.lang")
                 {"e_Tag_Case",_::e_Tag_Case},
                 {"e_Tag_Default",_::e_Tag_Default}})
             .end()
-            .constructor<void(int)>()["e_Tag_None"]
-            .constructor<void(StringView, int)>()["e_Tag_None"]
+            .constructor<void(int)>()({"a_iTag"})["e_Tag_None"]
+            .constructor<void(StringView, int)>()({"a_strLabelName","a_iTag"})["e_Tag_None"]
             .method<Label*() const, virtual_|override_>("asLabel", &_::asLabel)
-            .method<void(ExecutionContext&) const, virtual_|override_>("eval", &_::eval)
-            .method<void(ExecutionContext&) const, virtual_|override_>("flush", &_::flush)
+            .method<void(ExecutionContext&) const, virtual_|override_>("eval", &_::eval)({""})
+            .method<void(ExecutionContext&) const, virtual_|override_>("flush", &_::flush)({""})
             .method<StringView() const>("getLabelName", &_::getLabelName)
-            .method<void(StringView)>("setLabelName", &_::setLabelName)
+            .method<void(StringView)>("setLabelName", &_::setLabelName)({"a_strName"})
             .method<int() const>("getTag", &_::getTag)
-            .method<void(int)>("setTag", &_::setTag)
+            .method<void(int)>("setTag", &_::setTag)({"a_iTag"})
             .method<size_t() const>("getIndex", &_::getIndex)
         
         .protected_()
-            .method<void(Block*), virtual_|override_>("onAttachedToBlock", &_::onAttachedToBlock)
-            .method<void(BranchStatement*)>("_registerBranchStatement", &_::_registerBranchStatement)
+            .method<void(Block*), virtual_|override_>("onAttachedToBlock", &_::onAttachedToBlock)({"a_pBlock"})
+            .method<void(BranchStatement*)>("_registerBranchStatement", &_::_registerBranchStatement)({"a_pBr"})
         
         .protected_()
             .field("m_LabelName", &_::m_LabelName)

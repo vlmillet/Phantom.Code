@@ -34,15 +34,15 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::Expression>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
-            .constructor<void(Class*, Expression*)>()
-            .constructor<void(Expression*, bool)>()["false"]
+            .constructor<void(Class*, Expression*)>()({"a_pClass","a_pExpression"})
+            .constructor<void(Expression*, bool)>()({"a_pExpression","a_bPhantom"})["false"]
             .method<void()>("initialize", &_::initialize)
             .method<::phantom::lang::DeleteExpression *() const, virtual_>("asDeleteExpression", &_::asDeleteExpression)
-            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)
-            .method<::phantom::lang::DeleteExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)
+            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)({"a_Context"})
+            .method<::phantom::lang::DeleteExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)({"a_pOwner"})
             .method<Class*() const>("getClass", &_::getClass)
             .method<Expression*() const>("getExpression", &_::getExpression)
         

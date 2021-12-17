@@ -34,16 +34,16 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::Expression>()
         .public_()
-            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
-            .constructor<void(Type*, uint)>()["0"]
-            .constructor<void(Type*, Type*, uint)>()["0"]
-            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)
+            .constructor<void(Type*, uint)>()({"a_pRValueType","a_uiFlags"})["0"]
+            .constructor<void(Type*, Type*, uint)>()({"a_pLValueType","a_pRValueType","a_uiFlags"})["0"]
+            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)({"a_Context"})
             .method<Type*() const>("getRValueType", &_::getRValueType)
         
         .protected_()
-            .method<void*(ExecutionContext&) const, pure_virtual>("internalEvalAddress", &_::internalEvalAddress)
+            .method<void*(ExecutionContext&) const, pure_virtual>("internalEvalAddress", &_::internalEvalAddress)({"a_Context"})
         
         .protected_()
             .field("m_pRValueType", &_::m_pRValueType)

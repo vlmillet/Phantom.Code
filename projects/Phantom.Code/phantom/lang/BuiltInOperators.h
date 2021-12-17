@@ -61,12 +61,17 @@ struct builtin_operation_delegate_PreDecrement
 template<typename T1, typename R>
 struct builtin_operation_delegate_PreDecrement<bool, T1, R>
 {
-    static void apply(void** a_pArgs, void* a_pOutput) { PHANTOM_ASSERT_NO_IMPL(); }
+    static void apply(void**, void*) { PHANTOM_ASSERT_NO_IMPL(); }
 };
 template<typename T0, typename T1 = void, typename R = T0>
 struct builtin_operation_delegate_PreIncrement
 {
     static void apply(void** a_pArgs, void* a_pOutput) { resultRref = resultRrefCast(&++operandT0); }
+};
+template<typename T1, typename R>
+struct builtin_operation_delegate_PreIncrement<bool, T1, R>
+{
+    static void apply(void**, void*) { PHANTOM_ASSERT_NO_IMPL(); }
 };
 template<typename T0, typename T1 = void, typename R = T0>
 struct builtin_operation_delegate_Not
@@ -87,12 +92,17 @@ struct builtin_operation_delegate_PostDecrement
 template<typename T1, typename R>
 struct builtin_operation_delegate_PostDecrement<bool, T1, R>
 {
-    static void apply(void** a_pArgs, void* a_pOutput) { PHANTOM_ASSERT_NO_IMPL(); }
+    static void apply(void**, void*) { PHANTOM_ASSERT_NO_IMPL(); }
 };
 template<typename T0, typename T1 = void, typename R = T0>
 struct builtin_operation_delegate_PostIncrement
 {
     static void apply(void** a_pArgs, void* a_pOutput) { resultR = operandT0++; }
+};
+template<typename T1, typename R>
+struct builtin_operation_delegate_PostIncrement<bool, T1, R>
+{
+    static void apply(void**, void*) { PHANTOM_ASSERT_NO_IMPL(); }
 };
 
 template<typename T0, typename T1>
@@ -435,8 +445,8 @@ struct builtin_operation_delegate_selector : public LanguageElementVisitor
             builtin_operation_delegate_selector_op_arithmetic(GreaterEqual);
             builtin_operation_delegate_selector_op_arithmetic(Equal);
             builtin_operation_delegate_selector_op_arithmetic(NotEqual);
-            builtin_operation_delegate_selector_op_unary(PreIncrement);
-            builtin_operation_delegate_selector_op_unary(PostIncrement);
+            builtin_operation_delegate_selector_op_unary_no_bool(PreIncrement);
+            builtin_operation_delegate_selector_op_unary_no_bool(PostIncrement);
             builtin_operation_delegate_selector_op_unary_no_bool(PreDecrement);
             builtin_operation_delegate_selector_op_unary_no_bool(PostDecrement);
             builtin_operation_delegate_selector_op_arithmetic(Assignment);

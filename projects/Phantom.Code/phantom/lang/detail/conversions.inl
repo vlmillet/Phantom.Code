@@ -751,166 +751,38 @@ Expression* DefaultConversionSequence::convert(Semantic* a_pSemantic, Expression
 {
     if (a_pExpression->getMetaClass() == PHANTOM_CLASSOF(InitializerListExpression) )
     {
-        if(input->asInitializerListType())
+		auto outputNoRefQual = output->removeReference()->removeQualifiers();
+		auto pOutputTpl = outputNoRefQual->getTemplate();
+		bool outputIsStdInitList = pOutputTpl && pOutputTpl->getQualifiedName() == "std::initializer_list";
+		if (input->asInitializerListType())
 		{
 			InitializerListExpression* pInitListExpression = static_cast<InitializerListExpression*>(a_pExpression);
-			Type* pOutputNoConstRef = output.type->removeConstLValueReference();
-			if (pOutputNoConstRef->getTemplate() && pOutputNoConstRef->getTemplate()
-				->getQualifiedName() == "std::initializer_list")
+			if (outputIsStdInitList)
 			{
+                auto pSource = a_pSemantic->getSource();
+
 				Expressions newArgs;
-				Type* pInitType = static_cast<Type*>(pOutputNoConstRef->getTemplateSpecialization()->getArgument(0));
+				Type* pInitType = static_cast<Type*>(outputNoRefQual->getTemplateSpecialization()->getArgument(0));
 				for (auto pExp : pInitListExpression->getExpressions())
 				{
-					newArgs.push_back(a_pSemantic->convert(pExp, pInitType));
+					newArgs.push_back(a_pSemantic->convert(pExp, pInitType, pSource ? static_cast<LanguageElement*>(pSource) : Namespace::Global()));
 					PHANTOM_ASSERT(newArgs.back());
 				}
 				Expression* pNewExp =
-					a_pSemantic->New<InitializerListExpression>(static_cast<Class*>(pOutputNoConstRef), newArgs);
-				if (pOutputNoConstRef != output.type)
+					a_pSemantic->New<InitializerListExpression>(static_cast<Class*>(outputNoRefQual), newArgs);
+				if (outputNoRefQual != output.type)
 				{
 					// const ref
-					return a_pSemantic->convert(pNewExp, output.type);
+					return a_pSemantic->convert(pNewExp, output.type, pSource ? static_cast<LanguageElement*>(pSource) : Namespace::Global());
 				}
 				return pNewExp;
 			}
 		}
-        return a_pSemantic->convert(a_pExpression, output.type, a_pSemantic->getSource());
-// 
-// 		InitializerListExpression* pInitListExpression = static_cast<InitializerListExpression*>(a_pExpression);
-//         if (pInitListExpression->getExpressions().empty())
-//         {
-//             PHANTOM_ASSERT(output.type == input.type);
-//             PHANTOM_ASSERT(!m_user_defined);
-//             a_pExpression = a_pOwner->new_<ConstructorCallExpression>(static_cast<ClassType*>(output.type)->getDefaultConstructor());
-//         }
-//         else if (InitializerListType* pUnresolvedInitializerListType = input->asInitializerListType())
-//         {
-//             PHANTOM_ASSERT(output.type);
-//             if (output.type == nullptr)
-//                 return nullptr;
-// 
-//             if (pInitListExpression->getValueType() ==
-//                 pUnresolvedInitializerListType && pOutputNoConstRef->getTemplate() && pOutputNoConstRef->getTemplate()
-//                 ->getQualifiedName() == "std::initializer_list")
-//             {
-//                 Expressions newArgs;
-//                 Type* pInitType = static_cast<Type*>(pOutputNoConstRef->getTemplateSpecialization()->getArgument(0));
-//                 for (auto pExp : pInitListExpression->getExpressions())
-//                 {
-//                     newArgs.push_back(pExp->convert(pInitType));
-//                     PHANTOM_ASSERT(newArgs.back());
-//                 }
-//                 Expression* pNewExp =
-//                 a_pOwner->new_<InitializerListExpression>(static_cast<Class*>(pOutputNoConstRef), newArgs);
-//                 if (pOutputNoConstRef != output.type)
-//                 {
-//                     // const ref
-//                     return pNewExp->convert(output.type);
-//                 }
-//                 return pNewExp;
-//             }
-// 
-//             Expressions const& expressions = pInitListExpression->getExpressions();
-//             if (m_user_defined)
-//             {
-//                 PHANTOM_ASSERT(
-//                 m_user_defined->m_member_function && m_user_defined->m_member_function->asConstructor());
-//                 Expressions  args;
-//                 Constructor* pCtor = static_cast<Constructor*>(m_user_defined->m_member_function);
-//                 if (pCtor)
-//                 {
-//                     auto& parms = pCtor->getParameters();
-//                     for (size_t i = 0; i < parms.size(); ++i)
-//                     {
-//                         Expression* pExpression;
-//                         if (i < expressions.size())
-//                         {
-//                             pExpression = expressions[i];
-//                         }
-//                         else
-//                         {
-//                             pExpression = parms[i]->getDefaultArgumentExpression();
-//                         }
-//                         if (pExpression->getMetaClass() == PHANTOM_CLASSOF(InitializerListExpression))
-//                         {
-// 
-//                         }
-//                         Expression* pConv = pExpression->convert(parms[i]->getValueType());
-//                         PHANTOM_ASSERT(pConv);
-//                         args.push_back(pConv);
-//                     }
-//                     return a_pOwner->new_<ConstructorCallExpression>(pCtor, args);
-//                 }
-//             }
-//             else
-//             {
-//                 // list initialization
-//                 Expressions initExpressions;
-//                 size_t      c = 0;
-//                 Class*      pClass;
-//                 ClassType*  pClassType;
-//                 if (Array* pArray = output.type->asArray())
-//                 {
-//                     PHANTOM_ASSERT(pArray->getItemCount() == expressions.size());
-//                     for (size_t i = 0; i < pArray->getItemCount(); ++i)
-//                     {
-//                         initExpressions.push_back(expressions[i]->convert(pArray->getItemType()));
-//                     }
-//                 }
-//                 else
-//                 {
-//                     if (pClass = output.type->asClass())
-//                     {
-//                         for (Class* pBaseClass : pClass->getBaseClasses())
-//                         {
-//                             if (c < expressions.size())
-//                             {
-//                                 Expression* pExpr = expressions[c++];
-//                                 pExpr = pExpr->convert(pBaseClass);
-//                                 PHANTOM_ASSERT(pExpr);
-//                                 initExpressions.push_back(pExpr);
-//                             }
-//                             else
-//                             {
-//                                 PHANTOM_ASSERT(pBaseClass->getDefaultConstructor());
-//                                 a_pOwner->new_<ConstructorCallExpression>(pBaseClass->getDefaultConstructor());
-//                             }
-//                         }
-//                     }
-//                     if (pClassType = output.type->asClassType())
-//                     {
-//                         for (auto pField : pClass->getFields())
-//                         {
-//                             Type* pFieldType = pField->getValueType();
-// 
-//                             if (c < expressions.size())
-//                             {
-//                                 Expression* pExpr = expressions[c++];
-//                                 pExpr = pExpr->convert(pFieldType);
-//                                 PHANTOM_ASSERT(pExpr);
-//                                 initExpressions.push_back(pExpr);
-//                             }
-//                             else
-//                             {
-//                                 ClassType* pClassType;
-//                                 if (pClassType = pFieldType->asClassType())
-//                                 {
-//                                     PHANTOM_ASSERT(pClassType->getDefaultConstructor());
-//                                     PHANTOM_ASSERT(!(pClassType->isAbstract()),
-//                                                    "class is abstract and cannot be instanciated");
-//                                     initExpressions.push_back(
-//                                     a_pOwner->new_<ConstructorCallExpression>(pClassType->getDefaultConstructor()));
-//                                 }
-//                             }
-//                         }
-//                     }
-//                     PHANTOM_ASSERT(pClassType);
-//                     return pClass
-//                     ? (Expression*)(a_pOwner->new_<ClassListInitializationExpression>(pClass, initExpressions))
-//                     : (Expression*)(a_pOwner->new_<ClassTypeListInitializationExpression>(pClassType, initExpressions));
-//                 }
-//             }
+        auto inputNoRefQual = input->removeReference()->removeQualifiers();
+        if ((output.type == input.type && output.type == outputNoRefQual) || (inputNoRefQual != outputNoRefQual))
+        {
+            return a_pSemantic->convert(a_pExpression, output.type, a_pSemantic->getSource());
+        }
     }
     if (m_standard)
     {

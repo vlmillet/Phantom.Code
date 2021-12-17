@@ -21,6 +21,7 @@
 #include <phantom/method>
 #include <phantom/constructor>
 #include <phantom/field>
+#include <phantom/friend>
 
 namespace phantom {
 namespace lang {
@@ -33,11 +34,16 @@ PHANTOM_PACKAGE("phantom.lang")
             this_()
             .inherits<::phantom::lang::Expression>()
         .public_()
-            .constructor<void(Expression*, Expression*)>()
+            .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
+        
+        .public_()
+            .constructor<void(Expression*, Expression*)>()({"a_pLeftExpression","a_pRightExpression"})
             .method<void()>("initialize", &_::initialize)
-            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)
+            .method<Expression*() const>("getLeftExpression", &_::getLeftExpression)
+            .method<Expression*() const>("getRightExpression", &_::getRightExpression)
+            .method<void(ExecutionContext&) const, virtual_>("eval", &_::eval)({"a_Context"})
             .method<::phantom::lang::CommaExpression *() const, virtual_>("asCommaExpression", &_::asCommaExpression)
-            .method<::phantom::lang::CommaExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)
+            .method<::phantom::lang::CommaExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)({"a_pOwner"})
         
         .protected_()
             .field("m_pLeftExpression", &_::m_pLeftExpression)
