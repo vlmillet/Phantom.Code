@@ -3417,9 +3417,19 @@ void CppTranslator::visit(Source* a_pInput, VisitorData a_Data)
             {
                 if (pType->asClassType() || pType->asEnum())
                 {
+                    if (pType->getNamespace() != pNamespace)
+                    {
+                        appendNamespaceClosing(pNamespace);
+                        appendNamespaceOpening(pType->getNamespace());
+                    }
                     beginDecl();
                     pType->visit(this, a_Data);
                     endDecl();
+                    if (pType->getNamespace() != pNamespace)
+                    {
+                        appendNamespaceClosing(pType->getNamespace());
+                        appendNamespaceOpening(pNamespace);
+                    }
                 }
             }
             else if (auto pFunc = pElem->asFunction())

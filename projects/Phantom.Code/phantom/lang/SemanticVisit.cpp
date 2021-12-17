@@ -4220,12 +4220,9 @@ void Semantic::visit(Function* a_pInput, VisitorData a_Data)
             auto pOwnerClassType = ts ? ts->getTemplate()->getOwner()->asClassType() : owner->asClassType();
 
             PHANTOM_SEMANTIC_ASSERT(pOwnerClassType);
-            PHANTOM_SEMANTIC_ASSERT(functionArguments.front()
-                                    ->getValueType()
-                                    ->removeReference()
-                                    ->removeRValueReference()
-                                    ->removeQualifiers()
-                                    ->isA(pOwnerClassType));
+            PHANTOM_SEMANTIC_ASSERT(
+            functionArguments.front()->removeReference()->removeRValueReference()->removeQualifiers()->isA(
+            pOwnerClassType));
 #endif
             if ((functionArguments.size() - 1) < a_pInput->getRequiredArgumentCount() ||
                 (!a_pInput->getSignature()->isVariadic() &&
@@ -4295,7 +4292,6 @@ void Semantic::visit(Function* a_pInput, VisitorData a_Data)
             Signature* pSignature = o_instantiateT(Signature, a_pInput->getSignature());
             if (pSignature == nullptr)
                 return;
-            PHANTOM_SEMANTIC_ASSERT(pSpec);
             Function* pInstanceFunction =
             New<Function>(a_pInput->getName(), pSignature, a_pInput->getABI(), a_pInput->getModifiers());
 
@@ -7586,7 +7582,6 @@ void Semantic::visit(PrimitiveType* a_pInput, VisitorData a_Data)
     visit(static_cast<Type*>(a_pInput), a_Data);
 }
 
-#pragma optimize("", off)
 void Semantic::visit(Property* a_pInput, VisitorData a_Data)
 {
     switch (a_Data.id)
@@ -7660,7 +7655,7 @@ void Semantic::visit(Property* a_pInput, VisitorData a_Data)
                 o_mapT(a_pInput->getSet()->getBlock(), addBlock(pInstanceProperty->getSet(), true));
                 o_mapT(a_pInput->getSet()->getParameters().front(),
                        pInstanceProperty->getSet()->getParameters().front());
-                o_instantiateT(Method, a_pInput->getSet()->getBlock());
+                o_instantiateT(Block, a_pInput->getSet()->getBlock());
             }
 
             if (a_pInput->getGet())
@@ -7668,7 +7663,7 @@ void Semantic::visit(Property* a_pInput, VisitorData a_Data)
                 o_mapT(a_pInput->getGet(), pInstanceProperty->getGet());
                 pInstanceProperty->getGet()->createThis(pInstanceProperty->getOwnerClass());
                 o_mapT(a_pInput->getGet()->getBlock(), addBlock(pInstanceProperty->getGet(), true));
-                o_instantiateT(Method, a_pInput->getGet()->getBlock());
+                o_instantiateT(Block, a_pInput->getGet()->getBlock());
             }
         }
         break;
@@ -9074,9 +9069,10 @@ void Semantic::visit(TemplateDependantElement* a_pInput, VisitorData a_Data)
                                     {
                                         if (pLHSExp->getValueType()->isSame(pType->addLValueReference()))
                                         {
-                                            pResolved =
-                                            New<PlacementNewExpression>(pLHSExp->address(getSource()),
-                                                                        pResolvedExp->loadRValueReferenceExpression());
+                                            auto pAddr = pLHSExp->clone(getSource())->address(getSource());
+                                            PHANTOM_ASSERT(size_t(pAddr) != 0xfeeefeeefeeefeee);
+                                            pResolved = New<PlacementNewExpression>(
+                                            pAddr, pResolvedExp->loadRValueReferenceExpression());
                                             return;
                                         }
                                         else

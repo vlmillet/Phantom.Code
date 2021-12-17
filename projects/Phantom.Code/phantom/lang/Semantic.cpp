@@ -855,7 +855,7 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
         //                 substitution.insert(pVariadicPH, a_Arguments[i]);
         //             }
         //         }
-        PHANTOM_SEMANTIC_ASSERT(!variadic || explicitSubstitution.size() == params.size());
+        PHANTOM_SEMANTIC_ASSERT(!variadic || explicitSubstitution.size() >= params.size() - 1);
 
         Module* pCurrModule = this->getSource()->getModule();
 
@@ -2199,6 +2199,7 @@ Expression* Semantic::createDestructionExpression(Type* a_pType, Expression* a_p
     case TypeKind::StringClass:
     case TypeKind::VectorClass:
     case TypeKind::SetClass:
+    case TypeKind::ArrayClass:
     case TypeKind::Class:
     {
         PHANTOM_SEMANTIC_ASSERT(a_pType->asClass());
@@ -2477,11 +2478,15 @@ skipGenericCall:
             if (k < arguments.size())
             {
                 // convert arguments
-                Expression* newArgK = pBestOverload->conversions[k]->convert(this, arguments[k]);
+                Expression* newArgConv = pBestOverload->conversions[k]->convert(this, arguments[k]->clone(getSource()));
+                PHANTOM_ASSERT(size_t(newArgConv) != 0xfeeefeeefeeefeee);
+                Expression* newArg = nullptr;
                 if (thisCall && k == 0)
-                    arguments[k] = newArgK->address(pSource);
+                    newArg = newArgConv->address(pSource);
                 else
-                    arguments[k] = newArgK;
+                    newArg = newArgConv;
+                PHANTOM_ASSERT(size_t(newArg) != 0xfeeefeeefeeefeee);
+                arguments[k] = newArg;
             }
             else
             {
@@ -2492,6 +2497,8 @@ skipGenericCall:
                 auto pConv = CxxSemanticConversionNE(pExp->clone(pSource), parms[k - thisCall]->getValueType());
                 if (!pConv)
                     return;
+                PHANTOM_ASSERT(size_t(pConv) != 0xfeeefeeefeeefeee);
+
                 arguments.push_back(pConv);
             }
         }
@@ -3737,6 +3744,7 @@ void Semantic::computeSizeAndAlignment(Type* a_pType)
 
 void Semantic::buildClass(ClassType* a_pClassType, EClassBuildState a_eBuildState)
 {
+    PHANTOM_SEMANTIC_ASSERT(!a_pClassType->isNative());
     Source* pSource = a_pClassType->getSource();
     if (pSource != getSource()) // soruce do not match => find the semantic associated with it
     {
@@ -3748,7 +3756,6 @@ void Semantic::buildClass(ClassType* a_pClassType, EClassBuildState a_eBuildStat
         Semantic sema(pSource, &msg);
         return sema.buildClass(a_pClassType, a_eBuildState);
     }
-    PHANTOM_SEMANTIC_ASSERT(!a_pClassType->isNative());
     auto& buildState = a_pClassType->getExtraData()->m_BuildState;
     while (buildState < uint(a_eBuildState))
     {
