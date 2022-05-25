@@ -53,6 +53,8 @@ public:
 
     Expression* removeRValueToLValueExpression() override { return m_pRValueExpression; }
 
+    Expression* removeRValueStorageExpression() override { return m_pRValueExpression; }
+
 protected:
     Expression* m_pRValueExpression;
 };

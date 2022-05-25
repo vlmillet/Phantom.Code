@@ -25,6 +25,60 @@ namespace phantom
 {
 namespace lang
 {
+struct ConversionParams
+{
+    Type*                    input{};
+    Type*                    output{};
+    LanguageElement*         scope{};
+    uint16_t                 castKind{};
+    uint8_t                  udConv{};
+    bool                     init{};
+    uint32_t                 __pack{};
+    PHANTOM_FORCEINLINE bool operator==(ConversionParams const& o) const
+    {
+        return input == o.input && output == o.output && scope == o.scope && castKind == o.castKind &&
+        udConv == o.udConv && init == o.init;
+    };
+};
+
+} // namespace lang
+} // namespace phantom
+
+namespace std
+{
+template<>
+struct hash<phantom::lang::ConversionParams>
+{
+    union ConversionHash {
+        struct
+        {
+            size_t input : 20;
+            size_t output : 19;
+            size_t scope : 19;
+            size_t castKind : 3;
+            size_t udConv : 2;
+            size_t init : 1;
+        };
+        size_t hash;
+    };
+    size_t operator()(const phantom::lang::ConversionParams& _convParams) const
+    {
+        ConversionHash hash;
+        hash.input = size_t(_convParams.input);
+        hash.output = size_t(_convParams.output);
+        hash.scope = size_t(_convParams.scope);
+        hash.castKind = size_t(_convParams.castKind);
+        hash.udConv = size_t(_convParams.udConv);
+        hash.init = size_t(_convParams.init);
+        return hash.hash;
+    }
+};
+} // namespace std
+
+namespace phantom
+{
+namespace lang
+{
 struct NumericConversion;
 
 enum EValueCategory
@@ -45,7 +99,8 @@ class PHANTOM_EXPORT_PHANTOM_CODE Semantic : public Object, public LanguageEleme
 public:
     enum EClassBuildState
     {
-        e_ClassBuildState_None,
+        e_ClassBuildState_None = -1,
+        e_ClassBuildState_Instantiated = 0,
         e_ClassBuildState_Inheritance,
         e_ClassBuildState_Members,
         e_ClassBuildState_Sized,
@@ -264,6 +319,12 @@ public:
 
     ConstantExpression* createNullptrExpression();
 
+    template<class T>
+    Constant* createConstant(T&& _val)
+    {
+        return Constant::Create<T>(getSource(), _val);
+    }
+
     Expression* createZeroInitExpression(Type* pType);
 
     typedef Delegate<void(CodeRangeLocation const&, const char*)> ErrorDelegate;
@@ -291,6 +352,7 @@ public:
     virtual void visit(Application* a_pInput, VisitorData a_Data);
     virtual void visit(ArrayExpression* a_pInput, VisitorData a_Data);
     virtual void visit(Array* a_pInput, VisitorData a_Data);
+    virtual void visit(ArrayClass* a_pInput, VisitorData a_Data);
     virtual void visit(BaseConstructorCallStatement* a_pInput, VisitorData a_Data);
     virtual void visit(Block* a_pInput, VisitorData a_Data);
     virtual void visit(BranchIfNotStatement* a_pInput, VisitorData a_Data);
@@ -316,6 +378,7 @@ public:
     virtual void visit(FieldPointerExpression* a_pInput, VisitorData a_Data);
     virtual void visit(FieldPointer* a_pInput, VisitorData a_Data);
     virtual void visit(Pointer* a_pInput, VisitorData a_Data);
+    virtual void visit(PointerAdjustmentExpression* a_pInput, VisitorData a_Data);
     virtual void visit(DeallocateExpression* a_pInput, VisitorData a_Data);
     virtual void visit(DeleteExpression* a_pInput, VisitorData a_Data);
     virtual void visit(Ellipsis* a_pInput, VisitorData a_Data);
@@ -1018,6 +1081,10 @@ public:
                                                  LanguageElement*      a_pContextScope,
                                                  UserDefinedFunctions  a_ConversionAllowedUserDefinedFunctions);
 
+    Expression* solveGenericCall(LanguageElement* a_pLHS, StringView a_Name, LanguageElementsView a_TemplateArgs,
+                                 OptionalArrayView<Expression*> a_Args, LanguageElement* a_pScope,
+                                 Type* a_pInitializationType);
+
 private:
     template<typename t_Ty>
     void visitIntegral(IntegralTypeT<t_Ty>* a_pInput, VisitorData a_Data);
@@ -1077,6 +1144,8 @@ private:
     LanguageElement* resolveTemplateDependency(LanguageElement*                   a_pElement,
                                                const struct TemplateSubstitution& a_TemplateSubstitution,
                                                EClassBuildState a_uiPass, LanguageElement* a_pScope, int flags);
+
+    bool             checkGenericSignature(Signature* a_pSignature, size_t genericParamCount);
     LanguageElement* instantiateTemplateElement(LanguageElement*                   a_pPrimary,
                                                 const struct TemplateSubstitution& a_TemplateSubstitution,
                                                 EClassBuildState a_Pass, LanguageElement* a_pScope, int a_Flags);
@@ -1130,23 +1199,8 @@ private:
     nullptr;
     CodeRangeLocations m_CodeRangeLocationStack;
     bool               m_bAccessModifiersEnabled = true;
-    struct ConversionParams
-    {
-        LanguageElement* scope{};
-        uint32_t         castKind{};
-        uint16_t         udConv{};
-        uint16_t         init{};
-        bool operator==(ConversionParams const& o) const { return memcmp(this, &o, sizeof(ConversionParams)) == 0; };
-    };
 
-    struct ConvHash
-    {
-        bool      operator<(ConvHash const& _other) const { return memcmp(data, _other.data, sizeof(ConvHash)) < 0; }
-        uintptr_t data[4] = {0, 0, 0, 0};
-    };
-
-    SmallMap<ConvHash, Pair<ConversionParams, Conversion*>, 256> m_CachedConversions;
-    bool                                                         m_bStandardLookup = false;
+    bool m_bStandardLookup = false;
 
 private:
     enum

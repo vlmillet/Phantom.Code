@@ -51,7 +51,10 @@ void LoadExpression::eval(ExecutionContext& a_Context) const
     {
         *(void**)a_Context.resultPointer() = m_pLoadedExpression->loadEffectiveAddress(a_Context);
     }
-    getValueType()->copy(a_Context.resultPointer(), m_pLoadedExpression->loadEffectiveAddress(a_Context));
+    else
+    {
+        getValueType()->copy(a_Context.resultPointer(), m_pLoadedExpression->loadEffectiveAddress(a_Context));
+    }
 }
 
 void* LoadExpression::evalStorage(ExecutionContext& a_Context) const

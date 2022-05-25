@@ -90,6 +90,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<::phantom::lang::Expression *(), virtual_>("loadRValueReferenceExpression", &_::loadRValueReferenceExpression)
             .method<::phantom::lang::Expression *(), virtual_>("removeRValueReferenceExpression", &_::removeRValueReferenceExpression)
             .method<::phantom::lang::Expression *(), virtual_>("removeRValueToLValueExpression", &_::removeRValueToLValueExpression)
+            .method<::phantom::lang::Expression *(), virtual_>("removeRValueStorageExpression", &_::removeRValueStorageExpression)
             .method<void(bool)>("setTemporary", &_::setTemporary)({"a_bValue"})
             .method<bool() const>("isTemporary", &_::isTemporary)
             /// missing symbol(s) reflection (std::ostream) -> use the 'haunt.bind' to bind symbols with your custom haunt files

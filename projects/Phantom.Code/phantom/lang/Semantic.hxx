@@ -19,6 +19,7 @@
 #include <phantom/source>
 #include <phantom/class>
 #include <phantom/struct>
+#include <phantom/union>
 #include <phantom/enum>
 #include <phantom/method>
 #include <phantom/static_method>
@@ -38,6 +39,49 @@
 
 #include <phantom/template-only-pop>
 
+namespace std {
+PHANTOM_PACKAGE("phantom.lang")
+    PHANTOM_SOURCE("Semantic")
+
+        /// missing symbol(s) reflection (std::hash) -> use the 'haunt.bind' to bind symbols with your custom haunt files
+        /* PHANTOM_STRUCT_S((phantom::lang::ConversionParams), hash)
+        {
+            this_()
+            .union_<ConversionHash>()
+                .struct_<>()
+                .end()
+                // .field("hash", &_::ConversionHash::hash)
+            .end()
+            // .method<size_t(const ::phantom::lang::ConversionParams &) const>("operator()", &_::operator())({"_convParams"})
+            ;
+        } */
+    PHANTOM_END("Semantic")
+PHANTOM_END("phantom.lang")
+}
+namespace phantom {
+namespace lang {
+PHANTOM_PACKAGE("phantom.lang")
+    PHANTOM_SOURCE("Semantic")
+
+        #if PHANTOM_NOT_TEMPLATE
+        PHANTOM_STRUCT(ConversionParams)
+        {
+            this_()
+            .field("input", &_::input)
+            .field("output", &_::output)
+            .field("scope", &_::scope)
+            .field("castKind", &_::castKind)
+            .field("udConv", &_::udConv)
+            .field("init", &_::init)
+            .field("__pack", &_::__pack)
+            .method<bool(ConversionParams const&) const>("operator==", &_::operator==)({"o"})
+            ;
+        }
+        #endif // PHANTOM_NOT_TEMPLATE
+    PHANTOM_END("Semantic")
+PHANTOM_END("phantom.lang")
+}
+}
 namespace phantom {
 namespace lang {
 PHANTOM_PACKAGE("phantom.lang")
@@ -62,6 +106,7 @@ PHANTOM_PACKAGE("phantom.lang")
             using Expressions = typedef_< phantom::lang::Expressions>;
             using ExpressionsView = typedef_< phantom::lang::ExpressionsView>;
             using LanguageElements = typedef_< phantom::lang::LanguageElements>;
+            using LanguageElementsView = typedef_< phantom::lang::LanguageElementsView>;
             using Modifiers = typedef_< phantom::lang::Modifiers>;
             using NameFormatDelegate = typedef_<_::NameFormatDelegate>;
             using NameLookupData = typedef_<_::NameLookupData>;
@@ -81,6 +126,7 @@ PHANTOM_PACKAGE("phantom.lang")
         .public_()
             .enum_<EClassBuildState>().values({
                 {"e_ClassBuildState_None",_::e_ClassBuildState_None},
+                {"e_ClassBuildState_Instantiated",_::e_ClassBuildState_Instantiated},
                 {"e_ClassBuildState_Inheritance",_::e_ClassBuildState_Inheritance},
                 {"e_ClassBuildState_Members",_::e_ClassBuildState_Members},
                 {"e_ClassBuildState_Sized",_::e_ClassBuildState_Sized},
@@ -229,6 +275,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void(Application*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(ArrayExpression*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(Array*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
+            .method<void(ArrayClass*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(BaseConstructorCallStatement*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(Block*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(BranchIfNotStatement*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
@@ -254,6 +301,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void(FieldPointerExpression*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(FieldPointer*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(Pointer*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
+            .method<void(PointerAdjustmentExpression*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(DeallocateExpression*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(DeleteExpression*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
             .method<void(Ellipsis*, VisitorData), virtual_>("visit", &_::visit)({"a_pInput","a_Data"})
@@ -486,6 +534,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void(Signature*, ExpressionsView, ConversionResults&, TemplateSubstitution&, LanguageElement*, UserDefinedFunctions)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pSignature","a_Args","a_Out","a_TemplateArgDeductions","a_pContextScope","a_ConversionAllowedUserDefinedFunctions"})
             .method<void(FunctionType*, TypesView, ConversionResults&, TemplateSubstitution&, LanguageElement*, UserDefinedFunctions)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pFuncType","a_ArgTypes","a_Out","a_TemplateArgDeductions","a_pContextScope","a_ConversionAllowedUserDefinedFunctions"})
             .method<void(FunctionType*, ExpressionsView, ConversionResults&, TemplateSubstitution&, LanguageElement*, UserDefinedFunctions)>("newImplicitConversionsWithArgDeductions", &_::newImplicitConversionsWithArgDeductions)({"a_pFuncType","a_Args","a_Out","a_TemplateArgDeductions","a_pContextScope","a_ConversionAllowedUserDefinedFunctions"})
+            .method<Expression*(LanguageElement*, StringView, LanguageElementsView, OptionalArrayView<Expression*>, LanguageElement*, Type*)>("solveGenericCall", &_::solveGenericCall)({"a_pLHS","a_Name","a_TemplateArgs","a_Args","a_pScope","a_pInitializationType"})
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE

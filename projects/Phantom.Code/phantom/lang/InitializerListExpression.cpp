@@ -61,9 +61,12 @@ void InitializerListExpression::terminate()
 
 InitializerListExpression* InitializerListExpression::cloneImpl(LanguageElement* a_pOwner) const
 {
+    Expressions clonedExps;
+    for (auto exp : m_Expressions)
+        clonedExps.push_back(exp->clone(a_pOwner));
     if (Class* pClass = getValueType()->removeRValueReference()->asClass())
-        return a_pOwner->New<InitializerListExpression>(pClass, m_Expressions);
-    return a_pOwner->New<InitializerListExpression>(getValueType()->asInitializerListType(), m_Expressions);
+        return a_pOwner->New<InitializerListExpression>(pClass, clonedExps);
+    return a_pOwner->New<InitializerListExpression>(getValueType()->asInitializerListType(), clonedExps);
 }
 
 Type* InitializerListExpression::getContentType() const

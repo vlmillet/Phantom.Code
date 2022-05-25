@@ -45,6 +45,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<Expression*() const>("getRValueExpression", &_::getRValueExpression)
             .method<::phantom::lang::RValueToConstLValueExpression *(LanguageElement*) const, virtual_|override_>("cloneImpl", &_::cloneImpl)({"a_pOwner"})
             .method<Expression*(), virtual_|override_>("removeRValueToLValueExpression", &_::removeRValueToLValueExpression)
+            .method<Expression*(), virtual_|override_>("removeRValueStorageExpression", &_::removeRValueStorageExpression)
         
         .protected_()
             .field("m_pRValueExpression", &_::m_pRValueExpression)

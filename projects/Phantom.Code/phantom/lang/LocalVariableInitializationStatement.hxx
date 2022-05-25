@@ -50,7 +50,7 @@ PHANTOM_PACKAGE("phantom.lang")
         .protected_()
             .field("m_pLocalVariable", &_::m_pLocalVariable)
             .field("m_pInitializationExpression", &_::m_pInitializationExpression)
-            .field("m_temporaryContainer", &_::m_temporaryContainer)
+            .field("m_temporaryStorage", &_::m_temporaryStorage)
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE

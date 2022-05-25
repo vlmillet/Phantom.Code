@@ -118,6 +118,11 @@ private:
     Semantic*        m_pDefaultSemantic = nullptr;
     Message          m_DefaultMessage;
     Source*          m_pDefaultSource;
+    struct ExpressionCacheData
+    {
+        SmallMap<LanguageElement*, Expression*> expressions;
+    };
+    std::unordered_map<String, ExpressionCacheData> m_ExpressionCache;
 
 public:
     static CppLite* Get();

@@ -378,14 +378,19 @@ public:
     virtual Expression* removeRValueReferenceExpression() { return this; }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    /// \brief  Removes any r-value reference expression which embeds the expression
-    ///         (for example 'MyClass(5.f)' has implicitely a 'MyClass&&' type, this method will
-    ///         remove the '&&' and keep only the underlying construction expression).
+    /// \brief  Removes any l-value const reference expression which embeds an r-value expression
+    ///         (for example 'const MyClass& = MyClass(5.f)').
     ///
     /// \return this expression if no r-value reference expression embeds the expression.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     virtual Expression* removeRValueToLValueExpression() { return this; }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// \brief  Combines removeRValueReferenceExpression and removeRValueToLValueExpression.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    virtual Expression* removeRValueStorageExpression() { return this; }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Sets/unsets this expression as temporary (a temporary with class will generate a

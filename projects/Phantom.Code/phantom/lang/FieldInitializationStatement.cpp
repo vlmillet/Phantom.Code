@@ -8,7 +8,9 @@
 // #include "phantom/core.h"
 #include "FieldInitializationStatement.h"
 
+#include "Block.h"
 #include "Expression.h"
+#include "TemporaryObjectDestructionExpression.h"
 #include "phantom/lang/Field.h"
 /* *********************************************** */
 namespace phantom
@@ -31,7 +33,9 @@ void FieldInitializationStatement::initialize()
     Statement::initialize();
     addReferencedElement(m_pField);
     addSubExpression(m_pInitializationExpression);
-    m_pInitializationExpression->removeRValueToLValueExpression()->setTemporary(false);
+    m_pInitializationExpression->setTemporary(false);
+    m_pInitializationExpression->removeRValueStorageExpression()->setTemporary(false);
+
     PHANTOM_ASSERT(isTemplateDependant() || m_uiArrayIndex == 0 ||
                    m_pField->getValueType()->removeQualifiers()->asArray());
     PHANTOM_ASSERT(isTemplateDependant() ||

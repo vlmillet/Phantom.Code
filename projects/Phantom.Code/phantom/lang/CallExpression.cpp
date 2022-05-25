@@ -69,9 +69,10 @@ void CallExpression::initialize()
     {
         // any argument which is a raw class (passing a class by-value) will be destroyed inside the callee and must not
         // be marked as a temporary
-        if (pArg->getValueType()->removeQualifiers()->asClassType())
+        auto noRVR = pArg->removeRValueReferenceExpression();
+        if (noRVR->getValueType()->removeQualifiers()->asClassType())
         {
-            pArg->setTemporary(false);
+            noRVR->setTemporary(false);
         }
     }
 }

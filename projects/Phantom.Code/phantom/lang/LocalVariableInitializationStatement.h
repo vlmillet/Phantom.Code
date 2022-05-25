@@ -64,12 +64,12 @@ public:
 
     void onAttachedToBlock(Block* a_pBlock) override;
 
-    bool isTemporaryContainer() const { return m_temporaryContainer; }
+    bool isTemporaryContainer() const { return m_temporaryStorage; }
 
 protected:
     LocalVariable* m_pLocalVariable;
     Expression*    m_pInitializationExpression;
-    bool           m_temporaryContainer = false;
+    bool           m_temporaryStorage = false;
 };
 
 } // namespace lang

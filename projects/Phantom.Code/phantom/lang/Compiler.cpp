@@ -128,8 +128,9 @@ SourceFile* Compiler::_getOrCreateSourceFile(StringView _path)
 
 Module* Compiler::_getOrCreateModule(StringView _path)
 {
-    String moduleName = Path(_path).filename();
-    auto   found = m_CompiledModules.find(_path);
+    Path   p(_path);
+    String moduleName = p.filename();
+    auto   found = m_CompiledModules.find(p.absolute().genericString());
     if (found == m_CompiledModules.end())
     {
         if (auto pMod = Application::Get()->getModule(moduleName))
@@ -262,6 +263,7 @@ void Compiler::_buildSourceFiles(BuildSession& a_BuildSession, ProjectBuildSessi
             m_BuildingModules.back()->addDependency(pMod);
 
     m_BuildingModules.push_back(pMod);
+
     auto onScopeExit = phantom::makeScopeExit([&]() { m_BuildingModules.pop_back(); });
 
     // == Collect outdated sources ==
@@ -420,6 +422,15 @@ void Compiler::_buildSourceFiles(BuildSession& a_BuildSession, ProjectBuildSessi
         {
             auto& outdatedModuleSources = module_sources.second;
             std::sort(outdatedModuleSources.begin(), outdatedModuleSources.end(), DependencySorter(currentPass));
+
+            //             printf("PASS : %d", priority_map.first);
+            //             for (auto src : outdatedModuleSources)
+            //             {
+            //                 printf("%.*s\n", PHANTOM_STRING_AS_PRINTF_ARG(src->getSource()->getName()));
+            //                 printf("");
+            //             }
+            //             printf("\n");
+
             for (auto it = outdatedModuleSources.begin(); it != outdatedModuleSources.end();)
             {
                 CompiledSource* pSource = (*it);

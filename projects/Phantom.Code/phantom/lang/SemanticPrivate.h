@@ -14,7 +14,7 @@
 #include <phantom/lang/TemplateSpecialization.h>
 #include <stdarg.h>
 
-#define PHANTOM_SEMANTIC_ASSERT PHANTOM_ASSERT
+#define PHANTOM_SEMANTIC_ASSERT PHANTOM_ASSERT_DEBUG
 
 namespace phantom
 {

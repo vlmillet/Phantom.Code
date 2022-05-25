@@ -54,7 +54,7 @@ public:
 
     Expression* removeRValueReferenceExpression() override { return m_pRValueExpression; }
 
-    Expression* removeRValueToLValueExpression() override { return m_pRValueExpression; }
+    Expression* removeRValueStorageExpression() override { return m_pRValueExpression; }
 
     LanguageElement* hatchExpression() override;
 

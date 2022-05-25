@@ -14,6 +14,7 @@
 #include "CallExpression.h"
 #include "CompiledSource.h"
 #include "ConstantExpression.h"
+#include "ConstructorCallExpression.h"
 #include "CppLite.h"
 #include "ExpressionStatement.h"
 #include "IdentityExpression.h"
@@ -26,9 +27,11 @@
 #include "UnaryPreOperationExpression.h"
 #include "phantom/lang/Application.h"
 #include "phantom/lang/Constant.h"
+#include "phantom/lang/Constructor.h"
 #include "phantom/lang/Destructor.h"
 #include "phantom/lang/LValueReference.h"
 #include "phantom/lang/Pointer.h"
+#include "phantom/lang/TemplateSpecialization.h"
 
 #include <ostream>
 /* *********************************************** */
@@ -203,8 +206,10 @@ void Expression::onAttachedToBlock(Block* a_pBlock)
         if (pClass)
         {
             Evaluable* pLifeTimeScope = evaluateLifeTime();
-            PHANTOM_ASSERT(pLifeTimeScope);
-            pLifeTimeScope->addScopedDestruction(pLifeTimeScope->New<TemporaryObjectDestructionExpression>(this));
+            if (pLifeTimeScope)
+                pLifeTimeScope->addScopedDestruction(pLifeTimeScope->New<TemporaryObjectDestructionExpression>(this));
+            else
+                setTemporary(false);
         }
     }
     //     for (auto pSym : m_SymbolDependencies)

@@ -20,6 +20,7 @@
 // #include "CppLiteTranslator.h"
 #include "BuiltInOperators.h"
 #include "CallExpression.h"
+#include "ConstantExpression.h"
 #include "Message.h"
 #include "phantom/detail/core_internal.h"
 #include "phantom/lang/Semantic.h"
@@ -527,17 +528,40 @@ Expression* CppLite::expression(StringView a_strExpression, LanguageElement* a_p
 Expression* CppLite::parseExpression(StringView a_strExpression, Message* a_pMessage,
                                      LanguageElement* a_pContextScope /*= nullptr*/)
 {
+    // handle most common cases
+    if (a_strExpression == "0")
+        return m_pDefaultSemantic->New<ConstantExpression>(m_pDefaultSemantic->createConstant<int>(0));
+    else if (a_strExpression == "false")
+        return m_pDefaultSemantic->New<ConstantExpression>(m_pDefaultSemantic->createConstant<bool>(false));
+    else if (a_strExpression == "true")
+        return m_pDefaultSemantic->New<ConstantExpression>(m_pDefaultSemantic->createConstant<bool>(true));
+    else if (a_strExpression == "nullptr" || a_strExpression == "NULL")
+        return m_pDefaultSemantic->createNullptrExpression();
+    else if (a_strExpression == "0.f" || a_strExpression == "0.0f")
+        return m_pDefaultSemantic->New<ConstantExpression>(m_pDefaultSemantic->createConstant<float>(0.f));
+
+    auto&       cache = m_ExpressionCache[a_strExpression];
+    auto&       expCache = cache.expressions[a_pContextScope];
+    Expression* exp;
     if (a_pContextScope == nullptr || a_pContextScope->asNamespace() || a_pContextScope->getSource()->isNative())
     {
-        return CppLiteParser(_selectBestSource(a_pContextScope), a_pMessage, CppLiteParser::e_Flag_StandardLookup)
-        .parseExpression(a_strExpression, a_pContextScope);
+        auto pBestSource = _selectBestSource(a_pContextScope);
+        if (expCache)
+            return expCache->clone(pBestSource);
+        exp = CppLiteParser(pBestSource, a_pMessage, CppLiteParser::e_Flag_StandardLookup)
+              .parseExpression(a_strExpression, a_pContextScope);
     }
     else
     {
         Source* pSource = a_pContextScope->getSource();
         PHANTOM_ASSERT(pSource && !pSource->isNative());
-        return CppLiteParser(pSource, a_pMessage).parseExpression(a_strExpression, a_pContextScope);
+        if (expCache)
+            return expCache->clone(pSource);
+        exp = CppLiteParser(pSource, a_pMessage).parseExpression(a_strExpression, a_pContextScope);
     }
+    if (exp)
+        expCache = exp->clone(m_pDefaultSource);
+    return exp;
 }
 
 Expression* CppLite::parseExpression(StringView a_strExpression, LanguageElement* a_pContextScope /*= nullptr*/)

@@ -39,19 +39,19 @@ void LocalVariableInitializationStatement::initialize()
     Statement::initialize();
     addReferencedElement(m_pLocalVariable);
     addSubExpression(m_pInitializationExpression);
-    Expression* noRVR = m_pInitializationExpression->removeRValueToLValueExpression();
-    bool        noRVRTemp = noRVR->isTemporary();
     m_pInitializationExpression->setTemporary(false);
+    Expression* noRVS = m_pInitializationExpression->removeRValueStorageExpression();
+    bool        noRVRTemp = noRVS->isTemporary();
     if (noRVRTemp)
     {
-        noRVR->setTemporary(false);
+        noRVS->setTemporary(false);
 
         if (m_pLocalVariable->getValueType()->asRValueReference() ||
             m_pLocalVariable->getValueType()->asConstLValueReference())
         {
             if (ClassType* pCT = m_pLocalVariable->getValueType()->removeReference()->removeConst()->asClassType())
             {
-                m_temporaryContainer = true;
+                m_temporaryStorage = true;
             }
         }
     }
@@ -77,10 +77,10 @@ Evaluable* LocalVariableInitializationStatement::evaluateExpressionLifeTime(Expr
 
 void LocalVariableInitializationStatement::onAttachedToBlock(Block* a_pBlock)
 {
-    if (m_temporaryContainer)
+    if (m_temporaryStorage)
     {
         a_pBlock->addScopedDestruction(a_pBlock->New<TemporaryObjectDestructionExpression>(
-        m_pInitializationExpression->removeRValueToLValueExpression()));
+        m_pInitializationExpression->removeRValueStorageExpression()));
     }
     Statement::onAttachedToBlock(a_pBlock);
 }

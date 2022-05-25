@@ -40,12 +40,15 @@
 #include "PropertyExpression.h"
 #include "RValueReferenceExpression.h"
 #include "SemanticPrivate.h"
+#include "TemplateDependantExpression.h"
 #include "TemplateParameterPackExpansion.h"
 #include "TemplateParameterPackTypeExpansion.h"
 #include "UnaryPostOperationExpression.h"
 #include "UnaryPreOperationExpression.h"
 #include "phantom/lang/Module.h"
 #include "phantom/lang/Package.h"
+#include "phantom/lang/TemplateDependantElement.h"
+#include "phantom/thread/SpinMutex.h"
 
 #include <fstream>
 #include <phantom/lang/Alias.h>
@@ -81,6 +84,9 @@ namespace phantom
 {
 namespace lang
 {
+SpinMutex                                         m_CachedConversionsMtx;
+std::unordered_map<ConversionParams, Conversion*> m_CachedConversions;
+
 Semantic::ERefType Semantic::baseConversion(Type* a_pInput, Type*& pOutput, CastKind iConversionType)
 {
     /// X => X const
@@ -695,6 +701,199 @@ LanguageElement* Semantic::resolveTemplateDependency(LanguageElement*           
     return pResult;
 }
 
+bool Semantic::checkGenericSignature(Signature* a_pSignature, size_t genericParamCount)
+{
+    auto const& params = a_pSignature->getParameters();
+    if (params.size() < genericParamCount)
+        return false;
+    int count = 0;
+    for (size_t i = 0; i < genericParamCount; ++i)
+    {
+        if (params[i]->getValueType()->getQualifiedName() != "phantom::Generic::Param")
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+Expression* Semantic::solveGenericCall(LanguageElement* a_pLHS, StringView a_Name, LanguageElementsView a_TemplateArgs,
+                                       OptionalArrayView<Expression*> a_FunctionArgs, LanguageElement* a_pScope,
+                                       Type* a_pInitializationType)
+{
+    Types requiredBaseTypes;
+
+    bool templateDependant = false;
+
+    Types templateArgTypes;
+    for (auto templateArg : a_TemplateArgs)
+    {
+        templateDependant = templateDependant || templateArg->isTemplateDependant();
+
+        if (Type* pType = templateArg->asType())
+        {
+            templateArgTypes.push_back(pType);
+            continue;
+        }
+        // CppLiteError("'%s' : non-type template parameter are not supported yet", a_Identifier);
+        return nullptr;
+    }
+
+    OwnersGuard<Expressions> args;
+    // push generic types
+    for (Type* pType : templateArgTypes)
+    {
+        args.push_back(convert(New<ConstantExpression>(createConstant(size_t(pType))), PHANTOM_TYPEOF(Type*),
+                               CastKind::Reinterpret, UserDefinedFunctions::None, a_pScope));
+    }
+
+    if (a_FunctionArgs)
+        for (auto arg : *a_FunctionArgs)
+            args.push_back(arg);
+
+    LanguageElement* pResult = nullptr;
+    if (a_pLHS)
+        pResult =
+        silentQualifiedLookup(a_pLHS, a_Name, phantom::NullOpt, MakeArrayView(*args), a_pScope, a_pInitializationType);
+    else
+        pResult =
+        silentUnqualifiedLookup(a_Name, phantom::NullOpt, MakeArrayView(*args), a_pScope, a_pInitializationType);
+
+    if (!pResult)
+        return nullptr;
+
+    if (templateDependant)
+    {
+        return New<TemplateDependantExpression>(New<TemplateDependantElement>(
+        a_pLHS, a_Name, a_TemplateArgs, (OptionalArrayView<LanguageElement*>&)a_FunctionArgs));
+    }
+
+    if (OwnerGuard<Expression> pExp = pResult->asExpression())
+    {
+        if (CallExpression* pCallExp = phantom::Object::Cast<CallExpression>(pExp->removeRValueReferenceExpression()))
+        {
+            Subroutine* pSubroutine = pCallExp->getSubroutine();
+            if (templateArgTypes.size() > 0)
+            {
+                if (!checkGenericSignature(pSubroutine->getSignature(), templateArgTypes.size()))
+                {
+                    // CppLiteError("'%s' : invalid generic signature : invalid generic parameters
+                    // count", a_Identifier);
+                    return nullptr;
+                }
+            }
+
+            // check return
+
+            auto const& params = pSubroutine->getParameters();
+            for (size_t i = 0; i < templateArgTypes.size(); ++i)
+            {
+                auto pRequiredArgType = params[i]->getValueType()->getTemplateSpecialization()->getArgument(0);
+                if (pRequiredArgType == PHANTOM_TYPEOF(phantom::Generic::Auto))
+                    continue;
+                if (!templateArgTypes[i]->isA(static_cast<Type*>(pRequiredArgType)))
+                {
+                    // CppLiteError("'%s' : generic parameter pattern match failed '%d'",
+                    // a_Identifier, int(i));
+                    return nullptr;
+                }
+            }
+
+            // check arguments passing
+
+            for (size_t i = templateArgTypes.size(); i < args.size(); ++i)
+            {
+                Expression* pArgument = pCallExp->getArguments()[i];
+                Type*       pArgType = pArgument->getValueType()->removeReference();
+                Type*       pParamType = params[i]->getValueType();
+                if (pParamType->getQualifiedName() == "phantom::Generic::Arg")
+                {
+                    Type* pParamTypePattern = pParamType->getTemplateSpecialization()->getArgument(0)->asType();
+                    Type* pParamTypePatternNaked = pParamTypePattern->removeEverything();
+                    if (pParamTypePatternNaked->getQualifiedName() == "phantom::Generic::ParamType")
+                    {
+                        Constant* pConstant =
+                        pParamTypePatternNaked->getTemplateSpecialization()->getArgument(0)->asConstant();
+                        size_t value = 0;
+                        pConstant->getValue(&value);
+                        if (value < templateArgTypes.size())
+                        {
+                            Type* pExpectedType = pParamTypePattern->replicate(templateArgTypes[value]);
+                            if (!pArgType->isSame(pExpectedType))
+                            {
+                                if (!pCallExp->transformArgument(
+                                    this, i + (pSubroutine->asMethod() != nullptr),
+                                    [&](Expression*) { return convert((*args)[i], pExpectedType, a_pScope); }))
+                                {
+                                    // failed to match argument pattern
+                                    return nullptr;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            CxxSemanticError("'%.*s' : invalid generic signature : param index "
+                                             "'%zu' out of range",
+                                             a_Name, value);
+                            return nullptr;
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            return nullptr;
+        }
+        Type* pType = pExp->getValueType();
+        Type* pNakedType = pType->removeEverything();
+        if (Template* pTemplate = pNakedType->getTemplate())
+        {
+            if (pTemplate->getQualifiedName() == "phantom::Generic::Return")
+            {
+                // TODO : re-uncomment that (it is just an optimization, not a big deal)
+                // pExp->setTemporary(false); // ensure we don't call destructors for Generic Return
+                Type* pReturnTypeBase = pNakedType->getTemplateSpecialization()->getArgument(1)->asType();
+                Type* pReturnTypePattern = pNakedType->getTemplateSpecialization()->getArgument(0)->asType();
+                Type* pReturnTypePatternNaked = pReturnTypePattern->removeEverything();
+                if (pReturnTypePatternNaked->getQualifiedName() == "phantom::Generic::ParamType")
+                {
+                    Constant* pConstant =
+                    pReturnTypePatternNaked->getTemplateSpecialization()->getArgument(0)->asConstant();
+                    size_t value = 0;
+                    pConstant->getValue(&value);
+                    if (value < templateArgTypes.size())
+                    {
+                        Type* pBaseType = templateArgTypes[value];
+                        Type* pReturnType = pReturnTypePattern->replicate(pBaseType);
+                        pExp = convert(pExp, pReturnTypeBase, CastKind::Explicit, UserDefinedFunctions::All, a_pScope);
+                        PHANTOM_ASSERT(pExp, "operator X() should have been called");
+                        Expression* pConv = convert(pExp, pReturnType, CastKind::Reinterpret);
+                        if (pConv == nullptr)
+                        {
+                            CxxSemanticError("'%.*s' : cannot convert to generic return", a_Name);
+                            return nullptr;
+                        }
+                        pExp = pConv;
+                    }
+                    else
+                    {
+                        CxxSemanticError("'%.*s' : invalid generic signature : param index '%zu' out of range", a_Name,
+                                         value);
+                        return nullptr;
+                    }
+                }
+            }
+        }
+        for (auto type : templateArgTypes)
+            pExp->addReferencedElement(
+            type); // ensure we have a dependency between template argument source and current source
+        return pExp;
+    }
+    CxxSemanticError("'%.*s' : not an expression", a_Name);
+    return nullptr;
+}
+
 LanguageElement* Semantic::instantiateTemplateElement(LanguageElement*        a_pPrimary,
                                                       TemplateSpecialization* a_pInstantiation, EClassBuildState a_Pass,
                                                       LanguageElement* a_pScope, int a_Flags)
@@ -708,7 +907,8 @@ LanguageElement* Semantic::instantiateTemplateElement(LanguageElement*          
 {
     if (a_pScope == nullptr)
         a_pScope = Namespace::Global();
-    LanguageElement* pResult = templateInstantiations()[a_TemplateSubstitution.getInstantiation()][a_pPrimary];
+    LanguageElement* pInstance = templateInstantiations()[a_TemplateSubstitution.getInstantiation()][a_pPrimary];
+    auto             pResult = pInstance;
     VisitorData      data;
     data.id = e_VisitorFunction_InstanciateTemplateElement;
     const void* in[5] = {&a_TemplateSubstitution, &a_Pass, &a_pScope};
@@ -721,8 +921,15 @@ LanguageElement* Semantic::instantiateTemplateElement(LanguageElement*          
     popCodeRangeLocation();
     if (pResult == nullptr)
         return nullptr;
-    templateInstantiations()[a_TemplateSubstitution.getInstantiation()][a_pPrimary] = pResult;
-    pResult->setCodeRange(a_pPrimary->getCodeRange());
+    if (pInstance == nullptr)
+    {
+        templateInstantiations()[a_TemplateSubstitution.getInstantiation()][a_pPrimary] = pResult;
+        pResult->setCodeRange(a_pPrimary->getCodeRange());
+        if (auto pPrimarySym = a_pPrimary->asSymbol())
+        {
+            static_cast<Symbol*>(pResult)->setMetaDatas(pPrimarySym->getMetaDatas());
+        }
+    }
     return pResult;
 }
 
@@ -746,6 +953,15 @@ void Semantic::popCodeRangeLocation()
 LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const LanguageElements& a_Arguments,
                                                LanguageElement* in_pContextScope /*= nullptr*/)
 {
+    auto pPrevMessage = m_pMessage;
+    m_pMessage = new_<Message>();
+    auto onExit = phantom::makeScopeExit([&]() {
+        if (m_pMessage->getChildCount())
+        {
+            pPrevMessage->addChild(m_pMessage);
+        }
+        m_pMessage = pPrevMessage;
+    });
     if (in_pContextScope == nullptr)
     {
         // use the "default" source inside the main module (the only one we know it will last forReeVeEeerr)
@@ -813,7 +1029,7 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
             {
                 LanguageElement* pSolvedArgument =
                 resolveTemplateDependency(a_pInput->getDefaultArgument(argCount), explicitSubstitution,
-                                          e_ClassBuildState_None, in_pContextScope, 0);
+                                          e_ClassBuildState_Instantiated, in_pContextScope, 0);
                 if (pSolvedArgument == nullptr)
                 {
                     return nullptr;
@@ -909,9 +1125,12 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
                     break;
                 }
             }
-            for (auto& pair : deductionMap)
+            for (auto& ph_deductions : deductionMap)
             {
-                specSubstitution.insert(pair.first, pair.second);
+                for (auto& deduction : ph_deductions.second)
+                {
+                    specSubstitution.insert(ph_deductions.first, deduction);
+                }
             }
             if (result && variadic && pT0->isEmpty())
             {
@@ -927,9 +1146,10 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
                         result = false;
                         break;
                     }
-                    for (auto& pair : tempDeductionMap)
+                    for (auto& ph_deductions : tempDeductionMap)
                     {
-                        specSubstitution.insert(pParameter->asPlaceholder(), pair.second);
+                        for (auto&& deduction : ph_deductions.second)
+                            specSubstitution.insert(pParameter->asPlaceholder(), deduction);
                     }
                 }
             }
@@ -1053,7 +1273,7 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
             {
                 Symbol* pSymbol = static_cast<Symbol*>(
                 resolveTemplateDependency(pUsedTemplateSpecialization->getTemplated(), explicitSubstitution,
-                                          e_ClassBuildState_None, in_pContextScope, 0));
+                                          e_ClassBuildState_Instantiated, in_pContextScope, 0));
                 if (pSymbol == nullptr)
                     return nullptr;
 
@@ -1077,7 +1297,7 @@ LanguageElement* Semantic::instantiateTemplate(Template* a_pInput, const Languag
                                  ->addTemplateInstantiation(pUsedTemplateSpecialization,
                                                             explicitSubstitution.getArguments(), *pBestSubstitutions);
                 pTemplated = instantiateTemplateElement(pUsedTemplateSpecialization->getTemplated(), pInstantiation,
-                                                        e_ClassBuildState_None, pInstantiation, 0);
+                                                        e_ClassBuildState_Instantiated, pInstantiation, 0);
             }
             if (pTemplated == nullptr)
                 return nullptr;
@@ -1259,6 +1479,7 @@ Conversion* Semantic::userDefinedConversionByConstruction(Type* a_pInput, ClassT
         if (!pBestCandidateAccessibleSymbol)
             pBestCandidateAccessibleSymbol = pBestOverload->subroutine;
         else
+            pBestCandidateAccessibleSymbol =
             static_cast<TemplateSpecialization*>(pBestCandidateAccessibleSymbol)->getTemplate();
 
         if (m_bAccessModifiersEnabled && m_pSource)
@@ -1569,9 +1790,10 @@ void Semantic::newImplicitConversionsWithArgDeductions(Signature* a_pSignature, 
                 {
                     PlaceholderMap deductions;
                     auto pResolvedVariadicType = callTemplateArgumentDeductionRef(pParamType, pInputType, deductions);
-                    for (auto ph_arg : deductions)
+                    for (auto& ph_deductions : deductions)
                     {
-                        a_TemplateArgDeductions.insert(ph_arg.first, ph_arg.second);
+                        for (auto& deduction : ph_deductions.second)
+                            a_TemplateArgDeductions.insert(ph_deductions.first, deduction);
                     }
                     a_Out.push_back(newConversion(pInputType, pResolvedVariadicType, a_pContextScope,
                                                   a_ConversionAllowedUserDefinedFunctions, false));
@@ -1589,9 +1811,10 @@ void Semantic::newImplicitConversionsWithArgDeductions(Signature* a_pSignature, 
                 PlaceholderMap deductions;
                 pParamTypeResolvedOrDeduced = callTemplateArgumentDeductionRef(pParamType, pInputType, deductions);
 
-                for (auto ph_arg : deductions)
+                for (auto& ph_deductions : deductions)
                 {
-                    a_TemplateArgDeductions.insert(ph_arg.first, ph_arg.second);
+                    for (auto& deduction : ph_deductions.second)
+                        a_TemplateArgDeductions.insert(ph_deductions.first, deduction);
                 }
 
                 if (!pParamTypeResolvedOrDeduced)
@@ -1657,9 +1880,10 @@ void Semantic::newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType
                 {
                     PlaceholderMap deductions;
                     auto pResolvedVariadicType = callTemplateArgumentDeductionRef(pParamType, pInputType, deductions);
-                    for (auto ph_arg : deductions)
+                    for (auto& ph_deductions : deductions)
                     {
-                        a_TemplateArgDeductions.insert(ph_arg.first, ph_arg.second);
+                        for (auto& deduction : ph_deductions.second)
+                            a_TemplateArgDeductions.insert(ph_deductions.first, deduction);
                     }
                     a_Out.push_back(newConversion(pInputType, pResolvedVariadicType, a_pContextScope,
                                                   a_ConversionAllowedUserDefinedFunctions, false));
@@ -1677,9 +1901,10 @@ void Semantic::newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType
                 PlaceholderMap deductions;
                 pParamTypeResolvedOrDeduced = callTemplateArgumentDeductionRef(pParamType, pInputType, deductions);
 
-                for (auto ph_arg : deductions)
+                for (auto& ph_deductions : deductions)
                 {
-                    a_TemplateArgDeductions.insert(ph_arg.first, ph_arg.second);
+                    for (auto& deduction : ph_deductions.second)
+                        a_TemplateArgDeductions.insert(ph_deductions.first, deduction);
                 }
 
                 if (!pParamTypeResolvedOrDeduced)
@@ -3057,7 +3282,7 @@ Type* Semantic::autoDeduction(Type* a_pParameter, Type* a_pArgument)
                          "expression"); // deduction succeeded
         return nullptr;
     }
-    Type* pDeducedAutoType = static_cast<Type*>(deductions.begin()->second);
+    Type* pDeducedAutoType = static_cast<Type*>(deductions.begin()->second.front());
     if (a_pParameter->asReference() == nullptr) // !auto ...&
     {
         pDeducedAutoType = pDeducedAutoType->removeReference()->removeQualifiers();
@@ -3535,7 +3760,7 @@ Semantic::newConversion(Type* a_pInputType, Type* a_pOutputType, CastKind a_eCon
                           nullptr); // might create user defined and protected
 
     ConversionParams params{};
-    ConvHash         hash;
+
     if (!initializerTypeConv)
     {
         LanguageElement* cachedScope = in_pContextScope;
@@ -3550,106 +3775,19 @@ Semantic::newConversion(Type* a_pInputType, Type* a_pOutputType, CastKind a_eCon
             // access protection might change only in the context of a class
             in_pContextScope = in_pContextScope->getEnclosingClassType();
         }
-
-        ConversionParams params{in_pContextScope, uint32_t(a_eConversionType),
-                                uint16_t(a_eUserDefinedAllowedConversions), uint16_t(a_bInitialize)};
-
-        hash.data[0] = uintptr_t(in_pContextScope);
-        hash.data[1] = uintptr_t(a_pInputType);
-        hash.data[2] = uintptr_t(a_pOutputType);
-        hash.data[3] = uintptr_t(a_eConversionType) << 32 | uintptr_t(a_eUserDefinedAllowedConversions);
-
-        auto found = m_CachedConversions.find(hash);
+        params = ConversionParams{a_pInputType,
+                                  a_pOutputType,
+                                  in_pContextScope,
+                                  uint16_t(a_eConversionType),
+                                  uint8_t(a_eUserDefinedAllowedConversions),
+                                  a_bInitialize};
+        auto lock = m_CachedConversionsMtx.autoLock();
+        auto found = m_CachedConversions.find(params);
         if (found != m_CachedConversions.end())
         {
-            if (found->second.first == params)
-                return found->second.second;
-            hash = ConvHash(); // garbage storage
+            return found->second;
         }
     }
-    //
-    //         params = ConversionParams{cachedScope, uint32_t(a_eConversionType),
-    //         uint16_t(a_eUserDefinedAllowedConversions),
-    //                                   uint16_t(a_bInitialize)};
-    //
-    //         auto foundI = m_CachedConversions.find(a_pInputType);
-    //         if (foundI != m_CachedConversions.end())
-    //         {
-    //             auto foundO = foundI->second.find(a_pOutputType);
-    //             if (foundO != foundI->second.end())
-    //             {
-    //                 auto foundP = foundO->second.find(params);
-    //                 if (foundP != foundO->second.end())
-    //                     return foundP->second;
-    //
-    //                 if (a_pOutputType->asClassType() == nullptr && a_pInputType->asClassType() == nullptr)
-    //                 {
-    //                     if (a_eConversionType == CastKind::Explicit || a_eConversionType == CastKind::Static)
-    //                     {
-    //                         // explicit and static are the same as implicit if implicit existed
-    //                         ConversionParams altParams(params);
-    //                         altParams.castKind = uint32_t(CastKind::Implicit);
-    //                         foundP = foundO->second.find(altParams);
-    //                         if (foundP != foundO->second.end() && foundP->second)
-    //                         {
-    //                             m_CachedConversions[a_pInputType][a_pOutputType][params] = foundP->second;
-    //                             return foundP->second;
-    //                         }
-    //                         if (altParams.udConv == uint16_t(UserDefinedFunctions::All))
-    //                         {
-    //                             altParams.udConv = uint16_t(UserDefinedFunctions::ImplicitsOnly);
-    //                             foundP = foundO->second.find(altParams);
-    //                             if (foundP != foundO->second.end() && foundP->second)
-    //                             {
-    //                                 m_CachedConversions[a_pInputType][a_pOutputType][params] = foundP->second;
-    //                                 return foundP->second;
-    //                             }
-    //                         }
-    //                         if (altParams.udConv == uint16_t(UserDefinedFunctions::ImplicitsOnly))
-    //                         {
-    //                             altParams.udConv = uint16_t(UserDefinedFunctions::None);
-    //                             foundP = foundO->second.find(altParams);
-    //                             if (foundP != foundO->second.end() && foundP->second)
-    //                             {
-    //                                 m_CachedConversions[a_pInputType][a_pOutputType][params] = foundP->second;
-    //                                 return foundP->second;
-    //                             }
-    //                         }
-    //                     }
-    //                     else if (a_eConversionType == CastKind::Implicit)
-    //                     {
-    //                         // explicit and static are the same as implicit if implicit existed
-    //                         ConversionParams altParams(params);
-    //                         altParams.castKind = uint32_t(CastKind::Explicit);
-    //                         foundP = foundO->second.find(altParams);
-    //                         if (foundP != foundO->second.end() && !foundP->second)
-    //                         {
-    //                             m_CachedConversions[a_pInputType][a_pOutputType][params] = nullptr;
-    //                             return foundP->second;
-    //                         }
-    //                         altParams.castKind = uint32_t(CastKind::Static);
-    //                         foundP = foundO->second.find(altParams);
-    //                         if (foundP != foundO->second.end() && !foundP->second)
-    //                         {
-    //                             m_CachedConversions[a_pInputType][a_pOutputType][params] = nullptr;
-    //                             return foundP->second;
-    //                         }
-    //                         if (a_eUserDefinedAllowedConversions != UserDefinedFunctions::None)
-    //                         {
-    //                             ConversionParams altParams(params);
-    //                             altParams.udConv = uint16_t(UserDefinedFunctions::None);
-    //                             foundP = foundO->second.find(altParams);
-    //                             if (foundP != foundO->second.end() && foundP->second)
-    //                             {
-    //                                 m_CachedConversions[a_pInputType][a_pOutputType][params] = foundP->second;
-    //                                 return foundP->second;
-    //                             }
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
 
     Conversion* conv = nullptr;
     if (a_pInputType->isSame(a_pOutputType))
@@ -3668,9 +3806,11 @@ Semantic::newConversion(Type* a_pInputType, Type* a_pOutputType, CastKind a_eCon
         data.out = out;
         a_pInputType->visit(this, data);
     }
+
+    auto lock = m_CachedConversionsMtx.autoLock();
     if (!initializerTypeConv)
     {
-        m_CachedConversions[hash] = Pair<ConversionParams, Conversion*>(params, conv);
+        m_CachedConversions[params] = conv;
         if (conv)
             conv->semantic = this;
     }
@@ -3756,6 +3896,21 @@ void Semantic::buildClass(ClassType* a_pClassType, EClassBuildState a_eBuildStat
         Semantic sema(pSource, &msg);
         return sema.buildClass(a_pClassType, a_eBuildState);
     }
+
+    // ensure we have an intermediate message indicating the current template instantiation source
+    auto instantiationSpec = a_pClassType->getTemplateSpecialization();
+
+    if (instantiationSpec)
+        instantiationSpec = instantiationSpec->getInstantiationSpecialization();
+
+    Message* pPrevMessage = nullptr;
+    if (instantiationSpec)
+    {
+        pPrevMessage = m_pMessage;
+        m_pMessage = new_<Message>(MessageType::Undefined, instantiationSpec->getSource()->getName());
+    }
+
+    // start building the class by going step by step until reaching the desired build state
     auto& buildState = a_pClassType->getExtraData()->m_BuildState;
     while (buildState < uint(a_eBuildState))
     {
@@ -3784,6 +3939,12 @@ void Semantic::buildClass(ClassType* a_pClassType, EClassBuildState a_eBuildStat
         buildScopeClasses(a_pClassType, a_eBuildState);
     }
     PHANTOM_SEMANTIC_ASSERT(buildState >= uint(a_eBuildState));
+    if (pPrevMessage)
+    {
+        if (m_pMessage->getChildCount())
+            pPrevMessage->addChild(m_pMessage);
+        m_pMessage = pPrevMessage;
+    }
 }
 
 void Semantic::sizeClass(ClassType* a_pClassType)

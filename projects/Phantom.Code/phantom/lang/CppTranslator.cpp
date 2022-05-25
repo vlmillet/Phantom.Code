@@ -209,6 +209,8 @@ int priorityComputer(LanguageElement* a_pScope, ClassType* _class, std::map<Lang
         {
             if (auto fCT = field->getValueType()->removeQualifiers()->asClassType())
             {
+                if (fCT->hasOwnerCascade(_class))
+                    continue;
                 if (fCT->hasOwnerCascade(a_pScope))
                 {
                     prio = std::max(prio, priorityComputer(a_pScope, fCT, classPrios) + 1);
@@ -2395,10 +2397,10 @@ void CppTranslator::visit(Enum* a_pInput, VisitorData a_Data)
                 append(", ");
 
             StringView name = (*it)->getName();
-            bool       keyword = IsKeyword(name);
-            if (keyword)
+            bool       keywordOrFirstDigit = IsKeyword(name) || isdigit(name.front());
+            if (keywordOrFirstDigit)
             {
-                append(name + m_NoKeywordChars);
+                append(m_NoKeywordChars + name);
             }
             else
             {
@@ -2410,7 +2412,7 @@ void CppTranslator::visit(Enum* a_pInput, VisitorData a_Data)
             StringBuffer buf;
             a_pInput->getUnderlyingIntType()->valueToString(buf, value);
             m_pTranslation->append(buf.data(), buf.size());
-            if (keyword)
+            if (keywordOrFirstDigit)
                 append(" ///< @name " + name);
             endDecl();
         }
@@ -3050,14 +3052,34 @@ void CppTranslator::visit(Symbol* a_pInput, VisitorData a_Data)
         }
 
         PHANTOM_ASSERT(getContextScope());
+        auto name = a_pInput->getName();
+
+        String qualName;
         if (m_ForceQualifiedName != 0)
-            append(a_pInput->getQualifiedDecoratedName());
+            qualName = a_pInput->getQualifiedDecoratedName();
         else
-            append(a_pInput->getRelativeDecoratedName(getContextScope()));
-        if (a_pInput->getName() != "nullptr" && IsKeyword(a_pInput->getName()))
+            qualName = a_pInput->getRelativeDecoratedName(getContextScope());
+
+        bool keywordOrFirstDigit = name != "nullptr" && IsKeyword(name) || isdigit(name.front());
+        if (keywordOrFirstDigit)
         {
-            append(m_NoKeywordChars);
+            auto lastColonPos = qualName.find_last_of(":");
+            if (lastColonPos == -1)
+            {
+                append(qualName);
+                append(m_NoKeywordChars);
+            }
+            else
+            {
+                qualName.insert(lastColonPos + 1, m_NoKeywordChars);
+                append(qualName);
+            }
         }
+        else
+        {
+            append(qualName);
+        }
+
         return;
     }
     visit(static_cast<LanguageElement*>(a_pInput), a_Data);

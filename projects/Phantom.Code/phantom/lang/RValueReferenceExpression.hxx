@@ -47,7 +47,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<Expression*(LanguageElement*), virtual_|override_>("load", &_::load)({"a_pOwner"})
             .method<Expression*(), virtual_|override_>("loadRValueReferenceExpression", &_::loadRValueReferenceExpression)
             .method<Expression*(), virtual_|override_>("removeRValueReferenceExpression", &_::removeRValueReferenceExpression)
-            .method<Expression*(), virtual_|override_>("removeRValueToLValueExpression", &_::removeRValueToLValueExpression)
+            .method<Expression*(), virtual_|override_>("removeRValueStorageExpression", &_::removeRValueStorageExpression)
             .method<LanguageElement*(), virtual_|override_>("hatchExpression", &_::hatchExpression)
             .method<LanguageElement*() const, virtual_|override_>("removeExpression", &_::removeExpression)
         
