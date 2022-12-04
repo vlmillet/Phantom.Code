@@ -54,13 +54,15 @@ Expression* StandardConversionSequence::convert(Semantic* a_pSemantic, Expressio
 void DefaultConversionSequence::addUserDefinedByConstruction(Constructor* a_pConstructor)
 {
     PHANTOM_ASSERT(semantic == nullptr);
-    m_pre_user_defined = m_user_defined;
+	PHANTOM_ASSERT(!a_pConstructor->testModifiers(Modifier::Deleted));
+	m_pre_user_defined = m_user_defined;
     m_user_defined = m_pOwner->new_<UserDefinedConversion>(m_pOwner, a_pConstructor);
     output = m_user_defined->output;
 }
 void DefaultConversionSequence::addUserDefinedByConversionFunction(Method* a_pConversionFunction)
 {
 	PHANTOM_ASSERT(semantic == nullptr);
+	PHANTOM_ASSERT(!a_pConversionFunction->testModifiers(Modifier::Deleted));
 	m_user_defined = m_pOwner->new_<UserDefinedConversion>(m_pOwner, a_pConversionFunction);
     input = m_user_defined->input;
 }
@@ -335,6 +337,18 @@ struct NumericConversionT<std::nullptr_t, t_Output, CastKind::Implicit> : public
 
     virtual NumericConversionT<std::nullptr_t, t_Output, CastKind::Implicit>* clone(LanguageElement* a_pOwner) const { return a_pOwner->new_ < NumericConversionT<std::nullptr_t, t_Output, CastKind::Implicit>>(a_pOwner, output, promotion); }
 };
+template<>
+struct NumericConversionT<std::nullptr_t, bool, CastKind::Implicit> : public NumericConversion
+{
+	NumericConversionT(LanguageElement* a_pOwner, bool promotion = false) : NumericConversion(a_pOwner, PHANTOM_TYPEOF(std::nullptr_t), PHANTOM_TYPEOF(bool), promotion) {}
+	NumericConversionT(LanguageElement* a_pOwner, Type* a_pOutput, bool promotion = false) : NumericConversion(a_pOwner, PHANTOM_TYPEOF(std::nullptr_t), a_pOutput, promotion) {}
+	virtual void apply(const void* a_pInput, void* a_pOutput) const
+	{
+		*(bool*)a_pOutput = false;
+	}
+
+	virtual NumericConversionT<std::nullptr_t, bool, CastKind::Implicit>* clone(LanguageElement* a_pOwner) const { return a_pOwner->new_ < NumericConversionT<std::nullptr_t, bool, CastKind::Implicit>>(a_pOwner, output, promotion); }
+};
 
 template<typename t_Output>
 struct NumericConversionT<std::nullptr_t, t_Output, CastKind::Static> : public NumericConversion
@@ -347,6 +361,19 @@ struct NumericConversionT<std::nullptr_t, t_Output, CastKind::Static> : public N
     }
 
     virtual NumericConversionT<std::nullptr_t, t_Output, CastKind::Static>* clone(LanguageElement* a_pOwner) const { return a_pOwner->new_ < NumericConversionT<std::nullptr_t, t_Output, CastKind::Static>>(a_pOwner, output, promotion); }
+};
+
+template<>
+struct NumericConversionT<std::nullptr_t, bool, CastKind::Static> : public NumericConversion
+{
+	NumericConversionT(LanguageElement* a_pOwner, bool promotion = false) : NumericConversion(a_pOwner, PHANTOM_TYPEOF(std::nullptr_t), PHANTOM_TYPEOF(bool), promotion) {}
+	NumericConversionT(LanguageElement* a_pOwner, Type* a_pOutput, bool promotion = false) : NumericConversion(a_pOwner, PHANTOM_TYPEOF(std::nullptr_t), a_pOutput, promotion) {}
+	virtual void apply(const void* a_pInput, void* a_pOutput) const
+	{
+		*(bool*)a_pOutput = false;
+	}
+
+	virtual NumericConversionT<std::nullptr_t, bool, CastKind::Static>* clone(LanguageElement* a_pOwner) const { return a_pOwner->new_ < NumericConversionT<std::nullptr_t, bool, CastKind::Static>>(a_pOwner, output, promotion); }
 };
 
 template<typename t_Output>

@@ -25,6 +25,8 @@ class PHANTOM_EXPORT_PHANTOM_CODE StringLiteralExpression : public Expression
     PHANTOM_DECLARE_LANGUAGE_ELEMENT_VISIT_EX;
 
 public:
+    static bool LiteralToString(String& _inOut);
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Constructs a String literal expression from the original literal and its String
     /// value.

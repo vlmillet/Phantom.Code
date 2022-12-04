@@ -1410,18 +1410,18 @@ struct CppLitePass : public ast::visitor::Recursive<T>
     inline LanguageElement* getScope() const { return m_Data.getScope(); }
     inline Source*          getSource() const { return m_Data.getSource(); }
 
-    template<class T, class... Args>
-    T* New(Args&&... a_Args)
+    template<class T_, class... Args>
+    T_* New(Args&&... a_Args)
     {
-        return m_Data.getSource()->New<T>(std::forward<Args>(a_Args)...);
+        return m_Data.getSource()->New<T_>(std::forward<Args>(a_Args)...);
     }
 
     void Delete(LanguageElement* a_pElem) { m_Data.getSource()->Delete(a_pElem); }
 
-    template<class T>
-    Constant* createConstant(T _val)
+    template<class ValT>
+    Constant* createConstant(ValT _val)
     {
-        return Constant::Create<T>(getSource(), _val);
+        return Constant::Create<ValT>(getSource(), _val);
     }
 
     LocalVariable* createLocalVariable(Block* a_pBlock, Type* a_pType, StringView a_Name)
@@ -4653,15 +4653,15 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         return true;
     }
 
-    template<class T>
-    T* applyCodeRange(ast::_BaseRule* input, T* a_pElem)
+    template<class ElmT>
+    ElmT* applyCodeRange(ast::_BaseRule* input, ElmT* a_pElem)
     {
         if (a_pElem)
             CppLiteSetCodeRange(a_pElem, CppLiteCodeRange(input->location()));
         return a_pElem;
     }
-    template<class T>
-    T* applyCodeRangeNoEnd(ast::_BaseRule* input, T* a_pElem)
+    template<class ElmT>
+    ElmT* applyCodeRangeNoEnd(ast::_BaseRule* input, ElmT* a_pElem)
     {
         if (a_pElem)
             CppLiteSetCodeRange(a_pElem, CppLiteCodeRangeNoEnd(input->location()));
@@ -4999,8 +4999,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         return false;
     }
 
-    template<class T>
-    bool resolveTemplateSpecialization(T* input, ast::TemplateArgumentList* a_pTemplateArgumentList,
+    template<class ElmT>
+    bool resolveTemplateSpecialization(ElmT* input, ast::TemplateArgumentList* a_pTemplateArgumentList,
                                        TemplateSpecialization*& a_pTemplateSpec, bool isSubroutine)
     {
         CppLiteDefaultReturnValue(false);
@@ -6299,8 +6299,8 @@ struct CppLitePassGlobals : public CppLitePass<CppLitePassGlobals>
         m_Data.pushScope(pTemplateSpec);
         const char* name = input->m_IDENTIFIER;
         Subroutine* pSubroutine = nullptr;
-        if (!resolveFunctionEnd(input->m_TypeOrAuto, name, input->m_FunctionEnd, Modifiers{PHANTOM_R_STATIC},
-                                pSubroutine, false))
+        Modifiers   staticMod{PHANTOM_R_STATIC};
+        if (!resolveFunctionEnd(input->m_TypeOrAuto, name, input->m_FunctionEnd, staticMod, pSubroutine, false))
         {
             m_Data.popScope();
             return true;
@@ -7081,9 +7081,11 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
 
         const char* name = input->m_IDENTIFIER;
         Subroutine* pSubroutine = nullptr;
+
+        Modifiers staticOrNotStaticMod = input->m_STATIC.hasValue() ? PHANTOM_R_STATIC : Modifiers{};
         m_Data.pushScope(pTemplateSpec);
-        if (!resolveFunctionEnd(input->m_TypeOrAuto, name, input->m_FunctionEnd,
-                                input->m_STATIC.hasValue() ? PHANTOM_R_STATIC : Modifiers{}, pSubroutine, false))
+        if (!resolveFunctionEnd(input->m_TypeOrAuto, name, input->m_FunctionEnd, staticOrNotStaticMod, pSubroutine,
+                                false))
         {
             m_Data.popScope();
             return true;
@@ -8193,7 +8195,8 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
                                                                                 deductions);
                             CppLiteErrorReturnIf(deductions.size() != 1,
                                                  "'%s' : auto deduction failed to match the pattern", name);
-                            CPPLITEPARSER_ASSERT(deductions.begin()->second->asType(), "deduced type is not a type !?");
+                            CPPLITEPARSER_ASSERT(deductions.begin()->second.front()->asType(),
+                                                 "deduced type is not a type !?");
                             pType = pType->replicate(static_cast<Type*>(deductions.begin()->second.front()));
                         }
                         else

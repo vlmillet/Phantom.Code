@@ -149,6 +149,8 @@ namespace lang
 
 #define PHANTOM_SEMANTIC_ASSERT_ElementIsVisible(...)
 
+#pragma optimize("", off)
+
 namespace phantom
 {
 namespace lang
@@ -1343,7 +1345,8 @@ void Semantic::visit(Block* a_pInput, VisitorData a_Data)
                 else
                 {
                     // TODO : improve all the error handling system to avoid this kind of sh*t
-                    if (m_pLastSilentMessage && m_pLastSilentMessage->getType() != MessageType::Undefined)
+                    if (m_pLastSilentMessage &&
+                        m_pLastSilentMessage->getMostValuableMessageType() != MessageType::Undefined)
                     {
                         m_pMessage->addChild(m_pLastSilentMessage->clone(true));
                         m_pLastSilentMessage = nullptr;
@@ -2345,26 +2348,27 @@ void Semantic::visit(ClassType* a_pInput, VisitorData a_Data)
     case e_VisitorFunction_QualifiedNameLookup:
     {
         LanguageElement* in_pContextScope = *(LanguageElement**)a_Data.in[1];
-        visit(static_cast<Scope*>(a_pInput), a_Data);
-        Symbols& out_candidates = *(Symbols*)a_Data.out[0];
-        if (out_candidates.size())
-        {
-            StringView in_name = *(StringView*)a_Data.in[0];
-            if (std::find_if(out_candidates.begin(), out_candidates.end(), [](Symbol* s) {
-                    return s->asFunction() ||
-                    s->asAlias() && static_cast<Alias*>(s)->getAliasedSymbol()->asSubroutine();
-                }) != out_candidates.end())
-            {
-                for (auto pMethod : a_pInput->getMethods())
-                {
-                    if (pMethod->getName() == in_name)
-                    {
-                        out_candidates.push_back(pMethod);
-                    }
-                }
-            }
-            return;
-        }
+        Symbols&         out_candidates = *(Symbols*)a_Data.out[0];
+        // visit(static_cast<Scope*>(a_pInput), a_Data);
+        //         Symbols& out_candidates = *(Symbols*)a_Data.out[0];
+        //         if (out_candidates.size())
+        //         {
+        //             StringView in_name = *(StringView*)a_Data.in[0];
+        //             if (std::find_if(out_candidates.begin(), out_candidates.end(), [](Symbol* s) {
+        //                     return s->asFunction() ||
+        //                     s->asAlias() && static_cast<Alias*>(s)->getAliasedSymbol()->asSubroutine();
+        //                 }) != out_candidates.end())
+        //             {
+        //                 for (auto pMethod : a_pInput->getMethods())
+        //                 {
+        //                     if (pMethod->getName() == in_name)
+        //                     {
+        //                         out_candidates.push_back(pMethod);
+        //                     }
+        //                 }
+        //             }
+        //             return;
+        //         }
 
         TemplateSpecialization* pSpec = a_pInput->getTemplateSpecialization();
 
@@ -3723,22 +3727,30 @@ void Semantic::visit(Enum* a_pInput, VisitorData a_Data)
         LanguageElement*&           pInstanciated = *(LanguageElement**)a_Data.out[0];
         OwnerGuard<Enum>            pInstantiatedEnum = nullptr;
 
-        PrimitiveType* pIntType = o_resolveT(PrimitiveType, a_pInput->getUnderlyingIntType());
-
-        CxxSemanticErrorReturnIf(!pIntType, "template instantiation : unable to solve enum type '%.*s'",
-                                 PHANTOM_STRING_AS_PRINTF_ARG(a_pInput->getUnderlyingIntType()->getName()));
-        if (!pIntType)
-            return;
-        pInstantiatedEnum = New<Enum>(a_pInput->getName(), pIntType);
-        for (auto pInputCst : a_pInput->getConstants())
+        if (in_eClassBuildState == e_ClassBuildState_Members)
         {
-            Constant* pCst = o_instantiateT(Constant, pInputCst);
-            CxxSemanticErrorReturnIf(!pCst, "template instantiation : unable to solve enum constant '%.*s'",
-                                     PHANTOM_STRING_AS_PRINTF_ARG(pInputCst->getName()));
-            unsigned long long val;
-            pCst->getValue(&val);
-            Delete(pCst);
-            pInstantiatedEnum->addConstant(pInstantiatedEnum->createConstant(&val, pInputCst->getName()));
+            Scope* pScope = in_pContextScope->asClassType();
+            PHANTOM_ASSERT(pScope, "enum resolution scope must be a valid class type scope ");
+
+            PrimitiveType* pIntType = o_resolveT(PrimitiveType, a_pInput->getUnderlyingIntType());
+
+            CxxSemanticErrorReturnIf(!pIntType, "template instantiation : unable to solve enum type '%.*s'",
+                                     PHANTOM_STRING_AS_PRINTF_ARG(a_pInput->getUnderlyingIntType()->getName()));
+            if (!pIntType)
+                return;
+            pInstantiatedEnum = New<Enum>(a_pInput->getName(), pIntType);
+            for (auto pInputCst : a_pInput->getConstants())
+            {
+                Constant* pCst = o_instantiateT(Constant, pInputCst);
+                CxxSemanticErrorReturnIf(!pCst, "template instantiation : unable to solve enum constant '%.*s'",
+                                         PHANTOM_STRING_AS_PRINTF_ARG(pInputCst->getName()));
+                unsigned long long val;
+                pCst->getValue(&val);
+                Delete(pCst);
+                pInstantiatedEnum->addConstant(pInstantiatedEnum->createConstant(&val, pInputCst->getName()));
+            }
+            pScope->addType(pInstantiatedEnum);
+            pInstanciated = pInstantiatedEnum;
         }
         return;
     }
@@ -5655,7 +5667,7 @@ void Semantic::visit(LanguageElement* a_pInput, VisitorData a_Data)
                         }
                     }
                 }
-                else
+                else if (in_name != a_pInput->getName())
                 {
                     Block* pContextBlock;
                     if (in_pContextScope && (pContextBlock = in_pContextScope->asBlock()) &&
@@ -5828,6 +5840,9 @@ void Semantic::visit(LanguageElement* a_pInput, VisitorData a_Data)
                         }
                     }
                 }
+                else
+                {
+                }
                 if (bIsTemplateDependant)
                 {
                     out_pResult = New<TemplateDependantExpression>(New<TemplateDependantElement>(
@@ -5835,6 +5850,7 @@ void Semantic::visit(LanguageElement* a_pInput, VisitorData a_Data)
                     *(OptionalArrayView<LanguageElement*>*)&in_pFunctionArguments));
                     return;
                 }
+
                 Expressions arguments;
                 arguments.insert(arguments.end(), in_pFunctionArguments->begin(),
                                  in_pFunctionArguments->end()); // then arguments
@@ -7769,7 +7785,6 @@ void Semantic::visit(PlaceholderType* a_pInput, VisitorData a_Data)
                 return;
             }
             pResolved = o_findT(PlaceholderType, a_pInput);
-            PHANTOM_ASSERT(pResolved);
             return;
         }
         if (pArgument)
@@ -8704,8 +8719,10 @@ void Semantic::visit(Structure* a_pInput, VisitorData a_Data)
         Structure*                  pInstanceStructure = New<Structure>(a_pInput->getName(), a_pInput->getModifiers());
         pInstanciated = pInstanceStructure;
         Scope* pScope = in_pContextScope->asScope();
-        if (pScope)
-            pScope->addType(pInstanceStructure);
+
+        PHANTOM_ASSERT(pScope,
+                       "enum resolution scope must be a valid declaration scope (class type, namespace or block)");
+        pScope->addType(pInstanceStructure);
         visit(static_cast<ClassType*>(a_pInput), a_Data);
     }
         return;
@@ -9148,28 +9165,33 @@ void Semantic::visit(TemplateDependantElement* a_pInput, VisitorData a_Data)
                 {
                     if (auto pPackExp = Object::Cast<ParameterPackExpressionExpansion>(pArgument))
                     {
-                        auto   pExpParam = pPackExp->getExpandedParameter();
-                        auto&  templateDepParams = static_cast<Signature*>(pExpParam->getOwner())->getParameters();
-                        size_t templateDepParamsCount = templateDepParams.size();
-                        for (size_t i = 0; i < templateDepParamsCount; ++i)
+                        auto   pExpansionParam = pPackExp->getExpandedParameter();
+                        auto&  unresolvedParams = static_cast<Signature*>(pExpansionParam->getOwner())->getParameters();
+                        size_t unresolvedParamsCount = unresolvedParams.size();
+                        size_t resolvedParamIndex = 0;
+                        for (size_t i = 0; i < unresolvedParamsCount; ++i)
                         {
-                            if (templateDepParams[i] == pExpParam)
+                            // the current unresolved param is the ... pack param we are expanding
+                            if (unresolvedParams[i] == pExpansionParam)
                             {
                                 Subroutine* pInstanceSubroutine =
                                 o_resolveT(Subroutine, in_pContextScope->getEnclosingSubroutine());
                                 auto&  resolvedParams = pInstanceSubroutine->getParameters();
                                 size_t resolvedParamSize = resolvedParams.size();
-                                if (resolvedParamSize < templateDepParamsCount)
+                                if (resolvedParamSize < unresolvedParamsCount)
                                 {
                                     // variadic expanded without arguments => we skip the function argument
-                                    pExpParam = nullptr;
+                                    pExpansionParam = nullptr;
                                     break;
                                 }
-                                for (size_t p = i; p < i + (resolvedParamSize - templateDepParamsCount); ++p)
+                                for (size_t p = i; p < i + (resolvedParamSize - unresolvedParamsCount) + 1; ++p)
                                 {
-                                    templateInstantiations()[in_TemplateSubstitution.getInstantiation()][pExpParam] =
-                                    resolvedParams[p];
-                                    LanguageElement* pElement = o_instantiateT(LanguageElement, pArgument);
+                                    templateInstantiations()[in_TemplateSubstitution.getInstantiation()]
+                                                            [pExpansionParam] = resolvedParams[p];
+                                    // ^ this is a temporary assignment to resolve the following line (o_instantiateT)
+
+                                    LanguageElement* pElement =
+                                    o_instantiateT(LanguageElement, pPackExp->getExpandedExpression());
                                     if (pElement->asExpression() && bExpressions)
                                     {
                                         bTypes = false;
@@ -9182,10 +9204,11 @@ void Semantic::visit(TemplateDependantElement* a_pInput, VisitorData a_Data)
                                         return;
                                     }
                                 }
+                                pExpansionParam = nullptr; // means we are done with this pArgument
                                 break;
                             }
                         }
-                        if (!pExpParam) // argument was skipped by variadic resolution
+                        if (!pExpansionParam) // means we are done with parameter pack expansion for this argument
                             continue;
                     }
                 }
@@ -9253,6 +9276,8 @@ void Semantic::visit(TemplateDependantElement* a_pInput, VisitorData a_Data)
         }
         if (pLHS == nullptr)
             pLHS = in_pContextScope;
+
+        Strings helpingErrorMessages;
 
         if (pFunctionArguments)
         {
@@ -9421,7 +9446,20 @@ void Semantic::visit(TemplateDependantElement* a_pInput, VisitorData a_Data)
                         return;
                     }
                 }
-                ErrorTemplateInstantiationFailure(a_pInput, pTemplateArguments, pFunctionArguments);
+                if (m_pLastSilentMessage &&
+                    m_pLastSilentMessage->getMostValuableMessageType() != MessageType::Undefined)
+                {
+                    if (m_pLastSilentMessage->getType() == MessageType::Undefined)
+                        for (auto pChild : m_pLastSilentMessage->getChildren())
+                            m_pMessage->addChild(pChild->clone(true));
+                    else
+                        m_pMessage->addChild(m_pLastSilentMessage->clone(true));
+                    m_pLastSilentMessage = nullptr;
+                }
+                else
+                {
+                    ErrorTemplateInstantiationFailure(a_pInput, pTemplateArguments, pFunctionArguments);
+                }
             }
             return;
         }
@@ -9770,23 +9808,32 @@ void Semantic::visit(ParameterPackExpressionExpansion* a_pInput, VisitorData a_D
         LanguageElement*            in_pContextScope = *(LanguageElement**)a_Data.in[2];
         LanguageElement*&           pInstantiated = *(LanguageElement**)a_Data.out[0];
         auto                        pExpParam = a_pInput->getExpandedParameter();
-        auto&                       templateDepParams = static_cast<Signature*>(pExpParam->getOwner())->getParameters();
-        size_t                      templateDepParamsCount = templateDepParams.size();
-        for (size_t i = 0; i < templateDepParamsCount; ++i)
+        //
+        //         // if in the call stack we are already resolving the pack (as function arguments, one by one, for
+        //         example ) auto oneByOneExpansedElement = o_findT(LanguageElement, pExpParam); if
+        //         (oneByOneExpansedElement)
+        //         {
+        //             pInstantiated = o_instantiateT(LanguageElement, a_pInput->getExpandedExpression());
+        //             return;
+        //         }
+
+        auto&  unresolvedParams = static_cast<Signature*>(pExpParam->getOwner())->getParameters();
+        size_t unresolvedParamsCount = unresolvedParams.size();
+        for (size_t i = 0; i < unresolvedParamsCount; ++i)
         {
-            if (templateDepParams[i] == pExpParam)
+            if (unresolvedParams[i] == pExpParam)
             {
                 Subroutine* pInstanceSubroutine = o_resolveT(Subroutine, in_pContextScope->getEnclosingSubroutine());
                 auto&       resolvedParams = pInstanceSubroutine->getParameters();
                 size_t      resolvedParamSize = resolvedParams.size();
-                if (resolvedParamSize < templateDepParamsCount)
+                if (resolvedParamSize < unresolvedParamsCount)
                 {
                     // variadic expanded without arguments => skip
                     pExpParam = nullptr;
                     break;
                 }
                 Expression* pLeft = nullptr;
-                for (size_t p = i; p < i + (resolvedParamSize - templateDepParamsCount) + 1; ++p)
+                for (size_t p = i; p < i + (resolvedParamSize - unresolvedParamsCount) + 1; ++p)
                 {
                     templateInstantiations()[in_TemplateSubstitution.getInstantiation()][pExpParam] = resolvedParams[p];
                     LanguageElement* pElement = o_instantiateT(LanguageElement, a_pInput->getExpandedExpression());

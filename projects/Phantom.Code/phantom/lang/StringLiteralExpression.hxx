@@ -19,6 +19,7 @@
 #include <phantom/source>
 #include <phantom/class>
 #include <phantom/method>
+#include <phantom/static_method>
 #include <phantom/constructor>
 #include <phantom/field>
 #include <phantom/friend>
@@ -46,6 +47,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void(::phantom::lang::LanguageElementVisitor *, ::phantom::lang::VisitorData), virtual_|override_>("visit", &_::visit)({"a_pVisitor","a_Data"})
         
         .public_()
+            .staticMethod<bool(String&)>("LiteralToString", &_::LiteralToString)({"_inOut"})
             .constructor<void(StringView, StringView)>()({"a_Literal","a_Value"})
             .constructor<void(StringView)>()({"a_Literal"})
             .method<void*(ExecutionContext&) const, virtual_|override_>("evalStorage", &_::evalStorage)({"a_Context"})

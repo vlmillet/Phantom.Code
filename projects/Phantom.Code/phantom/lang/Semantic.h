@@ -543,6 +543,7 @@ public:
 
     void applyOverloadsSFINAE(SelectedOverloadInfos& a_InOverloads, LanguageElement* a_pInstantiationScope);
     SelectedOverloadInfo const* selectBestOverload(SelectedOverloadInfos const& _InOverloads);
+    SelectedOverloadInfo const* findPerfectMatchOverload(SelectedOverloadInfos const& _InOverloads);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Solve C++ binary operator.

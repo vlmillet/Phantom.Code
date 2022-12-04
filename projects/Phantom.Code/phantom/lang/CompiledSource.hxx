@@ -59,6 +59,8 @@ PHANTOM_PACKAGE("phantom.lang")
                 .method<bool(CompiledSource*) const>("hasDependency", &_::Build::hasDependency)({"a_pDep"})
                 .method<bool() const>("hasError", &_::Build::hasError)
                 .method<bool() const>("hasSucceeded", &_::Build::hasSucceeded)
+                /// missing symbol(s) reflection (time_t) -> use the 'haunt.bind' to bind symbols with your custom haunt files
+                // .method<time_t() const>("getTime", &_::Build::getTime)
             .end()
             .staticMethod<const ::phantom::lang::CompiledSource::Build &()>("EmptyBuild", &_::EmptyBuild)
             .constructor<void(Compiler*, SourceStream*)>()({"a_pCompiler","a_pSourceStream"})

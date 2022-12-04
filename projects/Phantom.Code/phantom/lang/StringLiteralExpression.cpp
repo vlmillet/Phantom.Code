@@ -94,24 +94,34 @@ StringLiteralExpression::StringLiteralExpression(StringView a_Literal, StringVie
     m_Buffer = m_Value.c_str();
 }
 
-StringLiteralExpression::StringLiteralExpression(StringView a_Literal)
-    : Expression(PHANTOM_TYPEOF(const char*)), m_Value(a_Literal), m_Literal(a_Literal)
+bool StringLiteralExpression::LiteralToString(String& _inOut)
 {
-    PHANTOM_ASSERT(a_Literal.size() && a_Literal.front() == '"' && a_Literal.back() == '"');
-    const char* cstr = m_Value.c_str();
-    size_t      len = m_Value.size();
+    const char* cstr = _inOut.c_str();
+    size_t      len = _inOut.size();
     char*       str = (char*)cstr + 1;
     size_t      size = 0;
     for (size_t i = 0; i < (len - 2);)
     {
         size_t offset = 0;
         size_t count = StringLiteralExpression_readChar(str + size, cstr + i + 1, offset);
-        PHANTOM_ASSERT(count != 0, "invalid String formatting");
+        if (count == 0)
+        {
+            PHANTOM_LOG(Error, "invalid String formatting");
+            return false;
+        }
         i += offset;
         size += count;
     }
-    m_Value.erase(m_Value.begin());
-    m_Value.resize(size);
+    _inOut.erase(_inOut.begin());
+    _inOut.resize(size);
+    return true;
+}
+
+StringLiteralExpression::StringLiteralExpression(StringView a_Literal)
+    : Expression(PHANTOM_TYPEOF(const char*)), m_Value(a_Literal), m_Literal(a_Literal)
+{
+    PHANTOM_ASSERT(a_Literal.size() && a_Literal.front() == '"' && a_Literal.back() == '"');
+    LiteralToString(m_Value);
     m_Buffer = m_Value.c_str();
 }
 

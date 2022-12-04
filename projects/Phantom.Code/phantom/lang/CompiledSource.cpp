@@ -87,6 +87,7 @@ void CompiledSource::_createBuild(Build& a_Build, Source* a_pSource, Language* a
     PHANTOM_ASSERT(a_Build.isNull());
     a_Build.m_pSource = a_pSource;
     a_Build.m_pSourcePackage = a_pSource->getPackage();
+    ::time(&a_Build.m_Time);
     a_Build.m_pLanguage = a_pLanguage;
     a_Build.m_pStatusMessage = new_<Message>(MessageType::Success, a_pSource->getName());
     a_Build.m_pStatusMessage->setData(CodeRangeLocation(a_pSource, CodeRange()));

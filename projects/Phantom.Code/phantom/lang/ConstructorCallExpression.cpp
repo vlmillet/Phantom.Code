@@ -22,11 +22,13 @@ namespace lang
 ConstructorCallExpression::ConstructorCallExpression(Constructor* a_pConstructor)
     : Expression(a_pConstructor->getOwnerClassType()), m_pConstructor(a_pConstructor)
 {
+    PHANTOM_ASSERT(!a_pConstructor->testModifiers(Modifier::Deleted));
 }
 
 ConstructorCallExpression::ConstructorCallExpression(Constructor* a_pConstructor, ExpressionsView a_Arguments)
     : Expression(a_pConstructor->getOwnerClassType()), m_pConstructor(a_pConstructor), m_Arguments(a_Arguments)
 {
+    PHANTOM_ASSERT(!a_pConstructor->testModifiers(Modifier::Deleted));
     PHANTOM_ASSERT(a_Arguments.size() <= m_pConstructor->getParameters().size());
     PHANTOM_ASSERT(a_Arguments.size() >= m_pConstructor->getRequiredArgumentCount());
     for (size_t i = 0; i < a_Arguments.size(); ++i)

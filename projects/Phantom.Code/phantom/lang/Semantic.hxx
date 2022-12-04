@@ -453,6 +453,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void(SelectedOverloadInfos&, Symbols&, OptionalArrayView<LanguageElement*>, TypesView, LanguageElement*, UserDefinedFunctions, Modifiers, uint)>("findCallOverloads", &_::findCallOverloads)({"a_OutOverloads","candidates","in_pTemplateArguments","a_ArgTypes","in_pContextScope","a_ConversionAllowedUserDefinedFunctions","a_Modifiers","a_uiFlags"})["UserDefinedFunctions::All"]["0"]["0"]
             .method<void(SelectedOverloadInfos&, LanguageElement*)>("applyOverloadsSFINAE", &_::applyOverloadsSFINAE)({"a_InOverloads","a_pInstantiationScope"})
             .method<SelectedOverloadInfo const*(SelectedOverloadInfos const&)>("selectBestOverload", &_::selectBestOverload)({"_InOverloads"})
+            .method<SelectedOverloadInfo const*(SelectedOverloadInfos const&)>("findPerfectMatchOverload", &_::findPerfectMatchOverload)({"_InOverloads"})
             .method<Expression*(StringView, Expression*, Expression*, LanguageElement*)>("solveBinaryOperator", &_::solveBinaryOperator)({"a_strOp","a_pLeftOperand","a_pRightOperand","a_pContextScope"})["nullptr"]
             .method<Expression*(Operator, Expression*, Expression*, LanguageElement*)>("solveBinaryOperator", &_::solveBinaryOperator)({"a_eOp","a_pLeft","a_pRight","a_pContextScope"})["nullptr"]
             .method<Expression*(StringView, Expression*, LanguageElement*)>("solveUnaryPreOperator", &_::solveUnaryPreOperator)({"a_strOp","a_pOperand","a_pContextScope"})["nullptr"]

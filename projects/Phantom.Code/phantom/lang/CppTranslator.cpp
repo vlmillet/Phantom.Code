@@ -410,7 +410,7 @@ int CppTranslator::translate(uint a_uiPass, String& a_Out)
 StringView CppTranslator::getOption(StringView a_Key) const
 {
     auto found = m_Options.find(a_Key);
-    return found == m_Options.end() ? StringView() : found->second;
+    return found == m_Options.end() ? StringView() : StringView(found->second);
 }
 
 bool CppTranslator::addAlias(StringView a_Original, StringView a_Alias)
@@ -4221,7 +4221,7 @@ void CppTranslator::appendNamespaceList(Namespace* a_pNamespace)
     String list;
     while (a_pNamespace && a_pNamespace->getName().size())
     {
-        list = list.empty() ? a_pNamespace->getName() : (a_pNamespace->getName() + ',' + list);
+        list = list.empty() ? String(a_pNamespace->getName()) : (a_pNamespace->getName() + ',' + list);
         a_pNamespace = a_pNamespace->getParentNamespace();
     }
     append(list);
@@ -4232,7 +4232,7 @@ void CppTranslator::appendNamespaceScope(Namespace* a_pNamespace)
     String list;
     while (a_pNamespace && a_pNamespace->getName().size())
     {
-        list = list.empty() ? a_pNamespace->getName() : (String(a_pNamespace->getName()) + "::" + list);
+        list = list.empty() ? String(a_pNamespace->getName()) : (String(a_pNamespace->getName()) + "::" + list);
         a_pNamespace = a_pNamespace->getParentNamespace();
     }
     append(list);
@@ -4374,7 +4374,7 @@ void CppTranslator::appendNestingClassList(ClassType* a_pClassType)
     String list;
     while (a_pClassType)
     {
-        list = list.empty() ? a_pClassType->getName() : list + ',' + a_pClassType->getName();
+        list = list.empty() ? String(a_pClassType->getName()) : list + ',' + a_pClassType->getName();
         a_pClassType = a_pClassType->getOwner() ? a_pClassType->getOwner()->asClassType() : nullptr;
     }
     append(list);

@@ -53,6 +53,8 @@ public:
         bool hasError() const;
         bool hasSucceeded() const;
 
+        time_t getTime() const { return m_Time; }
+
     private:
         bool _hasSucceeded(SmallSet<const Build*>& treated) const;
         void clear();
@@ -65,6 +67,7 @@ public:
         Parser*                                m_pParser = nullptr;
         Semantic*                              m_pSemantic = nullptr;
         Language*                              m_pLanguage = nullptr;
+        time_t                                 m_Time{};
     };
 
     static CompiledSource::Build const& EmptyBuild();

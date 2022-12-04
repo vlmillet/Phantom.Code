@@ -28,6 +28,7 @@ struct NumericConversion;
 struct TokExpression;
 struct TokSource;
 struct CppLitePassData;
+class CppLiteAnalyser;
 
 class PHANTOM_EXPORT_PHANTOM_CODE CppLiteParser : public Parser
 {

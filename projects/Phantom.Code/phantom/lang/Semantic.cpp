@@ -1471,9 +1471,14 @@ Conversion* Semantic::userDefinedConversionByConstruction(Type* a_pInput, ClassT
     findCallOverloads(viableOverloads, candidates, NullOpt, types, a_pContextScope,
                       a_bInitialize ? UserDefinedFunctions::ImplicitsOnly : UserDefinedFunctions::None, Modifiers{}, 0);
 
-    applyOverloadsSFINAE(viableOverloads, a_pContextScope);
-
-    if (auto pBestOverload = selectBestOverload(viableOverloads))
+    auto pPerfectMatch = findPerfectMatchOverload(viableOverloads);
+    auto pBestOverload = pPerfectMatch;
+    if (pPerfectMatch == nullptr)
+    {
+        applyOverloadsSFINAE(viableOverloads, a_pContextScope);
+        pBestOverload = selectBestOverload(viableOverloads);
+    }
+    if (pBestOverload)
     {
         Symbol* pBestCandidateAccessibleSymbol = pBestOverload->subroutine->getTemplateSpecialization();
         if (!pBestCandidateAccessibleSymbol)
@@ -1497,10 +1502,20 @@ Conversion* Semantic::userDefinedConversionByConstruction(Type* a_pInput, ClassT
         //             // failed to instantiate templated block
         //             return nullptr;
         //         }
-        DefaultConversionSequence* pBest =
-        static_cast<DefaultConversionSequence*>(pBestOverload->conversions[0]->clone(getSource()));
-        pBest->addUserDefinedByConstruction(static_cast<Constructor*>(pBestOverload->subroutine));
-        return pBest;
+
+        auto pCtor = static_cast<Constructor*>(pBestOverload->subroutine);
+        if (!pCtor->testModifiers(Modifier::Deleted))
+        {
+            DefaultConversionSequence* pBest =
+            static_cast<DefaultConversionSequence*>(pBestOverload->conversions[0]->clone(getSource()));
+            pBest->addUserDefinedByConstruction(pCtor);
+            return pBest;
+        }
+        else
+        {
+            CxxSemanticError("'%.*s' : attempt to invoke a deleted constructor",
+                             PHANTOM_STRING_AS_PRINTF_ARG(pCtor->getName()));
+        }
     }
     return nullptr;
 }
@@ -1862,7 +1877,7 @@ void Semantic::newImplicitConversionsWithArgDeductions(FunctionType* a_pFuncType
 {
     size_t                 paramCount = a_pFuncType->getParameterTypeCount();
     size_t                 argCount = a_ArgTypes.size();
-    auto&                  types = a_pFuncType->getParameterTypes();
+    auto&&                 types = a_pFuncType->getParameterTypes();
     size_t                 i = 0;
     SmallSet<Placeholder*> deduced;
     for (; i < argCount; ++i)
@@ -2600,6 +2615,25 @@ Semantic::SelectedOverloadInfo const* Semantic::selectBestOverload(SelectedOverl
                     }
                 }
             }
+        }
+    }
+    return nullptr;
+}
+
+Semantic::SelectedOverloadInfo const* Semantic::findPerfectMatchOverload(SelectedOverloadInfos const& a_InOverloads)
+{
+    if (a_InOverloads.size())
+    {
+        for (size_t i = 0; i < a_InOverloads.size(); ++i)
+        {
+            if (a_InOverloads[i].deductions.size())
+                continue;
+            for (auto* conv : a_InOverloads[i].conversions)
+            {
+                if (!conv->isCanonical())
+                    break;
+            }
+            return &a_InOverloads[i];
         }
     }
     return nullptr;
@@ -3464,6 +3498,12 @@ Expression* Semantic::createCallExpression(Constructor* a_pInput, ExpressionsVie
                          a_pInput->getParameters().size());
         return nullptr;
     }
+    if (a_pInput->testModifiers(Modifier::Deleted))
+    {
+        CxxSemanticError("'%.*s' : attempt to invoke a deleted constructor",
+                         PHANTOM_STRING_AS_PRINTF_ARG(a_pInput->getName()));
+        return nullptr;
+    }
     OwnersGuard<Expressions> args;
     for (size_t i = 0; i < a_Arguments.size(); ++i)
     {
@@ -3643,7 +3683,7 @@ Expression* Semantic::defaultConstruct(Type* a_pType, LanguageElement* a_pContex
         {
             CxxSemanticErrorIfInaccessible(pCtor, a_pContextScope, nullptr);
             CxxSemanticErrorReturnValIf(nullptr, pCtor->testModifiers(Modifier::Deleted),
-                                        "'%.*s' : attempt to call deleted default constructor",
+                                        "'%.*s' : attempt to invoke a deleted default constructor",
                                         PHANTOM_STRING_AS_PRINTF_ARG(pCT->getName()));
             return New<ConstructorCallExpression>(pCtor);
         }
