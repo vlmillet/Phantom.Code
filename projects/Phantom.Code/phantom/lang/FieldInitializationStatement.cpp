@@ -34,6 +34,7 @@ void FieldInitializationStatement::initialize()
     addReferencedElement(m_pField);
     addSubExpression(m_pInitializationExpression);
     m_pInitializationExpression->setTemporary(false);
+    m_pInitializationExpression->removeIdentity()->setTemporary(false);
     m_pInitializationExpression->removeRValueStorageExpression()->setTemporary(false);
 
     PHANTOM_ASSERT(isTemplateDependant() || m_uiArrayIndex == 0 ||

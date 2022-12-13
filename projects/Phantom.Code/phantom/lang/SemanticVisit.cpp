@@ -149,8 +149,6 @@ namespace lang
 
 #define PHANTOM_SEMANTIC_ASSERT_ElementIsVisible(...)
 
-#pragma optimize("", off)
-
 namespace phantom
 {
 namespace lang
@@ -702,7 +700,19 @@ void Semantic::visit(Application* a_pInput, VisitorData a_Data)
         visit(static_cast<Symbol*>(a_pInput), a_Data);
         if (out_pResult == nullptr)
         {
-            return Namespace::Global()->visit(this, a_Data);
+            Namespace::Global()->visit(this, a_Data);
+        }
+        if (out_pResult == nullptr)
+        {
+            if (m_pLastSilentMessage && m_pLastSilentMessage->getMostValuableMessageType() != MessageType::Undefined)
+            {
+                if (m_pLastSilentMessage->getType() == MessageType::Undefined)
+                    for (auto pChild : m_pLastSilentMessage->getChildren())
+                        m_pMessage->addChild(pChild->clone(true));
+                else
+                    m_pMessage->addChild(m_pLastSilentMessage->clone(true));
+                m_pLastSilentMessage = nullptr;
+            }
         }
     }
         return;
@@ -3908,6 +3918,7 @@ void Semantic::visit(Expression* a_pInput, VisitorData a_Data)
                     arguments.insert(arguments.end(), in_pFunctionArguments->begin(),
                                      in_pFunctionArguments->end()); // then arguments
                     Subroutines viableCallCandidates;
+
                     selectCallCandidate(viableCallCandidates, candidates, in_pTemplateArguments, arguments, out_pResult,
                                         in_name, in_pContextScope, in_pInitializationType, 0, 0);
                     if (out_pResult == nullptr)
@@ -5667,7 +5678,7 @@ void Semantic::visit(LanguageElement* a_pInput, VisitorData a_Data)
                         }
                     }
                 }
-                else if (in_name != a_pInput->getName())
+                else if (in_name != a_pInput->getName() || a_pInput->asClassType() == nullptr)
                 {
                     Block* pContextBlock;
                     if (in_pContextScope && (pContextBlock = in_pContextScope->asBlock()) &&
@@ -8374,7 +8385,7 @@ void Semantic::visit(Scope* a_pInput, VisitorData a_Data)
                 if (vis == Visibility::Private ||
                     (vis == Visibility::Protected && in_pScope != pInput && !in_pScope->hasOwnerCascade(pInput)))
                     continue;
-                return out_candidates.push_back(pElem);
+                out_candidates.push_back(pElem);
             }
         }
 
@@ -8386,7 +8397,7 @@ void Semantic::visit(Scope* a_pInput, VisitorData a_Data)
                 if (vis == Visibility::Private ||
                     (vis == Visibility::Protected && in_pScope != pInput && !in_pScope->hasOwnerCascade(pInput)))
                     continue;
-                return out_candidates.push_back(pElem);
+                out_candidates.push_back(pElem);
             }
         }
 
@@ -8398,7 +8409,7 @@ void Semantic::visit(Scope* a_pInput, VisitorData a_Data)
                 if (vis == Visibility::Private ||
                     (vis == Visibility::Protected && in_pScope != pInput && !in_pScope->hasOwnerCascade(pInput)))
                     continue;
-                return out_candidates.push_back(pElem);
+                out_candidates.push_back(pElem);
             }
         }
 
@@ -9336,6 +9347,7 @@ void Semantic::visit(TemplateDependantElement* a_pInput, VisitorData a_Data)
                 : silentQualifiedLookup(pLHS, a_pInput->getName(), MakeOptionalArrayView(pTemplateArguments),
                                         MakeOptionalArrayView(pFunctionArguments), in_pContextScope, nullptr);
 
+                auto pBackupedSilentMessage = m_pLastSilentMessage;
                 if (pResolved == nullptr)
                 {
                     pResolved = silentUnqualifiedLookup(a_pInput->getName(), MakeOptionalArrayView(pTemplateArguments),
@@ -9364,11 +9376,35 @@ void Semantic::visit(TemplateDependantElement* a_pInput, VisitorData a_Data)
                                                 MakeOptionalArrayView(pFunctionArguments), in_pContextScope, nullptr);
                             }
                         }
+                        //                         else if (Expression* pResolvedExp = pResolved->asExpression())
+                        //                         {
+                        //                             if (Class* pClass = pResolvedExp->getValueType()->asClass())
+                        //                             {
+                        //                                 Symbols candidates;
+                        //                                 pClass->getSymbolsWithName("operator()", candidates);
+                        //                                 Subroutines subroutines;
+                        //                                 _selectCallCandidateError("operator()", candidates,
+                        //                                 subroutines, *pFunctionArguments);
+                        //                             }
+                        //                         }
                         else
                         {
                             pResolved = nullptr;
-                            CxxSemanticError("'%s' : type expected during template instantiation",
-                                             FormatCStr(a_pInput));
+                            if (pBackupedSilentMessage &&
+                                pBackupedSilentMessage->getMostValuableMessageType() != MessageType::Undefined)
+                            {
+                                if (pBackupedSilentMessage->getText().empty())
+                                    for (auto pChild : pBackupedSilentMessage->getChildren())
+                                        m_pMessage->addChild(pChild->clone(true));
+                                else
+                                    m_pMessage->addChild(pBackupedSilentMessage->clone(true));
+                                pBackupedSilentMessage = nullptr;
+                            }
+                            else
+                            {
+                                CxxSemanticError("'%s' : type expected during template instantiation",
+                                                 FormatCStr(a_pInput));
+                            }
                         }
                         return;
                     }

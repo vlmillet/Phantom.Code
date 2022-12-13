@@ -40,6 +40,8 @@ void LocalVariableInitializationStatement::initialize()
     addReferencedElement(m_pLocalVariable);
     addSubExpression(m_pInitializationExpression);
     m_pInitializationExpression->setTemporary(false);
+    m_pInitializationExpression->removeIdentity()->setTemporary(false);
+
     Expression* noRVS = m_pInitializationExpression->removeRValueStorageExpression();
     bool        noRVRTemp = noRVS->isTemporary();
     if (noRVRTemp)

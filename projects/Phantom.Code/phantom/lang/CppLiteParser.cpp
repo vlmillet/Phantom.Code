@@ -1323,9 +1323,18 @@ struct CppLitePassData
 
     std::map<ast::_BaseRule*, LanguageElements> m_RuleToElement;
     phantom::SmallVector<LanguageElement*>      m_DebugCheckLeaks;
+
+    phantom::SmallMap<uint, phantom::SmallMap<Semantic::EClassBuildState, phantom::SmallVector<ClassType*>>>
+    m_deferredClassBuilds;
+
 #if CPPLIGHT_ENABLED_DEBUG_LEAK_HISTORY
     phantom::History m_DebugCheckLeaksHistory;
 #endif
+
+    void pushClassBuild(ClassType* a_pClassType, Semantic::EClassBuildState a_eBuildState, uint a_Pass)
+    {
+        m_deferredClassBuilds[a_Pass][a_eBuildState].push_back(a_pClassType);
+    }
 };
 
 struct BreakLabelGuard
@@ -5011,7 +5020,7 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         if (pTemplateSignature)
         {
             pTemplate = pScope->getTemplate(input->m_IDENTIFIER);
-            CppLiteErrorReturnIf(pTemplate != nullptr && a_pTemplateArgumentList == nullptr,
+            CppLiteErrorReturnIf(!isSubroutine && pTemplate != nullptr && a_pTemplateArgumentList == nullptr,
                                  "'%s' : a template with same name already exists in the current scope",
                                  input->m_IDENTIFIER);
             Scope* pNamingScope = pScope;
@@ -5159,13 +5168,20 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             //                     a_pName, i);
             //                 }
 
-            a_pTemplateSpec = pTemplate->getTemplateSpecialization(specializationArguments);
-            CppLiteErrorReturnIf(a_pTemplateSpec && (!a_pTemplateSpec->isNative() || a_pTemplateSpec->isFull()),
-                                 "'%s' : template specialization already defined", input->m_IDENTIFIER);
+            auto pExtendedSpec = pTemplate->getTemplateSpecialization(specializationArguments);
+            CppLiteErrorReturnIf(pExtendedSpec && (!pExtendedSpec->isNative() || pExtendedSpec->isFull()),
+                                 "'%s' : template partial specialization already defined", input->m_IDENTIFIER);
+
             pTemplateSignature->setOwner(nullptr);
+
             a_pTemplateSpec =
             pTemplate->createTemplateSpecialization(specializationArguments, nullptr, pTemplateSignature);
+
             pScope->addTemplateSpecialization(a_pTemplateSpec);
+
+            if (pExtendedSpec)
+                pExtendedSpec->setExtendedSpecialization(a_pTemplateSpec);
+
             CPPLITEPARSER_ASSERT(!a_pTemplateSpec->isEmpty());
         }
         else
@@ -5175,9 +5191,11 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                 if (pTemplate == nullptr)
                 {
                     pTemplate = pScope->getTemplate(input->m_IDENTIFIER);
-                    CppLiteErrorReturnIf(pTemplate, "'%s' : template already defined", input->m_IDENTIFIER);
                     if (!isSubroutine)
+                    {
+                        CppLiteErrorReturnIf(pTemplate, "'%s' : template already defined", input->m_IDENTIFIER);
                         CppLiteErrorReturnIfNameUsed(pScope->asLanguageElement(), input->m_IDENTIFIER);
+                    }
                     pTemplate = NewInScope<Template>(pTemplateSignature, input->m_IDENTIFIER);
                     pTemplate->setAccess(CppLiteGetAccess());
                     Source* pSource = getSource();
@@ -5206,9 +5224,15 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                         }
                         Type*  pType = NewInScope<TemplateDependantTemplateInstance>(ext, args);
                         Alias* pAlias = NewInScope<Alias>(pType, pAliasedTemplate->getName());
-                        if (auto pNS = pScope->asNamespace())
-                            pNS->addAlias(pAlias);
+                        //                         if (auto pNS = pScope->asNamespace())
+                        //                         {
+                        //                             pNS->addAlias(pAlias);
+                        //                         }
                         pAliasedTemplate->getEmptyTemplateSpecialization()->setTemplated(pAlias);
+                        if (auto pTplNS = pTemplate->getNamespace())
+                        {
+                            pTplNS->addTemplate(pAliasedTemplate);
+                        }
                         pScope->addTemplate(pAliasedTemplate);
                         pAliasedTemplate->setVisibility(Visibility::Protected);
                     }
@@ -5572,10 +5596,27 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         return pBlock->addLocalVariable(a_pType, a_strName, a_pInit, a_Modifiers, a_uiFlags);
     }
 
-    Block* addBlock(Method* a_pMethod)
+    void addArguments(Subroutine* a_pSubroutine)
     {
-        Block* pBlock = a_pMethod->New<Block>();
-        a_pMethod->setBlock(pBlock);
+        auto   pBlock = a_pSubroutine->getBlock();
+        size_t count = a_pSubroutine->getSignature()->getParameterCount();
+        while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to argument
+                        // passing (right to left)
+        {
+            addLocalVariable(pBlock, a_pSubroutine->getSignature()->getParameter(count));
+        }
+    }
+
+    void addArguments(Method* a_pMethod)
+    {
+        if (a_pMethod->getModifiers() & Modifier::Deleted)
+            return;
+        auto pBlock = a_pMethod->getBlock();
+        if (!pBlock)
+        {
+            CPPLITEPARSER_ASSERT(a_pMethod->isPureVirtual());
+            return;
+        }
         size_t count = a_pMethod->getSignature()->getParameterCount();
         while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to argument
                         // passing (right to left)
@@ -5583,6 +5624,12 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             addLocalVariable(pBlock, a_pMethod->getSignature()->getParameter(count));
         }
         addLocalVariable(pBlock, a_pMethod->getThis());
+    }
+
+    Block* addBlock(Method* a_pMethod)
+    {
+        Block* pBlock = a_pMethod->New<Block>();
+        a_pMethod->setBlock(pBlock);
         return pBlock;
     }
 
@@ -5592,13 +5639,6 @@ struct CppLitePass : public ast::visitor::Recursive<T>
             return addBlock(pMethod);
         Block* pBlock = a_pSubroutine->New<Block>();
         a_pSubroutine->setBlock(pBlock);
-        size_t count = a_pSubroutine->getSignature()->getParameterCount();
-        while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to argument
-                        // passing (right to left)
-        {
-            addLocalVariable(pBlock, a_pSubroutine->getSignature()->getParameter(count));
-        }
-        return pBlock;
     }
 };
 
@@ -6888,6 +6928,10 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
                     PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pField->getValueType()->removeEverything())),
                     PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pClassType)));
                     CppLiteUnguard(pField);
+                    CppLiteErrorReturnIf(
+                    pClassType->isSized(),
+                    "'%.*s' type already used and made thus complete, field cannot be added at this point",
+                    PHANTOM_STRING_AS_PRINTF_ARG(pClassType->getName()));
                     pClassType->addField(pField);
                 }
                 CppLiteUnguard(pField);
@@ -7708,6 +7752,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
     {
         Constructor* pConstructor = CppLiteGetElementAs(Constructor);
         CppLiteCheckShouldWeContinueParsing(pConstructor);
+        addArguments(pConstructor);
 
         if (input->m_FunctionBlock)
         {
@@ -8053,6 +8098,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
     bool traverseDestructor(ast::Destructor* input)
     {
         Destructor* pDestructor = CppLiteGetElementAs(Destructor);
+        addArguments(pDestructor);
         CppLiteCheckShouldWeContinueParsing(pDestructor);
         CppLiteVisitElement(input->m_FunctionBlock, pDestructor);
         return true;
@@ -8064,6 +8110,10 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         if (pSubroutine->getBlockBuilder()) // block builder is still here, it means we haven't built the template
                                             // function body block yet
         {
+            if (auto pMethod = pSubroutine->asMethod())
+                addArguments(pMethod);
+            else
+                addArguments(pSubroutine);
             pSubroutine->setBlockBuilder({});
             CPPLITEPARSER_ASSERT(input->m_FunctionEnd->m_FunctionBlock ||
                                  (pSubroutine->asMethod() && pSubroutine->isPureVirtual()));
@@ -8077,6 +8127,8 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
     bool traverseMethod(ast::Method* input)
     {
         Subroutine* pSubroutine = CppLiteGetElementAs(Subroutine);
+        CPPLITEPARSER_ASSERT(pSubroutine->asMethod());
+        addArguments(static_cast<Method*>(pSubroutine));
         CppLiteCheckShouldWeContinueParsing(pSubroutine);
         CPPLITEPARSER_ASSERT(input->m_FunctionEnd->m_FunctionBlock || pSubroutine->isPureVirtual());
         if (input->m_FunctionEnd->m_FunctionBlock)
@@ -8089,6 +8141,7 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
     bool traverseConversionFunction(ast::ConversionFunction* input)
     {
         Method* pMethod = CppLiteGetElementAs(Method);
+        addArguments(pMethod);
         CppLiteCheckShouldWeContinueParsing(pMethod);
         CppLiteVisitElement(input->m_FunctionBlock, pMethod);
         return true;
@@ -8107,6 +8160,14 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
         {
             if (Subroutine* pSubroutine = CppLiteGetElementAs(Subroutine))
             {
+                if (auto pMethod = pSubroutine->asMethod())
+                {
+                    addArguments(pMethod);
+                }
+                else
+                {
+                    addArguments(pSubroutine);
+                }
                 if (pSubroutine->getOwner() == nullptr) // failed somewhere in the previous pass
                     return true;
 
@@ -9201,6 +9262,14 @@ void CppLiteParser::begin(BuildSession& a_BuildSession)
 
 int CppLiteParser::parse(uint pass)
 {
+    for (auto& buildState_classes : m_pPassData->m_deferredClassBuilds[pass])
+    {
+        for (auto& class_ : buildState_classes.second)
+        {
+            m_pPassData->m_pSemantic->buildClass(class_, buildState_classes.first);
+        }
+    }
+
     switch (pass)
     {
     case e_Pass_Parsing:

@@ -37,6 +37,9 @@ void CallExpression::initialize()
     Expression::initialize();
 
     PHANTOM_ASSERT(m_pSubroutine);
+    PHANTOM_ASSERT(
+    m_pSubroutine->getPackage(),
+    "critical compilation dependency error. A subroutine from a failed or invalidated compilation has been referenced");
 
     addDependencyOn(m_pSubroutine);
     addReferencedElement(m_pSubroutine);

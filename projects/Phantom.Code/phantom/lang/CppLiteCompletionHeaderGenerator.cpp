@@ -411,11 +411,11 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintHppInclude(Symbol* _i
         else if (Template* pTemplate = _input->asTemplate())
         {
             PrintHppInclude(pTemplate->getSource());
-            for (auto spec : pTemplate->getTemplateSpecializations())
+            for (auto pSpec : pTemplate->getTemplateSpecializations())
             {
-                if (spec->isPartial())
+                if (pSpec->isPartial())
                 {
-                    PrintHppInclude(spec->getSource());
+                    PrintHppInclude(pSpec->getSource());
                 }
             }
         }
@@ -551,6 +551,14 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintTemplateDecoration(Te
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintName(Symbol* _symbol, Printer& _printer)
 {
     // Aliasing
+
+    if (auto alias = _symbol->asAlias())
+    {
+        if (alias->getVisibility() == Visibility::Private)
+        {
+            return PrintName(alias->getAliasedSymbol(), _printer);
+        }
+    }
 
     if (auto type = _symbol->asType())
     {
@@ -1105,19 +1113,30 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Scope* _in
                 }
             }
         };
-
-        if (partialSpec->getAccess() == _access)
         {
-            if (_access == Access::Undefined)
+            if (partialSpec->getAccess() == _access)
             {
-                SetCurrentNamespace(partialSpec->getTemplate()->getNamespace());
-                if (enableModules)
-                    hpp("export ");
-                PrintLbda();
-            }
-            else
-            {
-                PrintLbda();
+                if (_access == Access::Undefined)
+                {
+                    SetCurrentNamespace(partialSpec->getTemplate()->getNamespace());
+                    if (enableModules)
+                        hpp("export ");
+                    if (auto pExtended = partialSpec->getExtendedSpecialization())
+                    {
+                        PrintCppSymbols(pExtended);
+                    }
+                    else
+                        PrintLbda();
+                }
+                else
+                {
+                    if (auto pExtended = partialSpec->getExtendedSpecialization())
+                    {
+                        PrintCppSymbols(pExtended);
+                    }
+                    else
+                        PrintLbda();
+                }
             }
         }
     }
@@ -1226,9 +1245,9 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Scope* _in
 
 void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(TemplateSpecialization* _templateSpec)
 {
-    if (_templateSpec->getVisibility() == Visibility::Private ||
-        (_templateSpec->testFlags(PHANTOM_R_FLAG_IMPLICIT))) // implicit non native
+    if (_templateSpec->testFlags(PHANTOM_R_FLAG_IMPLICIT)) // implicit non native
         return;
+
     if (auto extended = _templateSpec->getExtendedSpecialization())
         _templateSpec = extended;
     if (_templateSpec->getTemplated())
@@ -1250,6 +1269,10 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Template* 
 {
     if (auto emptySpec = _template->getEmptyTemplateSpecialization())
     {
+        if (auto extended = emptySpec->getExtendedSpecialization())
+        {
+            emptySpec = extended;
+        }
         if (emptySpec->getTemplated())
         {
             if (Class* class_ = emptySpec->getTemplated()->asClass())
@@ -1258,9 +1281,12 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Template* 
             }
             else if (Alias* alias = emptySpec->getTemplated()->asAlias())
             {
-                PrintCppSymbols(emptySpec->getTemplateSignature());
-                hpp.Ln();
-                PrintCppSymbols(alias);
+                if (alias->getVisibility() != Visibility::Private)
+                {
+                    PrintCppSymbols(emptySpec->getTemplateSignature());
+                    hpp.Ln();
+                    PrintCppSymbols(alias);
+                }
             }
             return;
         }
@@ -1268,8 +1294,7 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(Template* 
 
     for (TemplateSpecialization* spec : _template->getTemplateSpecializations())
     {
-        if (spec->getVisibility() == Visibility::Private ||
-            (!spec->isNative() && spec->testFlags(PHANTOM_R_FLAG_IMPLICIT))) // implicit non native
+        if (!spec->isNative() && spec->testFlags(PHANTOM_R_FLAG_IMPLICIT)) // implicit non native
             continue;
         if (auto extended = spec->getExtendedSpecialization())
             spec = extended;
@@ -1324,7 +1349,7 @@ void CppLiteCompletionHeaderGenerator::SourcePrinter::PrintCppSymbols(TemplateSi
         if (auto defaultArg = param->getDefaultArgument())
         {
             _printer(" = ");
-            PrintName(defaultArg);
+            PrintName(defaultArg, _printer);
             if (auto defaultArgAsType = defaultArg->asType())
                 PrintHppInclude(defaultArgAsType);
         }
