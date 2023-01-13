@@ -17,9 +17,9 @@ namespace lang
 {
 class Translator;
 class Module;
-class PHANTOM_EXPORT_PHANTOM_CODE Compiler
+class PHANTOM_EXPORT_PHANTOM_CODE BuildSystem
 {
-    friend class CompiledSource;
+    friend class BuildSource;
     friend class Language;
     friend struct BuildSession;
 
@@ -28,10 +28,10 @@ public:
     typedef SmallMap<Source*, time_t> SourceTimes;
 
 public:
-    static Compiler* Get();
+    static BuildSystem* Get();
 
-    Compiler();
-    ~Compiler();
+    BuildSystem();
+    ~BuildSystem();
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Returns the debugger associated with the application for source debugging.
@@ -47,21 +47,57 @@ public:
     /// \brief  Build a specific project from its name.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    void buildProject(BuildSessionId a_Id, StringView a_Path);
+    bool buildProject(BuildSessionId a_Id, StringView a_Name);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// \brief  Build a specific project from its module.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    bool buildProjectAndDependents(BuildSessionId a_Id, StringView a_Name);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Build a specific project from its path.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    void buildProjectAt(BuildSessionId a_Id, StringView a_Path);
+    bool buildProjectAt(BuildSessionId a_Id, StringView a_Path);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// \brief  Build a specific project with all projects depending on it from its path.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    bool buildProjectAndDependentsAt(BuildSessionId a_Id, StringView a_Path);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// \brief  Build a specific project from its module.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    bool buildProject(BuildSessionId a_Id, Module* a_pModule);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// \brief  Build a specific project from its module.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    bool buildProjectAndDependents(BuildSessionId a_Id, Module* a_pModule);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// \brief  Check if a build session has succeeded.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    bool hasBuildSucceeded(BuildSessionId a_Id) const;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    /// \brief  Load source or package for a given unique name in the given build session.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    void loadSourcesOrPackages(BuildSessionId a_Id, StringView a_UniqueName);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Build a specific project.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    CompiledSource* buildSource(BuildSessionId a_Id, StringView a_Path,
-                                ArrayView<String> _projectsSearchPaths = ArrayView<String>(),
-                                Options const&    a_Options = Options());
+    BuildSource* buildSource(BuildSessionId a_Id, StringView a_Path,
+                             ArrayView<String> _projectsSearchPaths = ArrayView<String>(),
+                             Options const&    a_Options = Options());
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Get successful status of a build sesssion.
@@ -119,14 +155,14 @@ public:
 
     void outdate(SourceFile* a_pSource) const;
 
-    CompiledSources listProjectCompiledSourcesAt(StringView _path);
-    CompiledSources listProjectCompiledSources(BuildSessionId _sessionId, StringView _project);
+    BuildSources listProjectBuildSourcesAt(StringView _path);
+    BuildSources listProjectBuildSources(BuildSessionId _sessionId, StringView _project);
 
     String findProjectPath(BuildSessionId _sessionId, StringView _project) const;
 
-    CompiledSource* getCompiledSource(SourceStream* a_pSourceStream) const;
+    BuildSource* getCompiledSource(SourceStream* a_pSourceStream) const;
 
-    CompiledSource* getCompiledSource(Source* a_pSource) const;
+    BuildSource* getCompiledSource(Source* a_pSource) const;
 
     CodeGenerator* getCodeGenerator(Module* a_pModule) const;
 
@@ -208,16 +244,19 @@ public:
 public:
     phantom::Signal<void(Language*)>                  languageAdded;
     phantom::Signal<void(Language*)>                  languageAboutToBeRemoved;
-    phantom::Signal<void(CompiledSource*)>            sourceBuilt;
-    phantom::Signal<void(const CompiledSources&)>     sourceBuildStarted;
-    phantom::Signal<void(CompiledSource*, bool&)>     buildSessionUserHook;
+    phantom::Signal<void(BuildSource*)>               sourceBuilt;
+    phantom::Signal<void(const BuildSources&)>        sourceBuildStarted;
+    phantom::Signal<void(BuildSource*, bool&)>        buildSessionUserHook;
+    phantom::Signal<void(const ProjectBuildSession&)> buildSessionStarting;
+    phantom::Signal<void(const ProjectBuildSession&)> buildSessionSucceeding;
     phantom::Signal<void(const ProjectBuildSession&)> buildSessionDone;
-    phantom::Signal<void(const ProjectBuildSession&)> buildSessionApplied;
+    phantom::Signal<void(const ProjectBuildSession&)> buildSessionFailed;
+    phantom::Signal<void(const ProjectBuildSession&)> buildSessionSucceeded;
 
 private:
-    void _buildProject(BuildSession& a_BuildSession, ProjectBuildSession& _sessionInfo, StringView _path,
+    void _buildProject(BuildSessionId a_BuildSessionId, ProjectBuildSession& _sessionInfo, StringView _path,
                        Options const& a_Options);
-    void _buildSourceFiles(BuildSession& a_BuildSession, ProjectBuildSession& a_ProjBuildSession,
+    void _buildSourceFiles(BuildSessionId a_BuildSessionId, ProjectBuildSession& a_ProjBuildSession,
                            ArrayView<SourceFile*> a_SourceFiles, StringView _path, Options const& a_Options);
     void _finalizeBuild(StringView a_Path, Module* a_pModule, Options const& a_Options, ProjectBuildSession& toParse,
                         ArrayView<SourceFile*> a_Files, bool a_bRestoreSources = false);
@@ -227,16 +266,19 @@ private:
     void _setCodeGenerator(Module* a_pModule, CodeGenerator* a_pCodeGenerator);
     void _createCodeGenerator(Module* a_pModule);
     void _destroyCodeGenerator(Module* a_pModule);
-    CodeGenerator*  _createCodeGenerator();
-    void            _destroyCodeGenerator(CodeGenerator* a_pCodeGenerator);
-    void            _outdateModule(Source* a_pSource);
-    CompiledSource* _getOrCreateCompiledSource(SourceStream* a_pSourceStream);
-    void            _deleteCompiledSource(SourceStream* a_pSourceStream);
-    void            _undoSession(BuildSession& _session);
-    void            _redoSession(BuildSession& _session);
-    SourceFile*     _getOrCreateSourceFile(StringView _path);
-    Module*         _getOrCreateModule(StringView _path);
-    void            _listSourceFiles(StringView _path, SmallVector<SourceFile*>& _sourceFiles);
+    CodeGenerator* _createCodeGenerator();
+    void           _destroyCodeGenerator(CodeGenerator* a_pCodeGenerator);
+    void           _outdateModule(Source* a_pSource);
+    BuildSource*   _getOrCreateCompiledSource(SourceStream* a_pSourceStream);
+    void           _deleteCompiledSource(SourceStream* a_pSourceStream);
+    void           _undoSession(BuildSession& _session);
+    void           _redoSession(BuildSession& _session);
+    SourceFile*    _getOrCreateSourceFile(StringView _path);
+    Module*        _getOrCreateModule(StringView _path);
+    void           _listSourceFiles(StringView _path, SmallVector<SourceFile*>& _sourceFiles);
+
+    void _loadSources(BuildSessionId a_Id, StringView a_SourceUniqueName);
+    void _loadPackages(BuildSessionId a_Id, StringView a_PackageUniqueName);
 
 private:
     Class* m_pCodeGeneratorClass = nullptr;
@@ -245,22 +287,21 @@ private:
         CodeGenerator*    codeGenerator = nullptr;
         DebugInformation* debugInfo = nullptr;
     };
-    SmallMap<String, SourceStream*, 64>          m_UrlToSourceStream;
-    SmallMap<SourceStream*, CompiledSource*, 64> m_CompiledSources;
-    SmallMap<String, Module*, 64>                m_CompiledModules;
-    SmallMap<Module*, ModuleData, 64>            m_ModuleData;
-    SourceVersions                               m_ManualPreviousVersions;
-    Strings                                      m_ManuallyLoadedModuleNames;
-    CompiledSources                              m_ManualSources;
-    Language*                                    m_pDefaultLanguage = nullptr;
-    Languages                                    m_Languages;
-    Debugger*                                    m_pDebugger = nullptr;
-    SmallVector<BuildSession*>                   m_BuildSessions;
-    Modules                                      m_BuildingModules;
-    int                                          m_CurrentSessionId = -1;
-    int                                          m_BuildingSessionId = -1;
-    bool                                         m_bBuildRunning = false;
-    bool                                         m_bBuildAborted = false;
+    SmallMap<String, SourceStream*, 64>       m_UrlToSourceStream;
+    SmallMap<SourceStream*, BuildSource*, 64> m_BuildSources;
+    SmallMap<String, Module*, 64>             m_CompiledModules;
+    SmallMap<Module*, ModuleData, 64>         m_ModuleData;
+    SourceVersions                            m_ManualPreviousVersions;
+    Strings                                   m_ManuallyLoadedModuleNames;
+    BuildSources                              m_ManualSources;
+    Language*                                 m_pDefaultLanguage = nullptr;
+    Languages                                 m_Languages;
+    Debugger*                                 m_pDebugger = nullptr;
+    SmallVector<BuildSession*>                m_BuildSessions;
+    Modules                                   m_BuildingModules;
+    int                                       m_CurrentSessionId = -1;
+    bool                                      m_bBuildRunning = false;
+    bool                                      m_bBuildAborted = false;
 };
 } // namespace lang
 } // namespace phantom

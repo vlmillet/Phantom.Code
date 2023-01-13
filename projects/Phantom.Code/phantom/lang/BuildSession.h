@@ -9,33 +9,27 @@ namespace phantom
 {
 namespace lang
 {
-class Compiler;
+class BuildSystem;
 
 struct ProjectBuildSession
 {
-    Message*        message{};
-    CompiledSources all;
-    CompiledSources succeeded;
-    CompiledSources failed;
+    Message*     message{};
+    BuildSources all;
+    BuildSources succeeded;
+    BuildSources failed;
 };
 
 struct PHANTOM_EXPORT_PHANTOM_CODE BuildSession
 {
-    friend class Compiler;
+    friend class BuildSystem;
 
 public:
     bool isSuccessful() const;
 
-    bool   addProject(StringView _name);
     String findProjectPath(StringView _projectName) const;
-    bool   addProjectPath(StringView _path);
     void   addSearchPath(StringView _path);
 
-    void loadSources(StringView a_SourceUniqueName);
-    void loadPackages(StringView a_PackageUniqueName);
-    void loadSourcesOrPackages(StringView a_UniqueName);
-
-    SmallVector<ProjectBuildSession const*> getBuiltProjectsSessions() const
+    SmallVector<ProjectBuildSession const*> getProjectBuildSessions() const
     {
         SmallVector<ProjectBuildSession const*> bps;
         for (auto& bp : builtProjects)
@@ -43,6 +37,11 @@ public:
             bps.push_back(projects.find(bp)->second);
         }
         return bps;
+    }
+    ProjectBuildSession const* getProjectBuildSession(StringView _projectPath) const
+    {
+        auto found = projects.find(_projectPath);
+        return found == projects.end() ? nullptr : found->second;
     }
 
 private:

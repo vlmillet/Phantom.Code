@@ -24,8 +24,8 @@ namespace lang
 
 class PHANTOM_EXPORT_PHANTOM_CODE Language : public Object
 {
-    friend class Compiler;
-    friend class CompiledSource;
+    friend class BuildSystem;
+    friend class BuildSource;
 
 public:
     ////////////////////////////////////////////////////////////////////////////////////////////////////

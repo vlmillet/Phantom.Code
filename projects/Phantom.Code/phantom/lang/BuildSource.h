@@ -16,34 +16,37 @@ namespace phantom
 namespace lang
 {
 class Message;
-class Compiler;
+class BuildSystem;
 
-class PHANTOM_EXPORT_PHANTOM_CODE CompiledSource
+class PHANTOM_EXPORT_PHANTOM_CODE BuildSource
 {
-    friend class Compiler;
+    friend class BuildSystem;
 
 public:
-    static CompiledSource* Get(Source* a_pSource);
+    static BuildSource* Get(Source* a_pSource);
 
-    struct PHANTOM_EXPORT_PHANTOM_CODE Build
+    struct PHANTOM_EXPORT_PHANTOM_CODE Session
     {
-        friend class CompiledSource;
+        friend class BuildSource;
 
-        Build();
+        Session();
 
-        Source*   getSource() const { return m_pSource; }
-        Parser*   getParser() const { return m_pParser; }
-        Semantic* getSemantic() const { return m_pSemantic; }
-        Language* getLanguage() const { return m_pLanguage; }
-        Message*  getStatusMessage() const { return m_pStatusMessage; }
+        BuildSource* getBuildSource() const { return m_pBuildSource; }
+        Source*      getSource() const { return m_pSource; }
+        Package*     getPackage() const { return m_pPackage; }
+        Parser*      getParser() const { return m_pParser; }
+        Semantic*    getSemantic() const { return m_pSemantic; }
+        Language*    getLanguage() const { return m_pLanguage; }
+        Message*     getStatusMessage() const { return m_pStatusMessage; }
 
-        bool isNull() const { return m_pSource == nullptr; }
+        bool isNull() const { return m_pParser == nullptr && m_pSource == nullptr; }
+        bool isEmpty() const { return m_pSource == nullptr; }
 
         void undo();
         void redo();
 
-        void addDependency(CompiledSource* a_pDep);
-        bool hasDependency(CompiledSource* a_pDep) const
+        void addDependency(BuildSource* a_pDep);
+        bool hasDependency(BuildSource* a_pDep) const
         {
             for (auto& deps : m_PerPassDependencies)
                 if (deps.find(a_pDep) != deps.end())
@@ -56,30 +59,33 @@ public:
         time_t getTime() const { return m_Time; }
 
     private:
-        bool _hasSucceeded(SmallSet<const Build*>& treated) const;
+        bool _hasSucceeded(SmallSet<const Session*>& treated) const;
         void clear();
 
     private:
-        SmallVector<SmallSet<CompiledSource*>> m_PerPassDependencies;
-        Message*                               m_pStatusMessage = nullptr;
-        Package*                               m_pSourcePackage = nullptr;
-        Source*                                m_pSource = nullptr;
-        Parser*                                m_pParser = nullptr;
-        Semantic*                              m_pSemantic = nullptr;
-        Language*                              m_pLanguage = nullptr;
-        time_t                                 m_Time{};
+        SmallVector<SmallSet<BuildSource*>> m_PerPassDependencies;
+        BuildSource*                        m_pBuildSource{};
+        Message*                            m_pStatusMessage = nullptr;
+        Package*                            m_pPackage = nullptr;
+        Source*                             m_pSource = nullptr;
+        Parser*                             m_pParser = nullptr;
+        Semantic*                           m_pSemantic = nullptr;
+        Language*                           m_pLanguage = nullptr;
+        time_t                              m_Time{};
     };
 
-    static CompiledSource::Build const& EmptyBuild();
+    static BuildSource::Session const& EmptyBuild();
 
-    CompiledSource(Compiler* a_pCompiler, SourceStream* a_pSourceStream);
-    ~CompiledSource();
+    BuildSource(BuildSystem* a_pCompiler, SourceStream* a_pSourceStream);
+    ~BuildSource();
 
     Language* getLanguage() const { return getCurrentBuild().getLanguage(); }
 
     SourceStream* getSourceStream() const { return m_pSourceStream; }
 
     Source* getSource() const { return getCurrentBuild().getSource(); }
+
+    bool hasEverSucceeded() const { return getCurrentBuild().getSource(); }
 
     void ensureStrongDependency(LanguageElement* /*a_pWhere*/, Symbol* /*a_pWho*/)
     {
@@ -93,17 +99,17 @@ public:
 #endif
     }
 
-    bool hasBuildDependency(CompiledSource* a_pSource) const
+    bool hasBuildDependency(BuildSource* a_pSource) const
     {
         if (this == a_pSource)
             return true;
         return getCurrentBuild().hasDependency(a_pSource);
     }
 
-    void addBuildDependency(CompiledSource* a_pSource);
+    void addBuildDependency(BuildSource* a_pSource);
     void addBuildDependency(Source* a_pSource);
 
-    SmallVector<SmallSet<CompiledSource*>> const& getBuildDependencies() const
+    SmallVector<SmallSet<BuildSource*>> const& getBuildDependencies() const
     {
         return getCurrentBuild().m_PerPassDependencies;
     }
@@ -184,7 +190,7 @@ public:
     /// \param  a_uiIndex   The build index.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    const Build& getBuild(size_t a_uiIndex) const { return m_BuildStack[a_uiIndex]; }
+    const Session& getBuild(size_t a_uiIndex) const { return m_BuildStack[a_uiIndex]; }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Gets a the build count of this source.
@@ -198,7 +204,7 @@ public:
     /// \return The last valid change time.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    time_t getLastValidChangeTime() const { return m_uiLastValidChangeTime; }
+    time_t getLastValidChangeTime() const { return m_uiLastValidBuildTime; }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Forces the last valid change time to a new value.
@@ -206,7 +212,7 @@ public:
     /// \param  a_Time  The new last valid change time.
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    void setLastValidChangeTime(time_t a_Time) { m_uiLastValidChangeTime = a_Time; }
+    void setLastValidChangeTime(time_t a_Time) { m_uiLastValidBuildTime = a_Time; }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     /// \brief  Gets the status message of this source, where errors and warnings are set.
@@ -266,21 +272,21 @@ public:
 
     Options const& getOptions() const { return m_Options; }
 
-    Build const& getCurrentBuild() const
+    Session const& getCurrentBuild() const
     {
-        static Build Null;
+        static Session Null;
         if (m_CurrentBuildIndex > -1)
             return m_BuildStack[m_CurrentBuildIndex];
         return Null;
     }
 
-    Build const& getLastBuild() const
+    Session const& getLastBuild() const
     {
         return m_LastBuildIndex == -1 ? m_InvalidBuild : m_BuildStack[m_LastBuildIndex];
     }
-    Build const& getPreviousBuild() const
+    Session const& getPreviousBuild() const
     {
-        static Build Null;
+        static Session Null;
         if (m_PreviousBuildIndex > -1)
             return m_BuildStack[m_PreviousBuildIndex];
         return Null;
@@ -289,19 +295,20 @@ public:
     void dumpMessages();
 
 private:
-    Build& currentBuild() { return (Build&)const_cast<CompiledSource*>(this)->getCurrentBuild(); }
-    Build& previousBuild() { return (Build&)const_cast<CompiledSource*>(this)->getPreviousBuild(); }
+    Session& currentBuild() { return (Session&)const_cast<BuildSource*>(this)->getCurrentBuild(); }
+    Session& previousBuild() { return (Session&)const_cast<BuildSource*>(this)->getPreviousBuild(); }
 
-    Build& lastBuild() { return m_LastBuildIndex == -1 ? m_InvalidBuild : m_BuildStack[m_LastBuildIndex]; }
-    void   stampTime();
-    void   _createBuild(Build& a_Build, Source* a_pSource, Language* a_pLanguage, Message& a_Message);
-    void   _advanceParse(uint a_Pass);
-    bool   _isOutdated(SmallSet<CompiledSource const*>& _treated) const;
+    Session& lastBuild() { return m_LastBuildIndex == -1 ? m_InvalidBuild : m_BuildStack[m_LastBuildIndex]; }
+    void     stampTime();
+    void     _advanceParse(uint a_Pass);
+    bool     _isOutdated(SmallSet<BuildSource const*>& _treated) const;
 
 private:
     // begin new build
-    int beginBuild(Package* a_pPck, Source* a_pSource, Message& a_Message);
-    int beginBuild(Package* a_pPck, Source* a_pSource, Language* a_pLanguage, Message& a_Message);
+    int beginBuild(Session a_Build);
+
+    Session createSession(Package* a_pPck, Source* a_pSource, Language* a_pLanguage, Message& a_Message);
+    Session createSession(Package* a_pPck, Source* a_pSource, Message& a_Message);
 
     void abortBuild();
     // revert top build
@@ -311,37 +318,37 @@ private:
 
     void cancelCurrentSources()
     {
-        Build& curr = currentBuild();
-        if (!curr.isNull())
+        Session& curr = currentBuild();
+        if (!curr.isEmpty())
             curr.undo();
-        Build& prev = previousBuild();
-        if (!prev.isNull())
+        Session& prev = previousBuild();
+        if (!prev.isEmpty())
             prev.redo();
     }
     void restoreCurrentSources()
     {
-        Build& prev = previousBuild();
-        if (!prev.isNull())
+        Session& prev = previousBuild();
+        if (!prev.isEmpty())
             prev.undo();
-        Build& curr = currentBuild();
-        if (!curr.isNull())
+        Session& curr = currentBuild();
+        if (!curr.isEmpty())
             curr.redo();
     }
 
 private:
-    SourceStream*      m_pSourceStream = nullptr;
-    Compiler*          m_pCompiler = nullptr;
-    SmallVector<Build> m_BuildStack;
-    int                m_LastBuildIndex = -1;
-    Build              m_InvalidBuild;
-    int                m_PreviousBuildIndex = -1;
-    Options            m_Options;
-    time_t             m_uiLastValidChangeTime = 0;
-    int                m_ArchiveCounter = 1;
-    int                m_iPriority;
-    int                m_CurrentBuildIndex = -1;
-    bool               m_bBuildInProgress = false;
-    bool               m_bOutdated = false;
+    SourceStream*        m_pSourceStream = nullptr;
+    BuildSystem*         m_pCompiler = nullptr;
+    SmallVector<Session> m_BuildStack;
+    int                  m_LastBuildIndex = -1;
+    Session              m_InvalidBuild;
+    int                  m_PreviousBuildIndex = -1;
+    Options              m_Options;
+    time_t               m_uiLastValidBuildTime = 0;
+    int                  m_ArchiveCounter = 1;
+    int                  m_iPriority;
+    int                  m_CurrentBuildIndex = -1;
+    bool                 m_bBuildInProgress = false;
+    bool                 m_bOutdated = false;
 };
 } // namespace lang
 } // namespace phantom

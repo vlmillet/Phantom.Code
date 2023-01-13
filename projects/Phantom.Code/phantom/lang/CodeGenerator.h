@@ -23,7 +23,7 @@ namespace lang
 /// \brief  Base class for source compilers (designed for multipass compilation).
 class PHANTOM_EXPORT_PHANTOM_CODE CodeGenerator : public Object
 {
-    friend class Compiler;
+    friend class BuildSystem;
 
 public:
     enum class Error

@@ -10,8 +10,8 @@
 
 #include "Block.h"
 #include "BranchStatement.h"
-#include "CompiledSource.h"
-#include "Compiler.h"
+#include "BuildSource.h"
+#include "BuildSystem.h"
 
 #include <phantom/lang/Subroutine.h>
 /* *********************************************** */

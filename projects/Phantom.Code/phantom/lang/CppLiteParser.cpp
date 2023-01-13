@@ -116,8 +116,8 @@
 #if PHANTOM_COMPILER == PHANTOM_COMPILER_VISUAL_STUDIO
 #    include <windows.h>
 #endif
-#include "phantom/lang/CompiledSource.h"
-#include "phantom/lang/Compiler.h"
+#include "phantom/lang/BuildSource.h"
+#include "phantom/lang/BuildSystem.h"
 #include "phantom/lang/Plugin.h"
 
 #include <phantom/function>
@@ -677,12 +677,12 @@ static CppLiteElementsGuard<T> CppLiteCreateGuard(T& vec)
 
 struct CppLitePassData
 {
-    CppLitePassData(CppLiteParser* a_pParser, BuildSession* a_pBuildSession, CppLiteGrammar::Allocator a_Allocator)
+    CppLitePassData(CppLiteParser* a_pParser, BuildSessionId a_BuildSession, CppLiteGrammar::Allocator a_Allocator)
         : m_pSource(a_pParser->getSource()),
           m_pParser(a_pParser),
           m_pSemantic(a_pParser->getSemantic()),
           m_CppLiteGrammar(a_Allocator),
-          m_pBuildSession(a_pBuildSession)
+          m_BuildSession(a_BuildSession)
     {
         m_pSemantic->setNameFormatDelegate(
         Semantic::NameFormatDelegate(this, &CppLitePassData::semanticNameFormatDelegate));
@@ -1290,9 +1290,11 @@ struct CppLitePassData
 
     ast::MixinStatementDefinition* getMixinStatementDefinition(const char* a_IDENTIFIER);
 
-    BuildSession*    m_pBuildSession{};
+    BuildSessionId   m_BuildSession{};
     Source*          m_pSource;
     ast::Source*     m_pAstSource;
+    Strings          m_ModuleNames{};
+    Strings          m_ImportNames{};
     ast::Expression* m_pAstExpression;
     CppLiteParser*   m_pParser;
     Semantic*        m_pSemantic;
@@ -1384,7 +1386,7 @@ ast::MixinStatementDefinition* CppLitePassData::getMixinStatementDefinition(cons
         }
         for (auto pSource : sources)
         {
-            auto pCompiled = Compiler::Get()->getCompiledSource(pSource);
+            auto pCompiled = BuildSystem::Get()->getCompiledSource(pSource);
             if (pCompiled->getLanguage()->getName() == "CppLite")
             {
                 auto& defs =
@@ -2311,8 +2313,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                             if (pElement == nullptr)
                                 return true;
                             //                             CppLiteErrorReturnIf(pElement == nullptr,
-                            //                                                  "'%s' : no constructor available taking
-                            //                                                  the given arguments",
+                            //                                                  "'%s' : no constructor available
+                            //                                                  taking the given arguments",
                             //                                                  pClassType->getName().data());
                             CPPLITEPARSER_ASSERT(pElement->asExpression());
                             a_pInitExpression = static_cast<Expression*>(pElement);
@@ -3815,8 +3817,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         Block* pLambdaBlock = pLambdaMethod->New<Block>();
         pLambdaMethod->setBlock(pLambdaBlock);
         size_t count = params.size();
-        while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to argument
-                        // passing (right to left)
+        while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to
+                        // argument passing (right to left)
         {
             addLocalVariable(pLambdaBlock, params[count]);
         }
@@ -5422,7 +5424,7 @@ struct CppLitePass : public ast::visitor::Recursive<T>
                             pDepSource = pTDTI->getTemplate()->getSource();
                     }
                 }
-                CompiledSource::Get(pClass->getSource())->addBuildDependency(pDepSource);
+                BuildSource::Get(pClass->getSource())->addBuildDependency(pDepSource);
                 pClass->addBaseClass(pBaseClass, access);
                 //                 if (auto pSpec = pClass->getTemplateSpecialization()) // is a template
                 //                 specialization
@@ -5600,8 +5602,8 @@ struct CppLitePass : public ast::visitor::Recursive<T>
     {
         auto   pBlock = a_pSubroutine->getBlock();
         size_t count = a_pSubroutine->getSignature()->getParameterCount();
-        while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to argument
-                        // passing (right to left)
+        while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to
+                        // argument passing (right to left)
         {
             addLocalVariable(pBlock, a_pSubroutine->getSignature()->getParameter(count));
         }
@@ -5614,12 +5616,14 @@ struct CppLitePass : public ast::visitor::Recursive<T>
         auto pBlock = a_pMethod->getBlock();
         if (!pBlock)
         {
-            CPPLITEPARSER_ASSERT(a_pMethod->isPureVirtual());
+            //             CPPLITEPARSER_ASSERT(a_pMethod->isPureVirtual() ||
+            //                                  (a_pMethod->isTemplateElement() && a_pMethod->getModifiers() &
+            //                                  Modifier::Defaulted));
             return;
         }
         size_t count = a_pMethod->getSignature()->getParameterCount();
-        while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to argument
-                        // passing (right to left)
+        while (count--) // add them in reverse order for the destruction to happen canonical (left to right) to
+                        // argument passing (right to left)
         {
             addLocalVariable(pBlock, a_pMethod->getSignature()->getParameter(count));
         }
@@ -5934,77 +5938,89 @@ struct CppLitePassModules : public CppLitePass<CppLitePassModules>
             moduleName += (*input->m_Names)[i];
         }
 
-        Module* pMod = Application::Get()->getModule(moduleName);
-        if (!pMod)
-        {
-            if (CppLiteGetParser()->getOption("prefer-module-kind") == "native")
-            {
-                if (Plugin* pPlugin = Application::Get()->getPlugin(moduleName))
-                {
-                    if (pPlugin->load())
-                    {
-                        pMod = pPlugin->getModule();
-                        CPPLITEPARSER_ASSERT(pMod);
-                    }
-                }
-                if (!pMod)
-                {
-                    CppLiteErrorReturnIf(
-                    !m_Data.m_pBuildSession->addProject(moduleName),
-                    "module '%.*s' : not found, either because project no found or project build failed",
-                    PHANTOM_STRING_AS_PRINTF_ARG(moduleName));
-                }
-            }
-            else
-            {
-                m_Data.m_pBuildSession->addProject(moduleName);
-                if (!pMod || !pMod->isNative())
-                {
-                    if (!m_Data.m_pBuildSession->isSuccessful())
-                    {
-                        CppLiteErrorReturn("module : failed to build project '%.*s'",
-                                           PHANTOM_STRING_AS_PRINTF_ARG(moduleName));
-                    }
-                }
-                pMod = Application::Get()->getModule(moduleName);
-                if (!pMod)
-                {
-                    if (Plugin* pPlugin = Application::Get()->getPlugin(moduleName))
-                    {
-                        if (pPlugin->load())
-                        {
-                            pMod = pPlugin->getModule();
-                            CPPLITEPARSER_ASSERT(pMod);
-                        }
-                    }
-                    if (!pMod)
-                    {
-                        CppLiteError(
-                        "module '%.*s' : not found, either because project no found or project build failed",
-                        PHANTOM_STRING_AS_PRINTF_ARG(moduleName));
-                        return true;
-                    }
-                }
-            }
-        }
-        else
-        {
-            if (!pMod->isNative())
-            {
-                m_Data.m_pBuildSession->addProject(moduleName);
-                if (!m_Data.m_pBuildSession->isSuccessful())
-                {
-                    CppLiteErrorReturn("module : failed to build project '%.*s'",
-                                       PHANTOM_STRING_AS_PRINTF_ARG(moduleName));
-                }
-            }
-        }
-        if (!CppLiteGetSource()->getModule()->hasDependency(pMod))
-            CppLiteGetSource()->getModule()->addDependency(pMod);
+        m_Data.m_ModuleNames.push_back(moduleName);
 
         return true;
     }
 
+    bool traverseSourceDeclaration(ast::SourceDeclaration* input) { return false; }
+};
+
+// imports
+struct CppLitePassFetchImportNames : public CppLitePass<CppLitePassFetchImportNames>
+{
+    CppLitePassFetchImportNames(CppLitePassData& a_Data) : CppLitePass<CppLitePassFetchImportNames>(a_Data) {}
+
+    bool resolveImportNames(ast::ImportDeclaration* input, phantom::ArrayView<spell::any> a_Names)
+    {
+        bool bStatic = input->m_STATIC.hasValue();
+        bool bPublic = input->m_PUBLIC.hasValue();
+
+        SmallVector<StringView, 8> names;
+        for (auto& n : a_Names)
+            names.push_back(n.as_string());
+
+        return resolveImportNames(input, names, bStatic, bPublic);
+    }
+
+    bool resolveImportNames(ast::ImportDeclaration* input, phantom::ArrayView<StringView> a_Names, bool bStatic,
+                            bool bPublic)
+    {
+        Source* pCurrentSource = m_Data.m_pSource;
+        CPPLITEPARSER_ASSERT(pCurrentSource);
+        CppLiteDefaultReturnValue(false);
+
+        String relPath;
+        for (size_t i = 0; i < a_Names.size(); ++i)
+        {
+            if (i)
+                relPath += '.';
+            relPath += a_Names[i];
+        }
+
+        m_Data.m_ImportNames.push_back(relPath);
+
+        return true;
+    }
+
+    bool traverseImportDeclaration(ast::ImportDeclaration* input)
+    {
+        if (input->m_STRING_LIT.hasValue())
+        {
+            // static
+            StringViews words;
+            StringUtil::Split(words, input->m_STRING_LIT.as_string() + 1, ".", false);
+            CppLiteErrorReturnIf(words.empty(), "#include \"...\" : invalid empty string");
+            if (!words.front().empty())
+                words.front() = words.front().substr(1);
+            if (!words.back().empty())
+                words.back() = words.back().substr(0, words.back().size() - 1);
+            for (auto& w : words)
+            {
+                CppLiteErrorReturnIf(w.empty() || !Symbol::IsCppIdentifier(w), "import : invalid identifier '%.*s'",
+                                     PHANTOM_STRING_AS_PRINTF_ARG(w));
+            }
+            resolveImportNames(input, words, true, false);
+            return true;
+        }
+
+        if (input->m_Names)
+        {
+            resolveImportNames(input, *input->m_Names);
+            return true;
+        }
+
+        auto* imports = input->m_Imports;
+        CPPLITEPARSER_ASSERT(imports);
+
+        for (ast::Import* pAstImport : *imports)
+        {
+            ast::ImportBase* pImportBase = pAstImport->m_ImportBase;
+            if (pImportBase->m_Names == nullptr || !resolveImportNames(input, *pImportBase->m_Names))
+                return true;
+        }
+        return true;
+    }
     bool traverseSourceDeclaration(ast::SourceDeclaration* input) { return false; }
 };
 
@@ -6039,7 +6055,6 @@ struct CppLitePassImport : public CppLitePass<CppLitePassImport>
                 relPath += '.';
             relPath += a_Names[i];
         }
-        m_Data.m_pBuildSession->loadSourcesOrPackages(relPath);
 
         Symbol*  pImported = nullptr;
         Packages packages;
@@ -6228,8 +6243,6 @@ struct CppLitePassGlobals : public CppLitePass<CppLitePassGlobals>
 {
     CppLitePassGlobals(CppLitePassData& a_Data) : CppLitePass<CppLitePassGlobals>(a_Data) {}
 
-    bool traverseStaticAssert(ast::StaticAssert* input) { return true; }
-
     bool traverseSourceDeclaration(ast::SourceDeclaration* input)
     {
         Symbol* pSymbol = CppLiteVisitSymbol(input->m_Declaration);
@@ -6259,8 +6272,7 @@ struct CppLitePassGlobals : public CppLitePass<CppLitePassGlobals>
 
     bool traverseTemplate(ast::Template* input)
     {
-        Source* pSource = CppLiteGetScopeAs(Source);
-        CPPLITEPARSER_ASSERT(pSource);
+        Scope*           pScope = CppLiteGetScopeAs(Source);
         LanguageElement* pElement = CppLiteVisitElement(input->m_TemplateSignature);
         if (pElement == nullptr)
             return true;
@@ -6318,35 +6330,54 @@ struct CppLitePassGlobals : public CppLitePass<CppLitePassGlobals>
         return true;
     }
 
+    bool traverseMethod(ast::Method* input) { return true; }
+    bool traverseConversionFunction(ast::ConversionFunction* input) { return true; }
+    bool traverseConstructor(ast::Constructor* input) { return true; }
+    bool traverseDestructor(ast::Destructor* input) { return true; }
+
+    bool traverseFriend(ast::Friend* input) { return true; }
+    bool traverseStaticAssert(ast::StaticAssert* input) { return true; }
+
     bool traverseClass(ast::Class* input)
     {
         Class* pClass = nullptr;
         resolveClass(input, pClass);
+        m_Data.pushTemplateSignature(nullptr);
+        if (input->m_Members)
+        {
+            CppLiteVisitElements(input->m_Members, pClass);
+        }
+        m_Data.popTemplateSignature();
         CppLiteMapAndReturn(pClass);
     }
 
     bool traverseTemplateFunction(ast::TemplateFunction* input)
     {
-        if (input->m_STATIC.hasValue())
+        Source* pSource = CppLiteGetScopeAs(Source);
+        if (pSource)
         {
-            CppLiteWarningMsg("static : optional on global functions");
-        }
+            if (input->m_STATIC.hasValue())
+            {
+                CppLiteWarningMsg("static : optional on global functions");
+            }
 
-        TemplateSpecialization* pTemplateSpec = nullptr;
-        if (!(resolveTemplateSpecialization(input, /*input->m_TemplateArgumentList*/ nullptr, pTemplateSpec, true)))
-            return false;
+            TemplateSpecialization* pTemplateSpec = nullptr;
+            if (!(resolveTemplateSpecialization(input, /*input->m_TemplateArgumentList*/ nullptr, pTemplateSpec, true)))
+                return false;
 
-        m_Data.pushScope(pTemplateSpec);
-        const char* name = input->m_IDENTIFIER;
-        Subroutine* pSubroutine = nullptr;
-        Modifiers   staticMod{PHANTOM_R_STATIC};
-        if (!resolveFunctionEnd(input->m_TypeOrAuto, name, input->m_FunctionEnd, staticMod, pSubroutine, false))
-        {
+            m_Data.pushScope(pTemplateSpec);
+            const char* name = input->m_IDENTIFIER;
+            Subroutine* pSubroutine = nullptr;
+            Modifiers   staticMod{PHANTOM_R_STATIC};
+            if (!resolveFunctionEnd(input->m_TypeOrAuto, name, input->m_FunctionEnd, staticMod, pSubroutine, false))
+            {
+                m_Data.popScope();
+                return true;
+            }
             m_Data.popScope();
-            return true;
+            CppLiteMapAndReturn(pSubroutine);
         }
-        m_Data.popScope();
-        CppLiteMapAndReturn(pSubroutine);
+        return true;
     }
 
     bool traverseFunctionOrVariable(ast::FunctionOrVariable* input)
@@ -6354,7 +6385,8 @@ struct CppLitePassGlobals : public CppLitePass<CppLitePassGlobals>
         Modifiers modifiers = 0;
 
         Source* pScope = CppLiteGetScopeAs(Source);
-        CPPLITEPARSER_ASSERT(pScope, "source must be the current scope at this pass");
+        if (!pScope) // if scope is a class, static functions or variables will be treated in next passes
+            return true;
 
         Type* pType = CppLiteVisitType(input->m_TypeOrAuto);
         if (pType == nullptr)
@@ -6659,17 +6691,19 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
         if (!CppLiteHasMappedElement(input))
         {
             // nested
-            CppLitePassGlobals globals(m_Data);
-            globals.traverseClass(input);
             CppLitePassInheritance inheritance(m_Data);
             inheritance.traverseClass(input);
         }
         pClass = CppLiteGetElementAs(Class);
         CppLiteCheckShouldWeContinueParsing(pClass);
+
+        pClass->setCurrentAccess(pClass->getDefaultAccess());
+        m_Data.pushTemplateSignature(nullptr);
         if (input->m_Members)
         {
             CppLiteVisitElements(input->m_Members, pClass);
         }
+        m_Data.popTemplateSignature();
 
         return true;
     }
@@ -6747,8 +6781,14 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
                              "for this class type",
                              PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pClassType)),
                              PHANTOM_STRING_AS_PRINTF_ARG(CppLiteElementToString(pType)));
+
+        Modifiers mods;
+        if (input->m_EXPLICIT)
+        {
+            mods |= Modifier::Explicit;
+        }
         Method* pMethod =
-        NewInScope<Method>("operator " + pType->getUniqueName(), pClassType->NewDeferred<Signature>(pType));
+        NewInScope<Method>("operator " + pType->getUniqueName(), pClassType->NewDeferred<Signature>(pType), mods);
         pMethod->setAccess(CppLiteGetAccess());
 
         pClassType->addMethod(pMethod);
@@ -6971,6 +7011,7 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
             if (!resolveFunctionEnd(input->m_TypeOrAuto, op, input->m_OperatorEnd->m_FunctionEnd, modifiers,
                                     pSubroutine, true))
                 return true;
+
             CPPLITEPARSER_ASSERT(pSubroutine->asMethod());
         }
 
@@ -7156,17 +7197,17 @@ struct CppLitePassMembersLocal : public CppLitePass<CppLitePassMembersLocal>
 
     bool traverseAlias(ast::Alias* input)
     {
-        ClassType* pClassType = CppLiteGetScopeAs(ClassType);
-        if (pClassType)
-        {
-            CppLiteErrorReturnIfNameUsed(pClassType, input->m_IDENTIFIER);
-            Type* pType = CppLiteVisitType(input->m_Type);
-            if (pType == nullptr)
-                return true;
-            Alias* pAlias = pClassType->addAlias(pType, input->m_IDENTIFIER);
-            pAlias->setAccess(CppLiteGetAccess());
-            CppLiteMapAndReturn(pAlias);
-        }
+        //         ClassType* pClassType = CppLiteGetScopeAs(ClassType);
+        //         if (pClassType)
+        //         {
+        //             CppLiteErrorReturnIfNameUsed(pClassType, input->m_IDENTIFIER);
+        //             Type* pType = CppLiteVisitType(input->m_Type);
+        //             if (pType == nullptr)
+        //                 return true;
+        //             Alias* pAlias = pClassType->addAlias(pType, input->m_IDENTIFIER);
+        //             pAlias->setAccess(CppLiteGetAccess());
+        //             CppLiteMapAndReturn(pAlias);
+        //         }
         return true;
     }
 
@@ -7244,10 +7285,12 @@ struct CppLitePassMembersGlobal : public CppLitePass<CppLitePassMembersGlobal>
             }
         }
         pClass->setCurrentAccess(pClass->getDefaultAccess());
+        m_Data.pushTemplateSignature(nullptr);
         if (input->m_Members)
         {
             CppLiteVisitElements(input->m_Members, pClass);
         }
+        m_Data.popTemplateSignature();
         return true;
     }
 
@@ -7332,10 +7375,13 @@ struct CppLitePassStates : public CppLitePass<CppLitePassStates>
         {
             Class* pClass = CppLiteGetElementAs(Class);
             CppLiteCheckShouldWeContinueParsing(pClass);
+            pClass->setCurrentAccess(pClass->getDefaultAccess());
+            m_Data.pushTemplateSignature(nullptr);
             if (input->m_Members)
             {
                 CppLiteVisitElements(input->m_Members, pClass);
             }
+            m_Data.popTemplateSignature();
         }
         return true;
     }
@@ -7649,7 +7695,6 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
     {
         if (!CppLiteHasMappedElement(input))
         {
-            CppLitePassGlobals(m_Data).traverseClass(input);
             Class* pClass = CppLiteGetElementAs(Class);
             if (!pClass)
                 return true;
@@ -8127,6 +8172,8 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
     bool traverseMethod(ast::Method* input)
     {
         Subroutine* pSubroutine = CppLiteGetElementAs(Subroutine);
+        if (pSubroutine == nullptr)
+            return true;
         CPPLITEPARSER_ASSERT(pSubroutine->asMethod());
         addArguments(static_cast<Method*>(pSubroutine));
         CppLiteCheckShouldWeContinueParsing(pSubroutine);
@@ -8141,6 +8188,8 @@ struct CppLitePassBlocks : public CppLitePass<CppLitePassBlocks>
     bool traverseConversionFunction(ast::ConversionFunction* input)
     {
         Method* pMethod = CppLiteGetElementAs(Method);
+        if (pMethod == nullptr)
+            return true;
         addArguments(pMethod);
         CppLiteCheckShouldWeContinueParsing(pMethod);
         CppLiteVisitElement(input->m_FunctionBlock, pMethod);
@@ -9165,6 +9214,11 @@ bool CppLitePassMembersLocal::traverseConstructor(ast::Constructor* input)
             CPPLITEPARSER_ASSERT(false);
         }
     }
+    if (input->m_EXPLICIT)
+    {
+        mods |= Modifier::Explicit;
+    }
+
     Constructor* pConstructor = NewInScope<Constructor>(pClassType->getName(), pSignature, mods, PHANTOM_R_FLAG_NONE);
     pConstructor->setAccess(CppLiteGetAccess());
     if (pTSpec)
@@ -9249,7 +9303,7 @@ static void dumpCodeRanges(LanguageElement* a_pLanguageElement, size_t level = 0
 }
 #endif
 
-void CppLiteParser::begin(BuildSession& a_BuildSession)
+void CppLiteParser::begin(BuildSessionId a_Id)
 {
     if (m_pPassData)
         delete_<CppLitePassData>(m_pPassData);
@@ -9257,8 +9311,62 @@ void CppLiteParser::begin(BuildSession& a_BuildSession)
     CppLiteGrammar::Allocator alloc;
     alloc.allocate = [pAlloc](size_t _size) { return pAlloc->allocFunc(_size, 8); };
     alloc.deallocate = [pAlloc](void* _ptr, size_t) { pAlloc->deallocFunc(_ptr); };
-    m_pPassData = phantom::new_<CppLitePassData>(this, &a_BuildSession, alloc);
+    m_pPassData = phantom::new_<CppLitePassData>(this, a_Id, alloc);
 }
+
+int CppLiteParser::lex()
+{
+    phantom::SmallString<char, 1024> filebuffer;
+    std::string                      filebuffer2;
+
+    std::istream* pInput = getSource()->getSourceStream()->createInputStream();
+    if (pInput->fail())
+    {
+        getSource()->getSourceStream()->destroyInputStream(pInput);
+        getMessage()->error("failed to open source file");
+        return 1;
+    }
+    filebuffer.assign(std::istreambuf_iterator<char>(*pInput), std::istreambuf_iterator<char>());
+    m_pPassData->m_pAstSource = m_pPassData->m_CppLiteGrammar.parseSource(
+    filebuffer.data(), filebuffer.size(), CppLiteGrammar::ErrorDelegate(m_pPassData, &CppLitePassData::errorDelegate));
+    getSource()->getSourceStream()->destroyInputStream(pInput);
+    if (m_pPassData->m_pAstSource == nullptr ||
+        m_pPassData->m_pParser->getMessage()->getMostValuableMessageType() == MessageType::Error)
+        return 1;
+    return getMessage()->getMostValuableMessageType() == MessageType::Error;
+}
+
+int CppLiteParser::fetchModules(Strings& _moduleNames)
+{
+    if (!hasFlag(e_Flag_NoCodeLocation))
+        getSource()->setCodeRange(m_pPassData->CppLiteCodeRange(m_pPassData->m_pAstSource->location()));
+    if (m_pPassData->m_pAstSource)
+    {
+        CppLitePassModules modules(*m_pPassData);
+
+        // automatically
+        modules.traverseSource(m_pPassData->m_pAstSource);
+        _moduleNames = m_pPassData->m_ModuleNames;
+    }
+    return getMessage()->getMostValuableMessageType() == MessageType::Error;
+}
+
+int CppLiteParser::fetchImports(Strings& _importNames)
+{
+    if (!hasFlag(e_Flag_NoCodeLocation))
+        getSource()->setCodeRange(m_pPassData->CppLiteCodeRange(m_pPassData->m_pAstSource->location()));
+    if (m_pPassData->m_pAstSource)
+    {
+        CppLitePassFetchImportNames imports(*m_pPassData);
+
+        // automatically
+        imports.traverseSource(m_pPassData->m_pAstSource);
+        _importNames = m_pPassData->m_ImportNames;
+    }
+    return getMessage()->getMostValuableMessageType() == MessageType::Error;
+}
+
+void CppLiteParser::beginParse(BuildSessionId /*a_BuildSession*/) {}
 
 int CppLiteParser::parse(uint pass)
 {
@@ -9272,41 +9380,6 @@ int CppLiteParser::parse(uint pass)
 
     switch (pass)
     {
-    case e_Pass_Parsing:
-    {
-        phantom::SmallString<char, 1024> filebuffer;
-        std::string                      filebuffer2;
-
-        std::istream* pInput = getSource()->getSourceStream()->createInputStream();
-        if (pInput->fail())
-        {
-            getSource()->getSourceStream()->destroyInputStream(pInput);
-            getMessage()->error("failed to open source file");
-            return 1;
-        }
-        filebuffer.assign(std::istreambuf_iterator<char>(*pInput), std::istreambuf_iterator<char>());
-        m_pPassData->m_pAstSource = m_pPassData->m_CppLiteGrammar.parseSource(
-        filebuffer.data(), filebuffer.size(),
-        CppLiteGrammar::ErrorDelegate(m_pPassData, &CppLitePassData::errorDelegate));
-        getSource()->getSourceStream()->destroyInputStream(pInput);
-        if (m_pPassData->m_pAstSource == nullptr ||
-            m_pPassData->m_pParser->getMessage()->getMostValuableMessageType() == MessageType::Error)
-            return 1;
-    }
-    break;
-    case e_Pass_Modules:
-    {
-        if (!hasFlag(e_Flag_NoCodeLocation))
-            getSource()->setCodeRange(m_pPassData->CppLiteCodeRange(m_pPassData->m_pAstSource->location()));
-        if (m_pPassData->m_pAstSource)
-        {
-            CppLitePassModules modules(*m_pPassData);
-
-            // automatically
-            modules.traverseSource(m_pPassData->m_pAstSource);
-        }
-    }
-    break;
     case e_Pass_Imports:
     {
         if (!hasFlag(e_Flag_NoCodeLocation))
@@ -9408,6 +9481,8 @@ int CppLiteParser::parse(uint pass)
     return getMessage()->getMostValuableMessageType() == MessageType::Error;
 }
 
+void CppLiteParser::endParse() {}
+
 void CppLiteParser::end()
 {
     m_Allocator.reset();
@@ -9426,8 +9501,7 @@ Expression* CppLiteParser::parseExpression(StringView a_strName, LanguageElement
     CppLiteGrammar::Allocator alloc;
     alloc.allocate = [&heap](size_t _size) { return heap.allocate(_size, 8); };
     alloc.deallocate = [&heap](void*, size_t) {};
-    BuildSession    session;
-    CppLitePassData passData(this, &session, alloc);
+    CppLitePassData passData(this, -1, alloc);
     passData.m_pAstExpression = passData.m_CppLiteGrammar.parseExpression(
     a_strName.begin(), a_strName.size(), [](spell::Location, ast::EError, const char*) {});
     if (passData.m_pAstExpression)

@@ -111,11 +111,11 @@ class ParameterPackExpressionExpansion;
 
 namespace lang
 {
-PHANTOM_DECL_LISTABLE(CompiledSource);
+PHANTOM_DECL_LISTABLE(BuildSource);
 PHANTOM_DECL_LISTABLE(Project);
 PHANTOM_DECL_LISTABLE(Solution);
 PHANTOM_DECL_LISTABLE(Message);
-class Compiler;
+class BuildSystem;
 class Debugger;
 struct SolutionData;
 struct ProjectData;

@@ -18,21 +18,15 @@ class BreakPoint;
 
 class PHANTOM_EXPORT_PHANTOM_CODE DebugInformation
 {
-    friend class Compiler;
+    friend class BuildSystem;
 
 public:
-    DebugInformation() : m_pModule(nullptr)
-    {
-    }
+    DebugInformation() : m_pModule(nullptr) {}
 
-    Module* getModule() const
-    {
-        return m_pModule;
-    }
+    Module* getModule() const { return m_pModule; }
 
     BreakPoint* addBreakPoint(const CodeLocation& a_Position);
-    BreakPoint* addBreakPoint(void*               a_pAddress,
-                              const CodeLocation& a_CandidatePosition = CodeLocation());
+    BreakPoint* addBreakPoint(void* a_pAddress, const CodeLocation& a_CandidatePosition = CodeLocation());
 
     void removeBreakPoint(BreakPoint* a_pBreakPoint);
 
@@ -71,12 +65,10 @@ public:
 
     virtual bool findStepOverInstructions(byte* a_pReturnAddress, byte* a_pAddress, byte*& a_pNext,
                                           byte*& a_pUnconditionalBranchTarget) const;
-    virtual bool findStepIntoInstruction(byte* a_pAddress, byte*& a_pCallAddress,
-                                         void* a_pGenericThreadContext) const;
+    virtual bool findStepIntoInstruction(byte* a_pAddress, byte*& a_pCallAddress, void* a_pGenericThreadContext) const;
     virtual Subroutine* getSubroutineAtAddress(byte* a_pAddress) const;
 
-    virtual byte* getLocalVariableAddress(LocalVariable* a_pLocalVariable,
-                                          size_t         a_iDebuggerFrameIndex) const;
+    virtual byte* getLocalVariableAddress(LocalVariable* a_pLocalVariable, size_t a_iDebuggerFrameIndex) const;
 
 private:
     Module* m_pModule;

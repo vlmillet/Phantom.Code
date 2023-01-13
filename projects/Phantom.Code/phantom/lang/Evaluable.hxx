@@ -49,7 +49,7 @@ PHANTOM_PACKAGE("phantom.lang")
             .constructor<void(Type*, uint)>()({"a_pEvalType","a_uiFlags"})["0"]
             .method<void()>("initialize", &_::initialize)
             .method<::phantom::lang::Evaluable *() const, virtual_>("asEvaluable", &_::asEvaluable)
-            .method<CompiledSource*() const>("getCompiledSource", &_::getCompiledSource)
+            .method<BuildSource*() const>("getCompiledSource", &_::getCompiledSource)
             .method<Semantic*() const>("getSemantic", &_::getSemantic)
             .method<Language*() const>("getLanguage", &_::getLanguage)
             .method<void()>("setImplicit", &_::setImplicit)

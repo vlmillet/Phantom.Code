@@ -4,9 +4,9 @@
 // https://github.com/vlmillet/phantom
 // ]
 
-#include "CompiledSource.h"
+#include "BuildSource.h"
 
-#include "Compiler.h"
+#include "BuildSystem.h"
 #include "CppLite.h"
 #include "Label.h"
 #include "Language.h"
@@ -27,18 +27,18 @@ namespace phantom
 {
 namespace lang
 {
-CompiledSource* CompiledSource::Get(Source* a_pSource)
+BuildSource* BuildSource::Get(Source* a_pSource)
 {
-    return Compiler::Get()->getCompiledSource(a_pSource);
+    return BuildSystem::Get()->getCompiledSource(a_pSource);
 }
 
-CompiledSource::Build const& CompiledSource::EmptyBuild()
+BuildSource::Session const& BuildSource::EmptyBuild()
 {
-    static CompiledSource::Build s_EmptyBuild;
+    static BuildSource::Session s_EmptyBuild;
     return s_EmptyBuild;
 }
 
-void CompiledSource::addBuildDependency(CompiledSource* a_pSource)
+void BuildSource::addBuildDependency(BuildSource* a_pSource)
 {
     PHANTOM_ASSERT(m_bBuildInProgress);
 
@@ -55,52 +55,33 @@ void CompiledSource::addBuildDependency(CompiledSource* a_pSource)
     }
 }
 
-void CompiledSource::addBuildDependency(Source* a_pSource)
+void BuildSource::addBuildDependency(Source* a_pSource)
 {
     if (a_pSource->isNative())
         return;
-    if (auto pCS = Compiler::Get()->getCompiledSource(a_pSource))
+    if (auto pCS = BuildSystem::Get()->getCompiledSource(a_pSource))
         addBuildDependency(pCS);
 }
 
-CompiledSource::CompiledSource(Compiler* a_pCompiler, SourceStream* a_pSourceStream)
+BuildSource::BuildSource(BuildSystem* a_pCompiler, SourceStream* a_pSourceStream)
     : m_pCompiler(a_pCompiler), m_pSourceStream(a_pSourceStream)
 {
     m_InvalidBuild.m_pStatusMessage = new_<Message>(MessageType::Error, Path(a_pSourceStream->getPath()).stem());
 }
 
-bool CompiledSource::hasError() const
+bool BuildSource::hasError() const
 {
     return getLastBuild().hasError();
 }
 
-bool CompiledSource::Build::hasError() const
+bool BuildSource::Session::hasError() const
 {
     return m_pStatusMessage == nullptr || m_pStatusMessage->getMostValuableMessageType() == MessageType::Error;
 }
 
-CompiledSource::~CompiledSource() {}
+BuildSource::~BuildSource() {}
 
-void CompiledSource::_createBuild(Build& a_Build, Source* a_pSource, Language* a_pLanguage, Message& a_Message)
-{
-    PHANTOM_ASSERT(a_pLanguage);
-    PHANTOM_ASSERT(a_Build.isNull());
-    a_Build.m_pSource = a_pSource;
-    a_Build.m_pSourcePackage = a_pSource->getPackage();
-    ::time(&a_Build.m_Time);
-    a_Build.m_pLanguage = a_pLanguage;
-    a_Build.m_pStatusMessage = new_<Message>(MessageType::Success, a_pSource->getName());
-    a_Build.m_pStatusMessage->setData(CodeRangeLocation(a_pSource, CodeRange()));
-    a_Message.addChild(a_Build.m_pStatusMessage);
-    if (a_pLanguage)
-    {
-        a_Build.m_pParser = a_pLanguage->createParser(a_pSource, a_Build.m_pStatusMessage);
-        a_Build.m_pSemantic = a_Build.m_pParser->getSemantic();
-        a_Build.m_PerPassDependencies.resize(a_Build.m_pParser->getPassCount());
-    }
-}
-
-void CompiledSource::_advanceParse(uint a_Pass)
+void BuildSource::_advanceParse(uint a_Pass)
 {
     PHANTOM_ASSERT(m_bBuildInProgress);
     while (getParser()->getPass() < a_Pass)
@@ -109,16 +90,16 @@ void CompiledSource::_advanceParse(uint a_Pass)
     }
 }
 
-time_t CompiledSource::outdate()
+time_t BuildSource::outdate()
 {
     if (m_bBuildInProgress)
         return 0;
-    time_t time = m_uiLastValidChangeTime;
-    m_uiLastValidChangeTime = 0;
+    time_t time = m_uiLastValidBuildTime;
+    m_uiLastValidBuildTime = 0;
     return time;
 }
 
-Message* CompiledSource::error(const char* a_Format, ...)
+Message* BuildSource::error(const char* a_Format, ...)
 {
     va_list args;
     va_start(args, a_Format);
@@ -127,7 +108,7 @@ Message* CompiledSource::error(const char* a_Format, ...)
     return pMessage;
 }
 
-Message* CompiledSource::warning(const char* a_Format, ...)
+Message* BuildSource::warning(const char* a_Format, ...)
 {
     va_list args;
     va_start(args, a_Format);
@@ -136,7 +117,7 @@ Message* CompiledSource::warning(const char* a_Format, ...)
     return pMessage;
 }
 
-Message* CompiledSource::error(const CodeRangeLocation& a_Location, const char* a_Format, ...)
+Message* BuildSource::error(const CodeRangeLocation& a_Location, const char* a_Format, ...)
 {
     va_list args;
     va_start(args, a_Format);
@@ -146,7 +127,7 @@ Message* CompiledSource::error(const CodeRangeLocation& a_Location, const char* 
     return pMessage;
 }
 
-Message* CompiledSource::warning(const CodeRangeLocation& a_Location, const char* a_Format, ...)
+Message* BuildSource::warning(const CodeRangeLocation& a_Location, const char* a_Format, ...)
 {
     va_list args;
     va_start(args, a_Format);
@@ -155,12 +136,40 @@ Message* CompiledSource::warning(const CodeRangeLocation& a_Location, const char
     return pMessage;
 }
 
-int CompiledSource::beginBuild(Package* a_pPck, Source* a_pSource, Language* a_pLanguage, Message& a_Message)
+BuildSource::Session BuildSource::createSession(Package* a_pPck, Source* a_pSource, Language* a_pLanguage,
+                                                Message& a_Message)
+{
+    Session build;
+    a_pSource->setSourceStream(m_pSourceStream);
+
+    PHANTOM_ASSERT(a_pLanguage);
+    build.m_pBuildSource = this;
+    build.m_pSource = a_pSource;
+    build.m_pPackage = a_pPck;
+    ::time(&build.m_Time);
+    build.m_pLanguage = a_pLanguage;
+    build.m_pStatusMessage = new_<Message>(MessageType::Success, a_pSource->getName());
+    build.m_pStatusMessage->setData(CodeRangeLocation(a_pSource, CodeRange()));
+    a_Message.addChild(build.m_pStatusMessage);
+    if (a_pLanguage)
+    {
+        build.m_pParser = a_pLanguage->createParser(a_pSource, build.m_pStatusMessage);
+        build.m_pSemantic = build.m_pParser->getSemantic();
+        build.m_PerPassDependencies.resize(build.m_pParser->getPassCount());
+    }
+    return build;
+}
+
+BuildSource::Session BuildSource::createSession(Package* a_pPck, Source* a_pSource, Message& a_Message)
+{
+    return createSession(a_pPck, a_pSource, m_pCompiler->getDefaultLanguage(), a_Message);
+}
+
+int BuildSource::beginBuild(Session a_Build)
 {
     PHANTOM_ASSERT(!m_bBuildInProgress);
     m_PreviousBuildIndex = m_CurrentBuildIndex;
     m_bBuildInProgress = true;
-    a_pSource->setSourceStream(m_pSourceStream);
     // undo current build
     if (m_CurrentBuildIndex > -1)
     {
@@ -176,23 +185,18 @@ int CompiledSource::beginBuild(Package* a_pPck, Source* a_pSource, Language* a_p
             m_LastBuildIndex = m_CurrentBuildIndex;
     }
     m_CurrentBuildIndex++;
-    a_pPck->addSource(a_pSource);
+    a_Build.getPackage()->addSource(a_Build.getSource());
     // push new build
-    _createBuild(m_BuildStack.emplace_back(), a_pSource, a_pLanguage, a_Message);
+    m_BuildStack.emplace_back(a_Build);
     return m_CurrentBuildIndex;
 }
 
-int CompiledSource::beginBuild(Package* a_pPck, Source* a_pSource, Message& a_Message)
-{
-    return beginBuild(a_pPck, a_pSource, m_pCompiler->getDefaultLanguage(), a_Message);
-}
-
-void CompiledSource::abortBuild()
+void BuildSource::abortBuild()
 {
     currentBuild().m_pStatusMessage->error("build abort");
 }
 
-bool CompiledSource::endBuild()
+bool BuildSource::endBuild()
 {
     PHANTOM_ASSERT(m_bBuildInProgress);
     m_bBuildInProgress = false;
@@ -212,7 +216,7 @@ bool CompiledSource::endBuild()
     return true;
 }
 
-void CompiledSource::restore(int _buildIndex)
+void BuildSource::restore(int _buildIndex)
 {
     if (m_CurrentBuildIndex == _buildIndex)
         return;
@@ -226,23 +230,23 @@ void CompiledSource::restore(int _buildIndex)
     m_LastBuildIndex = m_CurrentBuildIndex;
 }
 
-void CompiledSource::stampTime()
+void BuildSource::stampTime()
 {
-    time(&m_uiLastValidChangeTime);
+    time(&m_uiLastValidBuildTime);
 }
 
-bool CompiledSource::hasSucceeded() const
+bool BuildSource::hasSucceeded() const
 {
     return getCurrentBuild().hasSucceeded();
 }
 
-bool CompiledSource::Build::hasSucceeded() const
+bool BuildSource::Session::hasSucceeded() const
 {
-    SmallSet<const Build*> treated;
+    SmallSet<const Session*> treated;
     return _hasSucceeded(treated);
 }
 
-bool CompiledSource::Build::_hasSucceeded(SmallSet<const Build*>& treated) const
+bool BuildSource::Session::_hasSucceeded(SmallSet<const Session*>& treated) const
 {
     if (!treated.insert(this).second) // already treated
         return true;
@@ -252,7 +256,7 @@ bool CompiledSource::Build::_hasSucceeded(SmallSet<const Build*>& treated) const
     {
         for (auto pDep : pSource->getDependencies())
         {
-            if (CompiledSource* pCS = Compiler::Get()->getCompiledSource(pDep))
+            if (BuildSource* pCS = BuildSystem::Get()->getCompiledSource(pDep))
             {
                 if (!pCS->getCurrentBuild()._hasSucceeded(treated))
                     return false;
@@ -266,19 +270,20 @@ bool CompiledSource::Build::_hasSucceeded(SmallSet<const Build*>& treated) const
     return true;
 }
 
-bool CompiledSource::_isOutdated(SmallSet<CompiledSource const*>& _treated) const
+bool BuildSource::_isOutdated(SmallSet<BuildSource const*>& _treated) const
 {
     if (!_treated.insert(this).second)
         return false;
-    if (m_uiLastValidChangeTime == 0 || m_pSourceStream->getLastChangeTime() > m_uiLastValidChangeTime)
+    if (m_uiLastValidBuildTime == 0 || m_pSourceStream->getLastChangeTime() > m_uiLastValidBuildTime)
         return true;
     if (Source* pSource = getLastBuild().getSource())
     {
-        for (auto pDep : pSource->getDependencies())
+        for (auto pDepSource : pSource->getDependencies())
         {
-            if (CompiledSource* pCS = Compiler::Get()->getCompiledSource(pDep))
+            if (BuildSource* pDepBuildSource = BuildSystem::Get()->getCompiledSource(pDepSource))
             {
-                if (pCS->_isOutdated(_treated))
+                if (pDepBuildSource->m_uiLastValidBuildTime > m_uiLastValidBuildTime ||
+                    pDepBuildSource->_isOutdated(_treated))
                     return true;
             }
         }
@@ -286,9 +291,9 @@ bool CompiledSource::_isOutdated(SmallSet<CompiledSource const*>& _treated) cons
     return false;
 }
 
-bool CompiledSource::isOutdated() const
+bool BuildSource::isOutdated() const
 {
-    SmallSet<CompiledSource const*> treated;
+    SmallSet<BuildSource const*> treated;
     return _isOutdated(treated);
 }
 
@@ -297,7 +302,7 @@ namespace
 void _PrintMessage(phantom::lang::Message* _msg) {}
 } // namespace
 
-void CompiledSource::dumpMessages()
+void BuildSource::dumpMessages()
 {
     Functor<void(phantom::lang::Message*, int)> printBuildErrors = [&](phantom::lang::Message* pMsg, int lvl) {
         for (phantom::lang::Message* msg : pMsg->getChildren())
@@ -360,7 +365,7 @@ void CompiledSource::dumpMessages()
     printBuildErrors(getLastBuild().getStatusMessage(), 0);
 }
 
-void CompiledSource::Build::clear()
+void BuildSource::Session::clear()
 {
     if (m_pParser)
     {
@@ -369,28 +374,28 @@ void CompiledSource::Build::clear()
     }
     if (m_pSource && m_pSource->getPackage())
     {
-        PHANTOM_ASSERT(m_pSourcePackage == m_pSource->getPackage());
-        m_pSourcePackage->removeSource(m_pSource);
-        m_pSourcePackage->deleteSource(m_pSource);
+        PHANTOM_ASSERT(m_pPackage == m_pSource->getPackage());
+        m_pPackage->removeSource(m_pSource);
+        m_pPackage->deleteSource(m_pSource);
     }
     m_pSource = nullptr;
-    m_pSourcePackage = nullptr;
+    m_pPackage = nullptr;
     m_pSemantic = nullptr;
 }
 
-CompiledSource::Build::Build() : m_pSemantic(CppLite::Get()->getDefaultSemantic()) {}
+BuildSource::Session::Session() : m_pSemantic(CppLite::Get()->getDefaultSemantic()) {}
 
-void CompiledSource::Build::undo()
+void BuildSource::Session::undo()
 {
-    m_pSourcePackage->removeSource(m_pSource);
+    m_pPackage->removeSource(m_pSource);
 }
 
-void CompiledSource::Build::redo()
+void BuildSource::Session::redo()
 {
-    m_pSourcePackage->addSource(m_pSource);
+    m_pPackage->addSource(m_pSource);
 }
 
-void CompiledSource::Build::addDependency(CompiledSource* a_pDep)
+void BuildSource::Session::addDependency(BuildSource* a_pDep)
 {
     m_PerPassDependencies[getParser()->getPass()].insert(a_pDep);
 }

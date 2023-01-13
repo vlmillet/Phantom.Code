@@ -24,6 +24,8 @@
 
 #include <phantom/template-only-push>
 
+#include <phantom/utils/SmallString.hxx>
+#include <phantom/utils/SmallVector.hxx>
 #include <phantom/utils/StringView.hxx>
 
 #include <phantom/template-only-pop>
@@ -39,6 +41,7 @@ PHANTOM_PACKAGE("phantom.lang")
             using Modifiers = typedef_< phantom::lang::Modifiers>;
             using Options = typedef_< phantom::lang::Options>;
             using StringView = typedef_< phantom::StringView>;
+            using Strings = typedef_< phantom::Strings>;
             this_()
         
         .public_()
@@ -54,10 +57,15 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<StringView(StringView) const>("getOption", &_::getOption)({"a_Key"})
             .method<Source*() const>("getSource", &_::getSource)
             .method<Semantic*() const>("getSemantic", &_::getSemantic)
-            .method<void(BuildSession&), virtual_>("begin", &_::begin)({""})
-            .method<void(), virtual_>("end", &_::end)
+            .method<void(BuildSessionId), virtual_>("begin", &_::begin)({""})
+            .method<int(), virtual_>("lex", &_::lex)
+            .method<int(Strings&), virtual_>("fetchModules", &_::fetchModules)({"_modules"})
+            .method<int(Strings&), virtual_>("fetchImports", &_::fetchImports)({"_modules"})
+            .method<void(BuildSessionId), virtual_>("beginParse", &_::beginParse)({""})
             .method<int(uint), pure_virtual>("parse", &_::parse)({"a_uiPass"})
             .method<int(uint)>("stepParse", &_::stepParse)({"a_uiPass"})
+            .method<void(), virtual_>("endParse", &_::endParse)
+            .method<void(), virtual_>("end", &_::end)
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE

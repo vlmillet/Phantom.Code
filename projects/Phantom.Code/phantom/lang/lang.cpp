@@ -6,7 +6,7 @@
 
 #include "lang.h"
 
-#include "Compiler.h"
+#include "BuildSystem.h"
 #include "CppLite.h"
 #include "Interpreter.h"
 #include "Semantic.h"
@@ -21,8 +21,8 @@ namespace phantom
 {
 namespace lang
 {
-StaticGlobal<CppLite>  g_PHNTM_LNG_CppLite(false);
-StaticGlobal<Compiler> g_PHNTM_LNG_Compiler(false);
+StaticGlobal<CppLite>     g_PHNTM_LNG_CppLite(false);
+StaticGlobal<BuildSystem> g_PHNTM_LNG_Compiler(false);
 
 struct LangInit
 {
@@ -31,12 +31,12 @@ struct LangInit
         g_PHNTM_LNG_CppLite.construct();
         g_PHNTM_LNG_Compiler.construct();
         Variant::SetTypeConverter(&Lang::CppTypeConverter);
-        Compiler::Get()->addLanguage(g_PHNTM_LNG_CppLite);
+        BuildSystem::Get()->addLanguage(g_PHNTM_LNG_CppLite);
     }
 
     ~LangInit()
     {
-        Compiler::Get()->removeLanguage(g_PHNTM_LNG_CppLite);
+        BuildSystem::Get()->removeLanguage(g_PHNTM_LNG_CppLite);
         Variant::SetTypeConverter(nullptr);
     }
 };

@@ -8,7 +8,7 @@
 // #include "phantom/core.h"
 #include "ConstructorCallExpression.h"
 
-#include "CompiledSource.h"
+#include "BuildSource.h"
 #include "Semantic.h"
 
 #include <phantom/lang/Constructor.h>

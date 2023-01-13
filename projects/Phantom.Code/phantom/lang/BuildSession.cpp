@@ -1,6 +1,6 @@
 #include "BuildSession.h"
 
-#include "Compiler.h"
+#include "BuildSystem.h"
 #include "phantom/lang/Application.h"
 #include "phantom/lang/Package.h"
 #include "phantom/utils/Path.h"
@@ -19,19 +19,6 @@ bool BuildSession::isSuccessful() const
     return true;
 }
 
-bool BuildSession::addProject(StringView _projectName)
-{
-    for (auto sp : searchPaths)
-    {
-        auto p = Path(sp).childPath(_projectName);
-        if (p.exists() && p.isDirectory())
-        {
-            return addProjectPath(p.genericString());
-        }
-    }
-    return false;
-}
-
 String BuildSession::findProjectPath(StringView _projectName) const
 {
     for (auto sp : searchPaths)
@@ -43,27 +30,6 @@ String BuildSession::findProjectPath(StringView _projectName) const
         }
     }
     return {};
-}
-
-bool BuildSession::addProjectPath(StringView a_Path)
-{
-    auto lock = mutex.autoLock();
-    Path p(a_Path);
-    if (!p.exists())
-        return false;
-    String path = p.absolute().canonical().genericString();
-    auto   found = projects.find(path);
-    if (found == projects.end())
-    {
-        auto& projSess = projects[path];
-        projSess = new_<ProjectBuildSession>();
-        projSess->message = new_<Message>();
-        projSess->message->setText(Path(a_Path).filename());
-        Compiler::Get()->_buildProject(*this, *projSess, path, options);
-        builtProjects.push_back(path);
-        return projSess->failed.empty();
-    }
-    return found->second->failed.empty();
 }
 
 void BuildSession::addSearchPath(StringView _path)
@@ -87,7 +53,7 @@ void BuildSession::addSearchPath(StringView _path)
                 if (sourceEntry.isRegularFile())
                 {
                     Path relSrcPath = sourceEntry.path().relative(projectEntry.path());
-                    if (Compiler::Get()->getLanguageFromFileExtension(relSrcPath.extension()))
+                    if (BuildSystem::Get()->getLanguageFromFileExtension(relSrcPath.extension()))
                     {
                         relSrcPath.removeExtension();
                     }
@@ -99,34 +65,6 @@ void BuildSession::addSearchPath(StringView _path)
             }
         }
     }
-}
-
-void BuildSession::loadSources(StringView a_SourceUniqueName)
-{
-    auto lock = mutex.autoLock();
-    auto found = projectsPathFromSourceUniqueName.find(a_SourceUniqueName);
-    if (found != projectsPathFromSourceUniqueName.end())
-    {
-        for (auto& projPath : found->second)
-            addProjectPath(projPath);
-    }
-}
-
-void BuildSession::loadPackages(StringView a_PackageUniqueName)
-{
-    auto lock = mutex.autoLock();
-    auto found = projectsPathFromPackageName.find(a_PackageUniqueName);
-    if (found != projectsPathFromPackageName.end())
-    {
-        for (auto& projPath : found->second)
-            addProjectPath(projPath);
-    }
-}
-
-void BuildSession::loadSourcesOrPackages(StringView a_UniqueName)
-{
-    loadSources(a_UniqueName);
-    loadPackages(a_UniqueName);
 }
 
 } // namespace lang

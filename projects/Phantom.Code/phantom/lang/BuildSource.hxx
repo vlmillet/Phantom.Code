@@ -4,7 +4,7 @@
 
 // clang-format off
 
-#include "CompiledSource.h"
+#include "BuildSource.h"
 
 #if defined(_MSC_VER)
 #   pragma warning(push, 0)
@@ -34,51 +34,55 @@
 namespace phantom {
 namespace lang {
 PHANTOM_PACKAGE("phantom.lang")
-    PHANTOM_SOURCE("CompiledSource")
+    PHANTOM_SOURCE("BuildSource")
 
         #if PHANTOM_NOT_TEMPLATE
-        PHANTOM_CLASS(CompiledSource)
+        PHANTOM_CLASS(BuildSource)
         {
-            using Build = typedef_<_::Build>;
             using Options = typedef_< phantom::lang::Options>;
+            using Session = typedef_<_::Session>;
             this_()
         
         .public_()
-            .staticMethod<::phantom::lang::CompiledSource *(Source*)>("Get", &_::Get)({"a_pSource"})
-            .struct_<Build>()
+            .staticMethod<::phantom::lang::BuildSource *(Source*)>("Get", &_::Get)({"a_pSource"})
+            .struct_<Session>()
                 .constructor<void()>()
-                .method<Source*() const>("getSource", &_::Build::getSource)
-                .method<Parser*() const>("getParser", &_::Build::getParser)
-                .method<Semantic*() const>("getSemantic", &_::Build::getSemantic)
-                .method<Language*() const>("getLanguage", &_::Build::getLanguage)
-                .method<Message*() const>("getStatusMessage", &_::Build::getStatusMessage)
-                .method<bool() const>("isNull", &_::Build::isNull)
-                .method<void()>("undo", &_::Build::undo)
-                .method<void()>("redo", &_::Build::redo)
-                .method<void(CompiledSource*)>("addDependency", &_::Build::addDependency)({"a_pDep"})
-                .method<bool(CompiledSource*) const>("hasDependency", &_::Build::hasDependency)({"a_pDep"})
-                .method<bool() const>("hasError", &_::Build::hasError)
-                .method<bool() const>("hasSucceeded", &_::Build::hasSucceeded)
+                .method<BuildSource*() const>("getBuildSource", &_::Session::getBuildSource)
+                .method<Source*() const>("getSource", &_::Session::getSource)
+                .method<Package*() const>("getPackage", &_::Session::getPackage)
+                .method<Parser*() const>("getParser", &_::Session::getParser)
+                .method<Semantic*() const>("getSemantic", &_::Session::getSemantic)
+                .method<Language*() const>("getLanguage", &_::Session::getLanguage)
+                .method<Message*() const>("getStatusMessage", &_::Session::getStatusMessage)
+                .method<bool() const>("isNull", &_::Session::isNull)
+                .method<bool() const>("isEmpty", &_::Session::isEmpty)
+                .method<void()>("undo", &_::Session::undo)
+                .method<void()>("redo", &_::Session::redo)
+                .method<void(BuildSource*)>("addDependency", &_::Session::addDependency)({"a_pDep"})
+                .method<bool(BuildSource*) const>("hasDependency", &_::Session::hasDependency)({"a_pDep"})
+                .method<bool() const>("hasError", &_::Session::hasError)
+                .method<bool() const>("hasSucceeded", &_::Session::hasSucceeded)
                 /// missing symbol(s) reflection (time_t) -> use the 'haunt.bind' to bind symbols with your custom haunt files
-                // .method<time_t() const>("getTime", &_::Build::getTime)
+                // .method<time_t() const>("getTime", &_::Session::getTime)
             .end()
-            .staticMethod<const ::phantom::lang::CompiledSource::Build &()>("EmptyBuild", &_::EmptyBuild)
-            .constructor<void(Compiler*, SourceStream*)>()({"a_pCompiler","a_pSourceStream"})
+            .staticMethod<const ::phantom::lang::BuildSource::Session &()>("EmptyBuild", &_::EmptyBuild)
+            .constructor<void(BuildSystem*, SourceStream*)>()({"a_pCompiler","a_pSourceStream"})
             .method<Language*() const>("getLanguage", &_::getLanguage)
             .method<SourceStream*() const>("getSourceStream", &_::getSourceStream)
             .method<Source*() const>("getSource", &_::getSource)
+            .method<bool() const>("hasEverSucceeded", &_::hasEverSucceeded)
             .method<void(LanguageElement*, Symbol*)>("ensureStrongDependency", &_::ensureStrongDependency)({"",""})
-            .method<bool(CompiledSource*) const>("hasBuildDependency", &_::hasBuildDependency)({"a_pSource"})
-            .method<void(CompiledSource*)>("addBuildDependency", &_::addBuildDependency)({"a_pSource"})
+            .method<bool(BuildSource*) const>("hasBuildDependency", &_::hasBuildDependency)({"a_pSource"})
+            .method<void(BuildSource*)>("addBuildDependency", &_::addBuildDependency)({"a_pSource"})
             .method<void(Source*)>("addBuildDependency", &_::addBuildDependency)({"a_pSource"})
-            .method<SmallVector<SmallSet<CompiledSource*> > const&() const>("getBuildDependencies", &_::getBuildDependencies)
+            .method<SmallVector<SmallSet<BuildSource*> > const&() const>("getBuildDependencies", &_::getBuildDependencies)
         
         .public_()
             .method<bool() const>("hasSucceeded", &_::hasSucceeded)
             /// missing symbol(s) reflection (time_t) -> use the 'haunt.bind' to bind symbols with your custom haunt files
             // .method<time_t()>("outdate", &_::outdate)
             .method<bool() const>("hasError", &_::hasError)
-            .method<const ::phantom::lang::CompiledSource::Build &(size_t) const>("getBuild", &_::getBuild)({"a_uiIndex"})
+            .method<const ::phantom::lang::BuildSource::Session &(size_t) const>("getBuild", &_::getBuild)({"a_uiIndex"})
             .method<size_t() const>("getBuildCount", &_::getBuildCount)
             /// missing symbol(s) reflection (time_t) -> use the 'haunt.bind' to bind symbols with your custom haunt files
             // .method<time_t() const>("getLastValidChangeTime", &_::getLastValidChangeTime)
@@ -92,14 +96,14 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<Semantic*() const>("getSemantic", &_::getSemantic)
             .method<void(Options const&)>("setOptions", &_::setOptions)({"a_Options"})
             .method<Options const&() const>("getOptions", &_::getOptions)
-            .method<Build const&() const>("getCurrentBuild", &_::getCurrentBuild)
-            .method<Build const&() const>("getLastBuild", &_::getLastBuild)
-            .method<Build const&() const>("getPreviousBuild", &_::getPreviousBuild)
+            .method<Session const&() const>("getCurrentBuild", &_::getCurrentBuild)
+            .method<Session const&() const>("getLastBuild", &_::getLastBuild)
+            .method<Session const&() const>("getPreviousBuild", &_::getPreviousBuild)
             .method<void()>("dumpMessages", &_::dumpMessages)
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE
-    PHANTOM_END("CompiledSource")
+    PHANTOM_END("BuildSource")
 PHANTOM_END("phantom.lang")
 }
 }

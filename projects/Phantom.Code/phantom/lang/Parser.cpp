@@ -8,7 +8,7 @@
 // #include "phantom/core.h"
 #include "Parser.h"
 
-#include "CompiledSource.h"
+#include "BuildSource.h"
 #include "Language.h"
 /* *********************************************** */
 namespace phantom

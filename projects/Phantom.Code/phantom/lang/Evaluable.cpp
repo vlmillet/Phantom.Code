@@ -8,8 +8,8 @@
 // #include "phantom/core.h"
 #include "Evaluable.h"
 
-#include "CompiledSource.h"
-#include "Compiler.h"
+#include "BuildSource.h"
+#include "BuildSystem.h"
 #include "CppLite.h"
 #include "Expression.h"
 #include "Interpreter.h"
@@ -34,21 +34,21 @@ Evaluable::~Evaluable()
         delete_<Expressions>(m_pScopedDestructions);
 }
 
-CompiledSource* Evaluable::getCompiledSource() const
+BuildSource* Evaluable::getCompiledSource() const
 {
     Source* pSource = getSource();
-    return pSource ? Compiler::Get()->getCompiledSource(pSource) : nullptr;
+    return pSource ? BuildSystem::Get()->getCompiledSource(pSource) : nullptr;
 }
 
 Semantic* Evaluable::getSemantic() const
 {
-    CompiledSource* pCSource = getCompiledSource();
+    BuildSource* pCSource = getCompiledSource();
     return pCSource ? pCSource->getSemantic() : CppLite::Get()->getDefaultSemantic();
 }
 
 Language* Evaluable::getLanguage() const
 {
-    CompiledSource* pCSource = getCompiledSource();
+    BuildSource* pCSource = getCompiledSource();
     return pCSource ? pCSource->getLanguage() : nullptr;
 }
 

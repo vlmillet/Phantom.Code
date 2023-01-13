@@ -6,9 +6,10 @@
 
 /* ******************* Includes ****************** */
 // #include "phantom/core.h"
-#include "Block.h"
-#include "Compiler.h"
 #include "DebugInformation.h"
+
+#include "Block.h"
+#include "BuildSystem.h"
 #include "Debugger.h"
 
 #include <phantom/lang/Application.h>
@@ -28,19 +29,18 @@ BreakPoint* DebugInformation::addBreakPoint(const CodeLocation& a_Loc)
 
 BreakPoint* DebugInformation::addBreakPoint(void* a_pAddress, const CodeLocation& a_CandidateLoc)
 {
-    BreakPoint* pNewBreakPoint =
-    Compiler::Get()->getDebugger()->addBreakPoint(a_pAddress, a_CandidateLoc);
+    BreakPoint* pNewBreakPoint = BuildSystem::Get()->getDebugger()->addBreakPoint(a_pAddress, a_CandidateLoc);
     return pNewBreakPoint;
 }
 
 void DebugInformation::removeBreakPoint(BreakPoint* a_pBreakPoint)
 {
-    Compiler::Get()->getDebugger()->removeBreakPoint(a_pBreakPoint);
+    BuildSystem::Get()->getDebugger()->removeBreakPoint(a_pBreakPoint);
 }
 
 phantom::lang::CodeLocation DebugInformation::getCodeLocationForAddress(void*) const
 {
-	return CodeLocation();
+    return CodeLocation();
 }
 
 Subroutine* DebugInformation::getSubroutineAtAddress(byte* a_pAddress) const
@@ -57,24 +57,24 @@ Subroutine* DebugInformation::getSubroutineAtAddress(byte* a_pAddress) const
     return nullptr;
 }
 
-phantom::byte* DebugInformation::getLocalVariableAddress(LocalVariable* , size_t ) const
+phantom::byte* DebugInformation::getLocalVariableAddress(LocalVariable*, size_t) const
 {
-	return nullptr;
+    return nullptr;
 }
 
-void* DebugInformation::getAddressForCodeLocation(CodeLocation ) const
+void* DebugInformation::getAddressForCodeLocation(CodeLocation) const
 {
-	return nullptr;
+    return nullptr;
 }
 
-bool DebugInformation::findStepOverInstructions(byte* , byte* , byte*& , byte*& ) const
+bool DebugInformation::findStepOverInstructions(byte*, byte*, byte*&, byte*&) const
 {
-	return false;
+    return false;
 }
 
-bool DebugInformation::findStepIntoInstruction(byte* , byte*& , void* ) const
+bool DebugInformation::findStepIntoInstruction(byte*, byte*&, void*) const
 {
-	return false;
+    return false;
 }
 
 } // namespace lang

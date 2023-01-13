@@ -38,7 +38,7 @@ PHANTOM_PACKAGE("phantom.lang")
         #if PHANTOM_NOT_TEMPLATE
         PHANTOM_STRUCT(ProjectBuildSession)
         {
-            using CompiledSources = typedef_< phantom::lang::CompiledSources>;
+            using BuildSources = typedef_< phantom::lang::BuildSources>;
             this_()
             .field("message", &_::message)
             .field("all", &_::all)
@@ -54,14 +54,10 @@ PHANTOM_PACKAGE("phantom.lang")
         
         .public_()
             .method<bool() const>("isSuccessful", &_::isSuccessful)
-            .method<bool(StringView)>("addProject", &_::addProject)({"_name"})
             .method<String(StringView) const>("findProjectPath", &_::findProjectPath)({"_projectName"})
-            .method<bool(StringView)>("addProjectPath", &_::addProjectPath)({"_path"})
             .method<void(StringView)>("addSearchPath", &_::addSearchPath)({"_path"})
-            .method<void(StringView)>("loadSources", &_::loadSources)({"a_SourceUniqueName"})
-            .method<void(StringView)>("loadPackages", &_::loadPackages)({"a_PackageUniqueName"})
-            .method<void(StringView)>("loadSourcesOrPackages", &_::loadSourcesOrPackages)({"a_UniqueName"})
-            .method<SmallVector<ProjectBuildSession const*>() const>("getBuiltProjectsSessions", &_::getBuiltProjectsSessions)
+            .method<SmallVector<ProjectBuildSession const*>() const>("getProjectBuildSessions", &_::getProjectBuildSessions)
+            .method<ProjectBuildSession const*(StringView) const>("getProjectBuildSession", &_::getProjectBuildSession)({"_projectPath"})
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE

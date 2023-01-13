@@ -88,7 +88,7 @@ RETURN "return"
 GOTO "goto"
 NEW "new"
 DELETE "delete" -> string
-EXPLICIT "explicit"
+EXPLICIT "explicit" -> string
 TYPEDEF "typedef"
 USING "using"
 REINTERPRET_CAST "reinterpret_cast" -> string
@@ -343,6 +343,7 @@ BlockDeclaration : Statement
 
 ConversionFunction
 {
+	@opt EXPLICIT
 	OPERATOR 
 	TypeNoFunctionType
 	PAREN_START
@@ -1203,14 +1204,21 @@ BasicMember : Member
 		}
 		EXPLICIT 
 		{
-			@lookahead OPERATOR
+			@lookahead EXPLICIT
 			{
-				ConversionFunction "m_ConversionFunction"
+				@lookahead OPERATOR
+				{
+					ConversionFunction "m_ConversionFunction"
+				}
+				@finally 
+				{
+					Constructor "m_Constructor"
+				}	
 			}
-			@finally 
+			@finally
 			{
 				Constructor "m_Constructor"
-			}			
+			}
 		}
 		COMPL 
 		{

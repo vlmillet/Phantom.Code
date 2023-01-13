@@ -83,7 +83,7 @@
 #include <phantom/lang/AnonymousUnion.h>
 #include <phantom/lang/Application.h>
 #include <phantom/lang/ArrayClass.h>
-#include <phantom/lang/CompiledSource.h>
+#include <phantom/lang/BuildSource.h>
 #include <phantom/lang/ConstVolatileType.h>
 #include <phantom/lang/Constructor.h>
 #include <phantom/lang/Field.h>
@@ -135,7 +135,7 @@ namespace lang
 }
 } // namespace phantom
 
-#include "Compiler.h"
+#include "BuildSystem.h"
 #include "CppLite.h"
 #include "ExpressionStatement.h"
 #include "ParameterPackExpressionExpansion.h"
@@ -1632,7 +1632,7 @@ void Semantic::visit(Class* a_pInput, VisitorData a_Data)
             {
                 // TODO : find a way to void this Compiler dependency here
                 auto sema = this;
-                if (auto cs = Compiler::Get()->getCompiledSource(baseClass.baseClass->getSource()))
+                if (auto cs = BuildSystem::Get()->getCompiledSource(baseClass.baseClass->getSource()))
                 {
                     sema = cs->getSemantic();
                 }
@@ -2195,7 +2195,7 @@ void Semantic::visit(Class* a_pInput, VisitorData a_Data)
                 Class* pBaseClass = o_resolveT(Class, p.baseClass);
                 if (pBaseClass)
                 {
-                    CompiledSource::Get(pClass->getSource())->addBuildDependency(pBaseClass->getSource());
+                    BuildSource::Get(pClass->getSource())->addBuildDependency(pBaseClass->getSource());
                     pClass->addBaseClass(pBaseClass, p.access);
                 }
             }
@@ -2381,14 +2381,13 @@ void Semantic::visit(ClassType* a_pInput, VisitorData a_Data)
         //         }
 
         TemplateSpecialization* pSpec = a_pInput->getTemplateSpecialization();
-
         // triggers full instantiation of the template to access its members
         // (we don't want to do that on unqualified lookups because it means we are inside the scope
         // of the template specialization itself)
         if ((a_Data.flags & e_VisitorFlag_Unqualified) == 0)
         {
-            if (pSpec && pSpec->isFull() && pSpec->testFlags(PHANTOM_R_FLAG_IMPLICIT) &&
-                !(pSpec->isNative())) // instantiation
+            // template instantiation (not native C++)
+            if (pSpec && pSpec->isFull() && pSpec->testFlags(PHANTOM_R_FLAG_IMPLICIT) && !(pSpec->isNative()))
             {
                 PHANTOM_SEMANTIC_ASSERT(pSpec->getTemplated() == a_pInput);
                 PHANTOM_SEMANTIC_ASSERT(pSpec->getInstantiationSpecialization());
@@ -2396,12 +2395,6 @@ void Semantic::visit(ClassType* a_pInput, VisitorData a_Data)
                 PHANTOM_SEMANTIC_ASSERT(pPrimaryTemplated);
                 PHANTOM_SEMANTIC_ASSERT(pPrimaryTemplated->asClassType());
                 sizeClass(a_pInput); // ensure sizing
-            }
-            else if (pSpec == nullptr || (pSpec && pSpec->isFull())) // full specialization
-            {
-                CxxSemanticErrorReturnIf(!(a_pInput->isNative()) &&
-                                         a_pInput->getExtraData()->m_BuildState < e_ClassBuildState_Sized,
-                                         "'%s' : incomplete type", FormatCStr(a_pInput));
             }
         }
         StringView in_name = *(StringView*)a_Data.in[0];
@@ -2423,6 +2416,33 @@ void Semantic::visit(ClassType* a_pInput, VisitorData a_Data)
                 return;
             }
         }
+        visit(static_cast<Type*>(a_pInput), a_Data);
+        if (!out_candidates.empty())
+        {
+            if (out_candidates.front()->removeExpression()->asField())
+            {
+                // triggers full instantiation of the template to access its members
+                // (we don't want to do that on unqualified lookups because it means we are inside the scope
+                // of the template specialization itself)
+                if ((a_Data.flags & e_VisitorFlag_Unqualified) == 0)
+                {
+                    // not a template class
+                    if (pSpec == nullptr ||
+                        // or full explicit specialization (not a template instantiation) (not native C++)
+                        (pSpec->isFull() && !pSpec->isNative() &&
+                         !pSpec->testFlags(PHANTOM_R_FLAG_IMPLICIT))) // full specialization
+                    {
+                        if (!(a_pInput->isNative()) && a_pInput->getExtraData()->m_BuildState < e_ClassBuildState_Sized)
+                        {
+                            CxxSemanticError("'%s' : incomplete type", FormatCStr(a_pInput));
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        return;
     }
     break;
 
@@ -9729,8 +9749,8 @@ void Semantic::visit(TemplateDependantType* a_pInput, VisitorData a_Data)
             a_pInput->getTemplateDependantElement()->visit(this, a_Data);
             if (pResolved)
             {
-                pResolved = pResolved->asType();
-                if (pResolved == nullptr)
+                Type* pResolvedType = pResolved->asType();
+                if (pResolvedType == nullptr)
                 {
                     CxxSemanticError("'%s' : expected expression", FormatCStr(pResolved));
                     return;

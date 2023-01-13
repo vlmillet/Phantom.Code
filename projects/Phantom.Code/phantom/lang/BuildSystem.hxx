@@ -4,7 +4,7 @@
 
 // clang-format off
 
-#include "Compiler.h"
+#include "BuildSystem.h"
 
 #if defined(_MSC_VER)
 #   pragma warning(push, 0)
@@ -38,12 +38,12 @@
 namespace phantom {
 namespace lang {
 PHANTOM_PACKAGE("phantom.lang")
-    PHANTOM_SOURCE("Compiler")
+    PHANTOM_SOURCE("BuildSystem")
 
         #if PHANTOM_NOT_TEMPLATE
-        PHANTOM_CLASS(Compiler)
+        PHANTOM_CLASS(BuildSystem)
         {
-            using CompiledSources = typedef_< phantom::lang::CompiledSources>;
+            using BuildSources = typedef_< phantom::lang::BuildSources>;
             using Languages = typedef_< phantom::lang::Languages>;
             using Modules = typedef_< phantom::lang::Modules>;
             using Options = typedef_< phantom::lang::Options>;
@@ -58,13 +58,19 @@ PHANTOM_PACKAGE("phantom.lang")
             // .typedef_<SourceTimes>("SourceTimes")
         
         .public_()
-            .staticMethod<::phantom::lang::Compiler *()>("Get", &_::Get)
+            .staticMethod<::phantom::lang::BuildSystem *()>("Get", &_::Get)
             .constructor<void()>()
             .method<Debugger*() const>("getDebugger", &_::getDebugger)
             .method<BuildSessionId(ArrayView<String>, Options const&)>("newSession", &_::newSession)({"_projectsSearchPaths","a_Options"})["{}"]["{}"]
-            .method<void(BuildSessionId, StringView)>("buildProject", &_::buildProject)({"a_Id","a_Path"})
-            .method<void(BuildSessionId, StringView)>("buildProjectAt", &_::buildProjectAt)({"a_Id","a_Path"})
-            .method<CompiledSource*(BuildSessionId, StringView, ArrayView<String>, Options const&)>("buildSource", &_::buildSource)({"a_Id","a_Path","_projectsSearchPaths","a_Options"})["ArrayView<String>()"]["Options()"]
+            .method<bool(BuildSessionId, StringView)>("buildProject", &_::buildProject)({"a_Id","a_Name"})
+            .method<bool(BuildSessionId, StringView)>("buildProjectAndDependents", &_::buildProjectAndDependents)({"a_Id","a_Name"})
+            .method<bool(BuildSessionId, StringView)>("buildProjectAt", &_::buildProjectAt)({"a_Id","a_Path"})
+            .method<bool(BuildSessionId, StringView)>("buildProjectAndDependentsAt", &_::buildProjectAndDependentsAt)({"a_Id","a_Path"})
+            .method<bool(BuildSessionId, Module*)>("buildProject", &_::buildProject)({"a_Id","a_pModule"})
+            .method<bool(BuildSessionId, Module*)>("buildProjectAndDependents", &_::buildProjectAndDependents)({"a_Id","a_pModule"})
+            .method<bool(BuildSessionId) const>("hasBuildSucceeded", &_::hasBuildSucceeded)({"a_Id"})
+            .method<void(BuildSessionId, StringView)>("loadSourcesOrPackages", &_::loadSourcesOrPackages)({"a_Id","a_UniqueName"})
+            .method<BuildSource*(BuildSessionId, StringView, ArrayView<String>, Options const&)>("buildSource", &_::buildSource)({"a_Id","a_Path","_projectsSearchPaths","a_Options"})["ArrayView<String>()"]["Options()"]
             .method<BuildSession const&(BuildSessionId) const>("getBuildSession", &_::getBuildSession)({"a_Id"})
             .method<Modules(BuildSessionId) const>("getBuildSessionModules", &_::getBuildSessionModules)({"a_Id"})
             .method<void(StringView)>("cleanupProject", &_::cleanupProject)({"_path"})
@@ -72,11 +78,11 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<bool() const>("isBuildOutdated", &_::isBuildOutdated)
             .method<void()>("abortBuild", &_::abortBuild)
             .method<void(SourceFile*) const>("outdate", &_::outdate)({"a_pSource"})
-            .method<CompiledSources(StringView)>("listProjectCompiledSourcesAt", &_::listProjectCompiledSourcesAt)({"_path"})
-            .method<CompiledSources(BuildSessionId, StringView)>("listProjectCompiledSources", &_::listProjectCompiledSources)({"_sessionId","_project"})
+            .method<BuildSources(StringView)>("listProjectBuildSourcesAt", &_::listProjectBuildSourcesAt)({"_path"})
+            .method<BuildSources(BuildSessionId, StringView)>("listProjectBuildSources", &_::listProjectBuildSources)({"_sessionId","_project"})
             .method<String(BuildSessionId, StringView) const>("findProjectPath", &_::findProjectPath)({"_sessionId","_project"})
-            .method<CompiledSource*(SourceStream*) const>("getCompiledSource", &_::getCompiledSource)({"a_pSourceStream"})
-            .method<CompiledSource*(Source*) const>("getCompiledSource", &_::getCompiledSource)({"a_pSource"})
+            .method<BuildSource*(SourceStream*) const>("getCompiledSource", &_::getCompiledSource)({"a_pSourceStream"})
+            .method<BuildSource*(Source*) const>("getCompiledSource", &_::getCompiledSource)({"a_pSource"})
             .method<CodeGenerator*(Module*) const>("getCodeGenerator", &_::getCodeGenerator)({"a_pModule"})
             .method<DebugInformation*(Module*) const>("getDebugInformation", &_::getDebugInformation)({"a_pModule"})
             .method<Language*(StringView) const>("getLanguage", &_::getLanguage)({"a_strLanguageName"})
@@ -97,12 +103,15 @@ PHANTOM_PACKAGE("phantom.lang")
             .field("sourceBuilt", &_::sourceBuilt)
             .field("sourceBuildStarted", &_::sourceBuildStarted)
             .field("buildSessionUserHook", &_::buildSessionUserHook)
+            .field("buildSessionStarting", &_::buildSessionStarting)
+            .field("buildSessionSucceeding", &_::buildSessionSucceeding)
             .field("buildSessionDone", &_::buildSessionDone)
-            .field("buildSessionApplied", &_::buildSessionApplied)
+            .field("buildSessionFailed", &_::buildSessionFailed)
+            .field("buildSessionSucceeded", &_::buildSessionSucceeded)
             ;
         }
         #endif // PHANTOM_NOT_TEMPLATE
-    PHANTOM_END("Compiler")
+    PHANTOM_END("BuildSystem")
 PHANTOM_END("phantom.lang")
 }
 }

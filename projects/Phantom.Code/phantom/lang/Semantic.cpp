@@ -13,12 +13,12 @@
 #include "Block.h"
 #include "BranchIfNotStatement.h"
 #include "BranchIfStatement.h"
+#include "BuildSource.h"
+#include "BuildSystem.h"
 #include "BuiltInConversionExpression.h"
 #include "BuiltInOperator.h"
 #include "BuiltInOperatorExpression.h"
 #include "CallExpression.h"
-#include "CompiledSource.h"
-#include "Compiler.h"
 #include "ConditionalExpression.h"
 #include "ConstantExpression.h"
 #include "ConstructorCallExpression.h"
@@ -2622,20 +2622,28 @@ Semantic::SelectedOverloadInfo const* Semantic::selectBestOverload(SelectedOverl
 
 Semantic::SelectedOverloadInfo const* Semantic::findPerfectMatchOverload(SelectedOverloadInfos const& a_InOverloads)
 {
+    SmallVector<Semantic::SelectedOverloadInfo const*, 1> perfectMatches;
     if (a_InOverloads.size())
     {
         for (size_t i = 0; i < a_InOverloads.size(); ++i)
         {
             if (a_InOverloads[i].deductions.size())
                 continue;
+            bool allConvCanonical = true;
             for (auto* conv : a_InOverloads[i].conversions)
             {
                 if (!conv->isCanonical())
+                {
+                    allConvCanonical = false;
                     break;
+                }
             }
-            return &a_InOverloads[i];
+            if (allConvCanonical)
+                perfectMatches.push_back(&a_InOverloads[i]);
         }
     }
+    if (perfectMatches.size() == 1)
+        return perfectMatches.front();
     return nullptr;
 }
 
@@ -3929,7 +3937,7 @@ void Semantic::buildClass(ClassType* a_pClassType, EClassBuildState a_eBuildStat
     if (pSource != getSource()) // soruce do not match => find the semantic associated with it
     {
         // TODO : find a way to void this Compiler dependency here
-        auto* pCS = Compiler::Get()->getCompiledSource(pSource);
+        auto* pCS = BuildSystem::Get()->getCompiledSource(pSource);
         if (pCS)
             return pCS->getSemantic()->buildClass(a_pClassType, a_eBuildState);
         Message  msg;

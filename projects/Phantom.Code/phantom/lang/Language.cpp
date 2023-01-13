@@ -15,7 +15,7 @@
 #ifndef __DOXYGEN__
 #    include <phantom/utils/StringUtil.h>
 #endif
-#include "Compiler.h"
+#include "BuildSystem.h"
 #include "Expression.h"
 #include "conversions.h"
 #include "phantom/lang/SourceStream.h"

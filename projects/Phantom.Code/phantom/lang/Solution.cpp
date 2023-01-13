@@ -6,7 +6,7 @@
 
 #include "Solution.h"
 
-#include "Compiler.h"
+#include "BuildSystem.h"
 #include "Project.h"
 
 #include <phantom/lang/Application.h>

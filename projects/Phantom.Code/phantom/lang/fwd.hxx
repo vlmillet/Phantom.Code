@@ -86,12 +86,12 @@ PHANTOM_END("phantom.lang")
 }
 namespace lang {
 PHANTOM_PACKAGE("phantom.lang")
-    PHANTOM_SOURCE("CompiledSource")
+    PHANTOM_SOURCE("BuildSource")
 
         #if PHANTOM_NOT_TEMPLATE
-        PHANTOM_REGISTER(Typedefs) { this_().typedef_<CompiledSources>("CompiledSources"); }
+        PHANTOM_REGISTER(Typedefs) { this_().typedef_<BuildSources>("BuildSources"); }
         #endif // PHANTOM_NOT_TEMPLATE
-    PHANTOM_END("CompiledSource")
+    PHANTOM_END("BuildSource")
     PHANTOM_SOURCE("Project")
 
         #if PHANTOM_NOT_TEMPLATE

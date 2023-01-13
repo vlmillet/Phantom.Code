@@ -805,12 +805,14 @@ struct ConversionFunction : public _BaseRule
 {
     ConversionFunction(ERuleType t = e_RuleType_ConversionFunction)
         : _BaseRule(t),
+          m_EXPLICIT(nullptr),
           m_TypeNoFunctionType(nullptr),
           m_PAREN_START(nullptr),
           m_CONSTs(nullptr),
           m_FunctionBlock(nullptr)
     {
     }
+    char const*                             m_EXPLICIT;
     phantom::lang::ast::Type*               m_TypeNoFunctionType;
     char const*                             m_PAREN_START;
     phantom::SmallVector<spell::any, 4ull>* m_CONSTs;
@@ -820,6 +822,7 @@ struct Constructor : public _BaseRule
 {
     Constructor(ERuleType t = e_RuleType_Constructor)
         : _BaseRule(t),
+          m_EXPLICIT(nullptr),
           m_IDENTIFIER(nullptr),
           m_TemplateArgumentList(nullptr),
           m_PAREN_START(nullptr),
@@ -828,6 +831,7 @@ struct Constructor : public _BaseRule
           m_FunctionBlock(nullptr)
     {
     }
+    char const*                                                              m_EXPLICIT;
     char const*                                                              m_IDENTIFIER;
     phantom::lang::ast::TemplateArgumentList*                                m_TemplateArgumentList;
     char const*                                                              m_PAREN_START;

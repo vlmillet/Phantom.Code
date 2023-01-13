@@ -75,8 +75,8 @@ public:
 
     bool hasProjectDependencyCascade(Project* a_pOther) const;
 
-    CompiledSources getCompiledSources() const;
-    void            getCompiledSources(CompiledSources& _out) const;
+    BuildSources getBuildSources() const;
+    void         getBuildSources(BuildSources& _out) const;
 
 private:
     void removeFromDisk();

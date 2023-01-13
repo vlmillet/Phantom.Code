@@ -36,7 +36,7 @@ public:
 
     virtual Evaluable* asEvaluable() const { return (Evaluable*)this; }
 
-    CompiledSource* getCompiledSource() const;
+    BuildSource* getCompiledSource() const;
 
     Semantic* getSemantic() const;
 

@@ -56,8 +56,6 @@ PHANTOM_PACKAGE("phantom.lang")
                 {"e_Flag_NoCodeLocation",_::e_Flag_NoCodeLocation}})
             .end()
             .enum_<EPass>().values({
-                {"e_Pass_Parsing",_::e_Pass_Parsing},
-                {"e_Pass_Modules",_::e_Pass_Modules},
                 {"e_Pass_Imports",_::e_Pass_Imports},
                 {"e_Pass_Globals",_::e_Pass_Globals},
                 {"e_Pass_Inheritance",_::e_Pass_Inheritance},

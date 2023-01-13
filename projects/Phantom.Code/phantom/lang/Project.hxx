@@ -50,7 +50,7 @@ PHANTOM_PACKAGE("phantom.lang")
         }
         PHANTOM_CLASS(Project)
         {
-            using CompiledSources = typedef_< phantom::lang::CompiledSources>;
+            using BuildSources = typedef_< phantom::lang::BuildSources>;
             using Modules = typedef_< phantom::lang::Modules>;
             using Options = typedef_< phantom::lang::Options>;
             using Projects = typedef_< phantom::lang::Projects>;
@@ -88,8 +88,8 @@ PHANTOM_PACKAGE("phantom.lang")
             .method<void(SourceFile*)>("removeSourceFile", &_::removeSourceFile)({"a_pSourceFile"})
             .method<bool() const>("isPathExisting", &_::isPathExisting)
             .method<bool(Project*) const>("hasProjectDependencyCascade", &_::hasProjectDependencyCascade)({"a_pOther"})
-            .method<CompiledSources() const>("getCompiledSources", &_::getCompiledSources)
-            .method<void(CompiledSources&) const>("getCompiledSources", &_::getCompiledSources)({"_out"})
+            .method<BuildSources() const>("getBuildSources", &_::getBuildSources)
+            .method<void(BuildSources&) const>("getBuildSources", &_::getBuildSources)({"_out"})
         
         .private_()
             .method<void()>("removeFromDisk", &_::removeFromDisk)

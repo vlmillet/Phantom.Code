@@ -6,8 +6,8 @@
 
 #include "Project.h"
 
-#include "CompiledSource.h"
-#include "Compiler.h"
+#include "BuildSource.h"
+#include "BuildSystem.h"
 #include "Solution.h"
 
 #include <fstream>
@@ -28,7 +28,6 @@ Project::~Project()
 {
     if (m_pModule)
     {
-        // Compiler::Get()->cleanupProject(this);
         if (!m_pModule->isNative())
         {
             if (m_pModule->getOwner())
@@ -192,19 +191,19 @@ bool Project::hasProjectDependencyCascade(Project* a_pOther) const
     return false;
 }
 
-void Project::getCompiledSources(CompiledSources& _out) const
+void Project::getBuildSources(BuildSources& _out) const
 {
     for (auto source : m_SourceFiles)
     {
-        if (auto pCS = Compiler::Get()->getCompiledSource(source))
+        if (auto pCS = BuildSystem::Get()->getCompiledSource(source))
             _out.push_back(pCS);
     }
 }
 
-phantom::lang::CompiledSources Project::getCompiledSources() const
+phantom::lang::BuildSources Project::getBuildSources() const
 {
-    CompiledSources sources;
-    getCompiledSources(sources);
+    BuildSources sources;
+    getBuildSources(sources);
     return sources;
 }
 

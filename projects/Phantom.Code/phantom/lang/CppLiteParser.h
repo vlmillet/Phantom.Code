@@ -48,9 +48,7 @@ public:
 
     enum EPass
     {
-        e_Pass_Parsing, // 0 is always lexing/parsing (for async possibilities)
-        e_Pass_Modules,
-        e_Pass_Imports,
+        e_Pass_Imports = 0,
         e_Pass_Globals,       // register every symbol names at global scope
         e_Pass_Inheritance,   // register base classes and source dependencies
         e_Pass_MemberLocal,   // register global classes and create members while listing strong dependencies on other
@@ -98,13 +96,16 @@ public:
     // void addDependency(Source* a_pSource);
 
 private:
+    int              lex() override;
+    int              fetchModules(Strings& _modules) override;
+    int              fetchImports(Strings& _imports) override;
+    void             begin(BuildSessionId _session) override;
+    void             beginParse(BuildSessionId _session) override;
     int              parse(uint pass) override;
     LanguageElement* parseElement(StringView a_strExpression, LanguageElement* a_pScope, Modifiers a_Modifiers = 0,
                                   uint a_uiFlags = 0);
-
-    void begin(BuildSession& _session) override;
-
-    void end() override;
+    void             endParse() override;
+    void             end() override;
 
 private:
     SmallMap<const LanguageElements*, SmallMap<LanguageElement*, LanguageElement*> > m_Templated;

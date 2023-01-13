@@ -23,7 +23,7 @@
 #    include <asm/cachectl.h>
 #endif
 #include "Block.h"
-#include "Compiler.h"
+#include "BuildSystem.h"
 #include "Thread.h"
 
 #include <phantom/lang/LocalVariable.h>
@@ -386,7 +386,7 @@ void Debugger::fetchDebugInformations(DebugInformations& dis) const
 {
     for (Module* pModule : Application::Get()->getModules())
     {
-        dis.push_back(Compiler::Get()->getDebugInformation(pModule));
+        dis.push_back(BuildSystem::Get()->getDebugInformation(pModule));
     }
 }
 
@@ -620,7 +620,7 @@ void Debugger::addRestorerBreakPoints(BreakPoint* a_pBreakPoint)
     byte* pNextInstructionAddress = nullptr;
     byte* pUnconditionalBranchAddress = nullptr;
     PHANTOM_LOG(Information, "TRY RESTORER BREAKPOINT BY STEP INTO %x", pAddress);
-    Compiler::Get()
+    BuildSystem::Get()
     ->getDebugInformation(a_pBreakPoint->getCodeLocation().source->getModule())
     ->findStepIntoInstruction(pAddress, pNextInstructionAddress, m_pGenericContext);
     if (pNextInstructionAddress == nullptr)
@@ -628,7 +628,7 @@ void Debugger::addRestorerBreakPoints(BreakPoint* a_pBreakPoint)
         PHANTOM_LOG(Information, "TRY RESTORER BREAKPOINT BY STEP OVER %x", pAddress);
 
         PHANTOM_ASSERT(m_CallStackFrames.size() > 0);
-        Compiler::Get()
+        BuildSystem::Get()
         ->getDebugInformation(a_pBreakPoint->getCodeLocation().source->getModule())
         ->findStepOverInstructions(m_CallStackFrames[0].rp, pAddress, pNextInstructionAddress,
                                    pUnconditionalBranchAddress);
@@ -733,7 +733,7 @@ static bool FindNextInstruction(const CodeLocation& a_CodeLocation, byte* a_pRet
 {
     if (Source* pSource = a_CodeLocation.source)
     {
-        if (DebugInformation* dbgHandler = Compiler::Get()->getDebugInformation(pSource->getModule()))
+        if (DebugInformation* dbgHandler = BuildSystem::Get()->getDebugInformation(pSource->getModule()))
         {
             return dbgHandler->findStepOverInstructions(a_pReturnAddress, a_pAddress, a_pNext,
                                                         a_pUnconditionalBranchTarget);
@@ -747,7 +747,7 @@ static bool FindStepIntoInstruction(const CodeLocation& a_CodeLocation, byte* a_
 {
     if (Source* pSource = a_CodeLocation.source)
     {
-        if (DebugInformation* dbgHandler = Compiler::Get()->getDebugInformation(pSource->getModule()))
+        if (DebugInformation* dbgHandler = BuildSystem::Get()->getDebugInformation(pSource->getModule()))
         {
             return dbgHandler->findStepIntoInstruction(a_pAddress, a_pNext, a_pGenericContext);
         }
@@ -1120,7 +1120,7 @@ bool BreakPoint::findStepOverLineInstructions(byte* a_pReturnAddress, byte*& a_p
 {
     if (Source* pSource = m_CodeLocation.source)
     {
-        if (DebugInformation* dbgHandler = Compiler::Get()->getDebugInformation(pSource->getModule()))
+        if (DebugInformation* dbgHandler = BuildSystem::Get()->getDebugInformation(pSource->getModule()))
         {
             return dbgHandler->findStepOverInstructions(a_pReturnAddress, m_pMemoryAddress, a_pNext,
                                                         a_pUnconditionalBranchTarget);
@@ -1133,7 +1133,7 @@ bool BreakPoint::findStepIntoInstruction(byte*& a_pCallAddress, void* a_pGeneric
 {
     if (Source* pSource = m_CodeLocation.source)
     {
-        if (DebugInformation* dbgHandler = Compiler::Get()->getDebugInformation(pSource->getModule()))
+        if (DebugInformation* dbgHandler = BuildSystem::Get()->getDebugInformation(pSource->getModule()))
         {
             return dbgHandler->findStepIntoInstruction(m_pMemoryAddress, a_pCallAddress, a_pGenericContext);
         }
@@ -1246,7 +1246,7 @@ long Debugger::_handleBreakException(struct _EXCEPTION_POINTERS* info, unsigned 
 #if PHANTOM_OPERATING_SYSTEM == PHANTOM_OPERATING_SYSTEM_WINDOWS
 long __stdcall VectoredHandlerBreakPoint(struct _EXCEPTION_POINTERS* ExceptionInfo)
 {
-    return phantom::lang::Compiler::Get()->getDebugger()->_handleBreakException(
+    return phantom::lang::BuildSystem::Get()->getDebugger()->_handleBreakException(
     ExceptionInfo, ExceptionInfo->ExceptionRecord->ExceptionCode);
 }
 #endif
@@ -1674,7 +1674,7 @@ byte* Debugger::getFrameInstructionPointer(size_t i) const
 
 byte* Debugger::getFrameLocalVariableAddress(LocalVariable* a_pLocalVariable, size_t i /*= 0*/) const
 {
-    return Compiler::Get()
+    return BuildSystem::Get()
     ->getDebugInformation(a_pLocalVariable->getModule())
     ->getLocalVariableAddress(a_pLocalVariable, i);
 }
@@ -1761,22 +1761,22 @@ bool DebuggerFrameContext::call(Subroutine* a_pSubroutine, void** a_ppArgs, size
 
 byte* DebuggerFrameContext::getStackPointer() const
 {
-    return Compiler::Get()->getDebugger()->getFrameStackPointer(m_Frame);
+    return BuildSystem::Get()->getDebugger()->getFrameStackPointer(m_Frame);
 }
 
 byte* DebuggerFrameContext::getBasePointer() const
 {
-    return Compiler::Get()->getDebugger()->getFrameBasePointer(m_Frame);
+    return BuildSystem::Get()->getDebugger()->getFrameBasePointer(m_Frame);
 }
 
 void* DebuggerFrameContext::getReturnAddress() const
 {
-    return Compiler::Get()->getDebugger()->getFrameReturnAddress(m_Frame);
+    return BuildSystem::Get()->getDebugger()->getFrameReturnAddress(m_Frame);
 }
 
 byte* DebuggerFrameContext::addressOfThis() const
 {
-    Subroutine* pSubroutine = Compiler::Get()->getDebugger()->getFrameSubroutine(m_Frame);
+    Subroutine* pSubroutine = BuildSystem::Get()->getDebugger()->getFrameSubroutine(m_Frame);
     PHANTOM_ASSERT(pSubroutine);
     PHANTOM_ASSERT(pSubroutine->asMethod());
     return addressOf(static_cast<Method*>(pSubroutine)->getThis());
@@ -1784,7 +1784,7 @@ byte* DebuggerFrameContext::addressOfThis() const
 
 byte* DebuggerFrameContext::addressOf(LocalVariable* a_pLocalVariable) const
 {
-    return Compiler::Get()->getDebugger()->getFrameLocalVariableAddress(a_pLocalVariable, m_Frame);
+    return BuildSystem::Get()->getDebugger()->getFrameLocalVariableAddress(a_pLocalVariable, m_Frame);
 }
 
 #if 0
